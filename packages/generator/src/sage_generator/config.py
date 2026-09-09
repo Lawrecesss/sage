@@ -183,7 +183,9 @@ class GeneratorConfig(BaseModel):
         1.06,  # Sun
     )
     daily_noise_cv: float = Field(default=0.12, ge=0)  # coefficient of variation on daily demand
-    partial_refund_share: float = Field(default=0.35, ge=0, le=1)  # of returns that refund partially
+    partial_refund_share: float = Field(
+        default=0.35, ge=0, le=1
+    )  # of returns that refund partially
 
     # --- seasonality ---
     seasonal_events: tuple[SeasonalEvent, ...] = DEFAULT_SEASONAL_EVENTS
@@ -280,7 +282,9 @@ class GeneratorConfig(BaseModel):
         for ev in self.seasonal_events:
             if ev.categories and not set(ev.categories) <= known:
                 unknown = sorted(set(ev.categories) - known)
-                raise ValueError(f"seasonal event {ev.name!r} references unknown categories: {unknown}")
+                raise ValueError(
+                    f"seasonal event {ev.name!r} references unknown categories: {unknown}"
+                )
         return self
 
 
