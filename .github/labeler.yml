@@ -1,0 +1,78 @@
+# Auto-label PRs by the files they touch. Consumed by .github/workflows/labeler.yml
+# (actions/labeler@v5). Keep the globs in sync with the filters in
+# .github/workflows/ci.yml — that workflow decides which tests run per label.
+
+"data/metrics":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/warehouse/**"
+          - "packages/generator/**"
+          - "docs/metrics-catalog.md"
+          - "docs/incident-library.md"
+          - "docs/eval-plan.md"
+
+detectors:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/detectors/**"
+
+agent:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/agents/**"
+          - "packages/evals/**"
+          - "docs/contracts/**"
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/api/**"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/web/**"
+
+notifier:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/notifier/**"
+
+shared:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/shared/**"
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "infra/**"
+          - "Dockerfile"
+          - ".dockerignore"
+          - "docker-compose*.yml"
+          - ".github/workflows/deploy.yml"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - ".pre-commit-config.yaml"
+          - "Makefile"
+          - "scripts/**"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"
+
+deps:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "uv.lock"
+          - "pnpm-lock.yaml"
+          - "pnpm-workspace.yaml"
+          - "**/pyproject.toml"
+          - "**/package.json"
+          - ".nvmrc"
+          - ".python-version"

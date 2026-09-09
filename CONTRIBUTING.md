@@ -35,7 +35,10 @@
 ## Branching & PRs
 
 - Branch off `main`: `m<lane>/<short-topic>` (e.g. `m2/watcher-agent`).
-- CI must be green (`.github/workflows/ci.yml`).
+- PRs are auto-labelled from the files they touch (`data/metrics`, `agent`,
+  `frontend`, `backend`, `infra`, …) — see `.github/labeler.yml`. CI runs only the
+  jobs those paths need (per-package `pytest`, web build, eval).
+- CI must be green — the `ci-ok` check in `.github/workflows/ci.yml`.
 - **Contracts before code.** A change to `docs/contracts/` (tool schemas,
   brief-JSON, API shapes) needs sign-off from both owners — see `docs/team-plan.md`.
 - Anything that doesn't show in the demo or move the eval number is a stretch item.

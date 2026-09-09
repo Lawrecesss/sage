@@ -1,0 +1,45 @@
+name: Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/labeler applies existing labels but won't create missing ones,
+      # so make sure they all exist first. `--force` upserts (create or update).
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # name|color|description  (colors: 6-hex, no leading #)
+          labels='
+          data/metrics|0e8a16|Warehouse, metric layer, generator, incident library
+          detectors|1d76db|Deterministic anomaly detection
+          agent|5319e7|Strands agents, tools, prompts, eval harness, contracts
+          backend|0052cc|FastAPI service
+          frontend|d93f0b|Next.js web app
+          notifier|fbca04|Telegram / SES morning-brief push
+          shared|c5def5|Cross-package types, settings, constants
+          infra|b60205|Lightsail, Docker, Caddy, deploy
+          ci|bfdadc|CI/CD, tooling, scripts
+          docs|0075ca|Documentation only
+          deps|e99695|Dependencies / lockfiles
+          '
+          echo "$labels" | while IFS='|' read -r name color desc; do
+            [ -z "$name" ] && continue
+            gh label create "$name" --color "$color" --description "$desc" --force
+          done
+
+      - uses: actions/labeler@v5
+        with:
+          sync-labels: true

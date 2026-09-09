@@ -5,9 +5,103 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  python:
+  # Work out what changed, so downstream jobs only run when relevant.
+  # The filter keys mirror the labels in .github/labeler.yml.
+  changes:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      web: ${{ steps.meta.outputs.web }}
+      python: ${{ steps.meta.outputs.python }}
+      agent: ${{ steps.meta.outputs.agent }}
+      infra: ${{ steps.meta.outputs.infra }}
+      packages: ${{ steps.pkgs.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: meta
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+            python:
+              - 'packages/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+            agent:
+              - 'packages/agents/**'
+              - 'packages/evals/**'
+              - 'docs/contracts/**'
+            infra:
+              - 'infra/**'
+              - 'Dockerfile'
+              - 'docker-compose*.yml'
+            root_python:
+              - 'pyproject.toml'
+              - 'uv.lock'
+
+      # Separate step so `changes` is a clean list of only the package names.
+      - uses: dorny/paths-filter@v3
+        id: pkg
+        with:
+          filters: |
+            warehouse: ['packages/warehouse/**']
+            generator: ['packages/generator/**']
+            detectors: ['packages/detectors/**']
+            agents:    ['packages/agents/**']
+            evals:     ['packages/evals/**']
+            api:       ['packages/api/**']
+            notifier:  ['packages/notifier/**']
+            shared:    ['packages/shared/**']
+
+      - id: pkgs
+        env:
+          CHANGED: ${{ steps.pkg.outputs.changes }}
+          SHARED_TOUCHED: ${{ steps.pkg.outputs.shared }}
+          ROOT_TOUCHED: ${{ steps.meta.outputs.root_python }}
+        run: |
+          set -euo pipefail
+          # A change to sage-shared or the workspace root affects every package.
+          if [ "$SHARED_TOUCHED" = "true" ] || [ "$ROOT_TOUCHED" = "true" ]; then
+            list='["warehouse","generator","detectors","agents","evals","api","notifier","shared"]'
+          else
+            list="$CHANGED"
+          fi
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+          echo "Testing packages: $list"
+
+  lint-python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+  test-python:
+    needs: changes
+    if: needs.changes.outputs.packages != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -27,12 +121,11 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --all-packages
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy
-      - run: uv run pytest
+      - run: uv run pytest packages/${{ matrix.package }}
 
-  web:
+  test-web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -49,4 +142,41 @@ jobs:
       - run: pnpm lint
       - run: pnpm build
 
-  # TODO: eval job — run `uv run sage-evals` on agent-prompt changes and post the number.
+  # Runs when agent prompts / tools / contracts change — see docs/eval-plan.md.
+  eval:
+    needs: changes
+    if: needs.changes.outputs.agent == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages
+      - name: Run the agent eval harness
+        run: |
+          if uv run sage-evals --help >/dev/null 2>&1; then
+            uv run sage-evals
+          else
+            echo "::notice::sage-evals not implemented yet — skipping (docs/eval-plan.md)"
+          fi
+
+  # Single required check for branch protection: green if nothing needed
+  # doing failed. Skipped jobs are fine.
+  ci-ok:
+    if: always()
+    needs: [changes, lint-python, test-python, test-web, eval]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for r in "${{ needs.changes.result }}" \
+                   "${{ needs.lint-python.result }}" \
+                   "${{ needs.test-python.result }}" \
+                   "${{ needs.test-web.result }}" \
+                   "${{ needs.eval.result }}"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "A required job did not pass: $r"
+              exit 1
+            fi
+          done
+          echo "CI OK"
