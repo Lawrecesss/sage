@@ -6,6 +6,10 @@ is hardening, deck, demo video, dry runs, finals — **no new features**.
 Each person **owns a lane** and **backs up one other**. Owner has final say in their
 lane; no design-by-committee.
 
+This doc is **scope and why** (what ships, what's cut, working agreements). The
+day-to-day task checklists mapped to real files live in
+[`plans/`](plans/README.md) — one doc per member.
+
 ## Committed scope vs. stretch
 
 | Area | Committed — ships by Sep 28 | Stretch — only if a sprint finishes early |
