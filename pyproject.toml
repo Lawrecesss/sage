@@ -1,0 +1,32 @@
+[project]
+name = "sage"
+version = "0.0.0"
+description = "An agentic monitoring layer for retail / e-commerce SMEs"
+requires-python = ">=3.12"
+
+[tool.uv.workspace]
+members = ["packages/*", "infra"]
+
+[tool.uv.sources]
+sage-shared = { workspace = true }
+sage-generator = { workspace = true }
+sage-warehouse = { workspace = true }
+sage-detectors = { workspace = true }
+sage-agents = { workspace = true }
+sage-evals = { workspace = true }
+sage-api = { workspace = true }
+sage-notifier = { workspace = true }
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "ruff>=0.6",
+  "mypy>=1.11",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["packages"]

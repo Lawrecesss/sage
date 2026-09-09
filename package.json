@@ -1,0 +1,15 @@
+{
+  "name": "sage",
+  "private": true,
+  "version": "0.0.0",
+  "description": "An agentic monitoring layer for retail / e-commerce SMEs",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint"
+  }
+}

@@ -1,0 +1,22 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["demo-freeze", "v*"]
+
+# STUB — wire up AWS OIDC role + CDK deploy + Amplify.
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      # - uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+      #     aws-region: ${{ vars.AWS_REGION }}
+      - run: echo "STUB: cd infra && uv run cdk deploy --all --require-approval never"

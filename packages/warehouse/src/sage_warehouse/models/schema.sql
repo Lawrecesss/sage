@@ -1,0 +1,19 @@
+-- Star schema for Sage. STUB — column lists are indicative, not final.
+-- Dimensions
+-- dim_date(date_key, date, dow, week, month, quarter, year, is_holiday, holiday_name)
+-- dim_sku(sku_key, sku, name, category, subcategory, unit_cost, list_price, supplier_key)
+-- dim_channel(channel_key, channel)            -- own_store | shopify | lazada | shopee
+-- dim_supplier(supplier_key, supplier, baseline_lead_days)
+-- dim_customer_segment(segment_key, segment)
+--
+-- Facts
+-- fact_order_line(order_id, line_id, date_key, sku_key, channel_key, segment_key, qty, unit_price, line_total, is_refund)
+-- fact_stock_movement(movement_id, date_key, sku_key, movement_type, qty, on_hand_after)
+-- fact_purchase_order(po_id, sku_key, supplier_key, ordered_date_key, expected_date_key, received_date_key, qty, unit_cost)
+-- fact_invoice(invoice_id, date_key, due_date_key, paid_date_key, amount, status)
+-- fact_bill(bill_id, date_key, due_date_key, paid_date_key, supplier_key, amount, category)
+--
+-- Agent-facing
+-- signals(signal_id, detected_at, metric_id, grain, dimensions_json, period, observed, expected, deviation, score, dollar_impact_est, detector, status)
+-- briefings(briefing_id, generated_at, run_id, payload_json)
+-- causal_chains(chain_id, briefing_id, signal_ids_json, narrative, dollar_impact, recommended_action, cited_metric_ids_json)

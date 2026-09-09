@@ -1,0 +1,47 @@
+# Sage governed metric layer — the contract between data and agents.
+#
+# Agents get list_metrics() and query_metric() over this file. Nothing else.
+# {filters} is injected from the query's `dimensions` + `period`.
+#
+# STUB — three example metrics, one per domain. Target ~20–25 for committed scope;
+# see docs/metrics-catalog.md for the full target list.
+
+metrics:
+  - id: gross_revenue
+    label: Gross Revenue
+    sql: SELECT SUM(line_total) FROM fact_order_line WHERE is_refund = false AND {filters}
+    grain: [day, week, month]
+    dimensions: [channel, category, sku, customer_segment]
+    unit: SGD
+    direction: higher_is_better
+    detectors: [zscore_7d, wow_change]
+    owner_domain: sales
+
+  - id: days_of_cover
+    label: Days of Cover
+    sql: >
+      SELECT s.on_hand_after / NULLIF(d.avg_daily_units, 0)
+      FROM fact_stock_movement s JOIN v_avg_daily_demand d USING (sku_key)
+      WHERE {filters}
+    grain: [day]
+    dimensions: [sku, category]
+    unit: days
+    direction: higher_is_better
+    detectors: [threshold]
+    thresholds:
+      warn: 5
+      critical: 2
+    owner_domain: inventory
+
+  - id: gross_margin_pct
+    label: Gross Margin %
+    sql: >
+      SELECT (SUM(line_total) - SUM(qty * unit_cost)) / NULLIF(SUM(line_total), 0) * 100
+      FROM fact_order_line l JOIN dim_sku k USING (sku_key)
+      WHERE is_refund = false AND {filters}
+    grain: [day, week, month]
+    dimensions: [channel, category, sku]
+    unit: pct
+    direction: higher_is_better
+    detectors: [zscore_7d, wow_change]
+    owner_domain: accounting

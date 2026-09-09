@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+
+# uv
+uv.lock
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+pnpm-debug.log*
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+!apps/web/.env.local.example
+
+# Data artifacts (synthetic dataset, snapshots, parquet)
+/data/
+*.parquet
+*.duckdb
+*.sqlite
+
+# AWS CDK
+infra/cdk.out/
+infra/.cdk.staging/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
