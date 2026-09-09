@@ -1,3 +1,3 @@
 # watcher system prompt
 
-STUB. Keep the metric catalog + this prompt behind a `cache_control` breakpoint.
+STUB. Model: Claude Sonnet 4.5 (the only one available).

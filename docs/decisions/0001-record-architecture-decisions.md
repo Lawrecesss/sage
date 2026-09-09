@@ -16,7 +16,9 @@ otherwise be re-argued in standup.
 
 - **Team:** balanced full-stack, 4 people, one owned lane each.
 - **Data:** fully synthetic SME dataset with ~20 planted incidents.
-- **Agent stack:** AWS-native — Strands Agents SDK 1.0 + Amazon Bedrock.
+- **Agent stack:** Strands Agents SDK. ~~AWS-native + Amazon Bedrock~~ →
+  **superseded by [0002](0002-lightsail-single-instance.md)**: Lightsail + the
+  organisers' Bedrock-backed endpoint, one model (Sonnet 4.5).
 - **Vertical:** retail / e-commerce SME, multi-channel (own store + marketplace).
 - **Persona:** "Lian & Co." / owner Mei. One persona, one story.
 - **Metric layer, not text-to-SQL.** Agents never write raw SQL.
@@ -24,8 +26,9 @@ otherwise be re-argued in standup.
   interprets and communicates.
 - **3 committed sources** (Sales, Inventory, Accounting); customer support +
   operations are stretch.
-- **No auth for the demo** — hardcoded demo user. Cognito is stretch.
-- **Lambda for agent hosting**, not AgentCore Runtime (stretch).
+- **No auth for the demo** — hardcoded demo user.
+- ~~**Lambda for agent hosting.**~~ → **superseded by [0002](0002-lightsail-single-instance.md)**:
+  a `worker` container polling an `agent_runs` table on one Lightsail instance.
 
 ## Consequences
 

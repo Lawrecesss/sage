@@ -25,9 +25,10 @@
 
 ## Workspace layout
 
-- **Python** — a `uv` workspace. Every `packages/*` (and `infra/`) is a member with
-  its own `pyproject.toml`. Add a dependency with
-  `uv add --package sage-<name> <dep>`. Cross-package deps resolve automatically.
+- **Python** — a `uv` workspace. Every `packages/*` is a member with its own
+  `pyproject.toml`. Add a dependency with `uv add --package sage-<name> <dep>`.
+  Cross-package deps resolve automatically. (`infra/` is a plain deploy kit — no
+  Python, not a workspace member.)
 - **Web** — a `pnpm` workspace with a single member, `apps/web`.
 - Lockfiles (`uv.lock`, `pnpm-lock.yaml`) are committed — keep them in sync.
 

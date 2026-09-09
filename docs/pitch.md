@@ -29,7 +29,8 @@ why, and bring it to the owner.
    write raw SQL. Eliminates the "confidently wrong number" failure mode and gives
    judges the governance story: every claim traces to a metric definition.
 2. **Detection is deterministic; explanation is the LLM** — reproducible run to
-   run (critical for a live demo), ~80% cheaper in tokens.
+   run (critical for a live demo), and it keeps the anomaly hunt off the LLM
+   entirely, so the shared inference endpoint only does the interpreting.
 3. **Cross-source correlation is the product** — only a system reading sales +
    inventory + accounting together produces the supplier-delay → stockout →
    revenue → margin → recoverable-cash chain. That's the demo moment.
@@ -42,8 +43,15 @@ day." — produced by `packages/evals`, on a slide.
 
 ## Stack credibility
 
-AWS-native, sponsor-aligned: Strands Agents SDK 1.0 + Amazon Bedrock, Lambda +
-RDS + EventBridge, deployed and reproducible via `cdk deploy` from a clean account.
+Runs on **AWS Lightsail**; agents built on the **Strands Agents SDK** against a
+**Bedrock-backed** inference endpoint. The whole system is one `docker compose up`
+on a fresh instance — reproducible from clean, local == prod.
+
+Note we deliberately run a **single mid-tier model (Claude Sonnet 4.5)** for every
+agent. The reliability comes from the *architecture* — a governed metric layer so no
+number is hallucinated, deterministic detection so anomalies are found the same way
+every run, and a Correlator constrained to a strict output schema over existing
+signals — not from throwing a frontier model at the problem.
 
 ## Deck outline (TBD)
 

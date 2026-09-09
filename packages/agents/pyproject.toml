@@ -1,16 +1,17 @@
 [project]
 name = "sage-agents"
 version = "0.0.0"
-description = "Strands agents, tool surface, prompts, Bedrock integration"
+description = "Strands agents, tool surface, prompts, LLM integration"
 requires-python = ">=3.12"
 dependencies = [
   "sage-shared",
   "sage-warehouse",
-  "strands-agents>=1.0",
-  "anthropic[bedrock]>=0.40",
-  "boto3>=1.35",
+  "strands-agents[ollama]>=1.0",
   "pydantic>=2.7",
 ]
+
+[project.scripts]
+sage-worker = "sage_agents.runtime:main"
 
 [build-system]
 requires = ["hatchling"]

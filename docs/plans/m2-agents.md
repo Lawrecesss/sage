@@ -2,7 +2,7 @@
 
 ## Lane summary
 
-- **Owns:** Strands agents, tool surface, prompts, Bedrock integration, eval harness.
+- **Owns:** Strands agents, tool surface, prompts, LLM integration, eval harness.
 - **Backs up:** M1 on detectors.
 - **Success test:** the eval harness runs and prints a number, and the hero
   scenario's causal chain matches the ground truth.
@@ -21,43 +21,48 @@ eval harness is what defends the pitch on stage).
 | Agent definitions | `packages/agents/src/sage_agents/{watcher,analyst,briefing,ask}.py` |
 | Tools (client-side) | `packages/agents/src/sage_agents/tools/*.py` |
 | Prompts | `packages/agents/src/sage_agents/prompts/*.md` |
-| Bedrock / model config | `packages/agents/src/sage_agents/{models,config}.py` |
-| Worker entrypoint | `packages/agents/src/sage_agents/runtime.py` |
+| Model / agent config | `packages/agents/src/sage_agents/{models,config}.py` |
+| Worker loop | `packages/agents/src/sage_agents/runtime.py` |
 | Eval harness | `packages/evals/src/sage_evals/{harness,metrics,report}.py` |
 
 Run your tests with `uv run pytest packages/agents packages/evals`.
 
-## Bedrock constraints — design around these from day one
+## LLM setup — one model, via the organisers' proxy
 
-No server-side web search, code execution, MCP connector, Managed Agents, Message
-Batches or Files API. **Every tool is a client-side Python tool** (Strands' model
-anyway). Prompt caching, structured outputs, adaptive thinking, effort control and
-tool use all work. Cache the metric catalog + system prompt behind a
-`cache_control` breakpoint — the single biggest cost lever. Model assignment:
+The LLM is the organisers' **Ollama-compatible, Bedrock-backed** endpoint. **One
+model for every agent: Claude Sonnet 4.5** — no Opus, no Haiku, no per-tier scheme.
 
-| Agent | Model | Settings |
+| Agent | Model | Notes |
 | --- | --- | --- |
-| Analyst / Correlator | `anthropic.claude-opus-5` | `thinking: {"type": "adaptive"}`, `effort: "high"` |
-| Briefing, Ask, Watcher | `anthropic.claude-sonnet-5` | Watcher `effort: "low"` |
+| Watcher (×3), Briefing, Ask, Analyst/Correlator | Claude Sonnet 4.5 | same everywhere |
+
+**Constraints — design around these from day one:**
+- **Every tool is a client-side Python tool** (Strands' model anyway).
+- **No `cache_control` prompt caching**, no adaptive-thinking / effort control
+  through the Ollama protocol. Keep system prompts lean; don't design around caching.
+- **Structured outputs work** — use them for the Correlator's `CausalChain` schema.
+- The **Correlator can't buy quality with a bigger model.** It comes from: a tight
+  prompt, a strict output schema, good tools, and letting it take several tool-use
+  turns (decompose → gather → synthesise).
 
 ---
 
-## Sprint 1 · Sep 8–14 — Bedrock proven, contracts frozen, Watcher on stubs
+## Sprint 1 · Sep 8–14 — LLM proven, contracts frozen, Watcher on stubs
 
-- [ ] **Confirm Bedrock model access with M4 — today.** Approval can take days.
-      *Done when:* either access is granted, or you've wired the **direct Anthropic
-      API fallback** (Strands abstracts the provider; it's a config flip in
-      `config.py`) so you're not blocked.
+- [ ] **Get the LLM endpoint from M4 — today.**
+      *Done when:* you have `LLM_BASE_URL` + `LLM_API_KEY` + the model string, and
+      you know whether it's native Ollama (`/api/chat`) or OpenAI-shaped (`/v1`).
 
 - [ ] **Model + agent config** — `packages/agents/src/sage_agents/models.py`,
       `config.py`
-      *Done when:* `models.py` maps each agent to its Bedrock model ID from
-      `Settings`; `config.py` holds per-agent effort / thinking / cache-breakpoint
-      settings.
+      *Done when:* `models.py` has one `build_model()` →
+      `OllamaModel(host=…, ollama_client_args={"headers": {"Authorization": f"Bearer {key}"}}, model_id=…)`
+      (swap to `OpenAIModel`/`LiteLLMModel` if the endpoint is `/v1`); `config.py`
+      holds per-agent temperature / max_tokens (no model field, no effort knobs).
 
-- [ ] **Strands + Bedrock hello-world**
-      *Done when:* a trivial Strands agent calls Bedrock and returns text, run from
-      `uv run python -m ...`. Proves the whole toolchain.
+- [ ] **Strands hello-world against the endpoint**
+      *Done when:* a trivial Strands agent calls the endpoint and returns text, run
+      from `uv run python -m ...`. Proves provider + auth + tool loop.
 
 - [ ] **Tool surface against stub signals** — `tools/query_metric.py`,
       `tools/list_metrics.py`, `tools/get_signals.py`, `tools/compare_period.py`,
@@ -78,8 +83,8 @@ tool use all work. Cache the metric catalog + system prompt behind a
       *Done when:* `WatcherAgent(domain=...)` triages + explains a list of stub
       signals for one domain and returns a structured result.
 
-**S1 gate:** hello-world Bedrock agent runs; both contracts signed and committed;
-Watcher runs against stub signals for all 3 domains.
+**S1 gate:** hello-world agent runs against the endpoint; both contracts signed and
+committed; Watcher runs against stub signals for all 3 domains.
 
 ---
 
@@ -98,17 +103,15 @@ Watcher runs against stub signals for all 3 domains.
       *Done when:* single-turn Q&A that answers a question with a metric-cited
       number using `query_metric` / `compare_period`.
 
-- [ ] **Worker orchestration** — `runtime.py`
-      *Done when:* `runtime.py` parses an SQS message, runs Watcher (×3) → Briefing,
-      and persists the `MorningBrief` to the `briefings` table. This is what M4's
-      Lambda worker invokes.
-
-- [ ] **Prompt caching** — `config.py`, agent construction
-      *Done when:* the metric catalog + system prompt sit behind a `cache_control`
-      breakpoint; verify cache-read tokens on the second call.
+- [ ] **Worker loop** — `runtime.py`
+      *Done when:* `python -m sage_agents.runtime` polls the `agent_runs` table,
+      claims the oldest `queued` row (`SELECT ... FOR UPDATE SKIP LOCKED`), runs
+      Watcher (×3) → Briefing, persists the `MorningBrief` to `briefings`, pushes via
+      `sage_notifier`, marks the row `done`/`error`. M4 runs this as the `worker`
+      container; agree the row shape with M4.
 
 **S2 gate (shared, Sep 21):** a real anomaly → Watcher → Briefing → a real
-`MorningBrief` rendered by M3 in a browser on AWS and pushed to a phone.
+`MorningBrief` rendered by M3 in a browser on the deployed instance and pushed to a phone.
 
 ---
 
@@ -136,10 +139,11 @@ Watcher runs against stub signals for all 3 domains.
 
 - [ ] **One tuning pass** — prompts + `config.py`
       *Done when:* run the harness, adjust prompts once, re-run, record the delta.
-      Wire `uv run sage-evals` into CI on agent-prompt changes.
+      Wire `uv run sage-evals` into CI on agent-prompt changes (mind the shared
+      endpoint's rate limits — don't loop the full pipeline more than needed).
 
-**S3 gate (hard, Sep 28):** the hero scenario's causal chain, run unassisted from a
-scheduled trigger, matches the incident library's declared chain.
+**S3 gate (hard, Sep 28):** the hero scenario's causal chain, run unassisted from the
+host cron, matches the incident library's declared chain.
 
 ---
 
@@ -150,7 +154,7 @@ scheduled trigger, matches the incident library's declared chain.
 | M1 | Frozen tool JSON schemas (jointly) | Sep 14 |
 | M3 | Frozen brief-JSON + `sage_shared.types` models | Sep 14 |
 | M3 | A real `MorningBrief` payload shape from the worker | Sep 20 |
-| M4 | `runtime.py` worker entrypoint + its SQS message contract | Sep 18 |
+| M4 | `sage_agents.runtime` worker loop + the `agent_runs` row shape it expects | Sep 18 |
 | M4 | Eval headline number for the deck | Sep 27 |
 
 ## Your items on the cut list (if a sprint slips — order matters)

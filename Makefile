@@ -37,5 +37,8 @@ fmt: ## Format
 eval: ## Run the agent eval harness (the headline number)
 	uv run sage-evals
 
-deploy: ## cdk deploy --all
-	cd infra && uv run cdk deploy --all
+deploy: ## Redeploy the Lightsail instance (git pull + compose up --build)
+	bash infra/provision.sh restart
+
+compose-config: ## Validate the full production compose stack
+	docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml config -q && echo OK

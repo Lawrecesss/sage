@@ -2,21 +2,20 @@ name: Deploy
 
 on:
   workflow_dispatch:
-  push:
-    tags: ["demo-freeze", "v*"]
 
-# STUB — wire up AWS OIDC role + CDK deploy + Amplify.
+# Redeploy the Lightsail instance: SSH in, pull, rebuild, restart the stack.
+# STUB — set the SAGE_SSH_KEY and SAGE_HOST secrets first.
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-      # - uses: aws-actions/configure-aws-credentials@v4
-      #   with:
-      #     role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-      #     aws-region: ${{ vars.AWS_REGION }}
-      - run: echo "STUB: cd infra && uv run cdk deploy --all --require-approval never"
+      - name: Deploy over SSH
+        run: |
+          echo "STUB — wire up once secrets exist:"
+          echo '  install -m600 <(echo "$SAGE_SSH_KEY") key'
+          echo '  ssh -i key ubuntu@$SAGE_HOST "cd /opt/sage \
+                   && git pull --ff-only \
+                   && docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --build"'
+        env:
+          SAGE_SSH_KEY: ${{ secrets.SAGE_SSH_KEY }}
+          SAGE_HOST: ${{ secrets.SAGE_HOST }}

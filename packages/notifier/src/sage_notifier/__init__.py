@@ -1,1 +1,1 @@
-"""sage_notifier — pushes the morning brief to Telegram (primary) / SES."""
+"""sage_notifier — pushes the morning brief to Telegram."""

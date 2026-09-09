@@ -15,12 +15,9 @@ to the owner's phone. The owner can then ask follow-ups in plain language.
 > **Status: development-ready skeleton.** The toolchain is wired and verified —
 > `uv sync` and `pnpm install` resolve against committed lockfiles, `pytest` runs
 > green (package-import smoke tests), `ruff` is clean, and the web app builds and
-> lints. Every module, tool, agent, router and CDK stack exists with its docstring
-> and signature; the logic inside is a stub marked with its owning lane and sprint.
-> Each module, tool, agent, router and CDK stack has its file and a docstring
-> saying what belongs there and which lane owns it; the logic is left to be
-> written. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) and
-> [`docs/team-plan.md`](docs/team-plan.md).
+> lints. Every module, tool, agent and router has its file and a docstring saying
+> what belongs there and which lane owns it; the logic is left to be written. Start
+> with [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`docs/team-plan.md`](docs/team-plan.md).
 
 ## The three ideas that make this win
 
@@ -47,13 +44,13 @@ morning across five tabs. One persona, one story.
 
 ```
 Connector simulators (3: sales · inventory · accounting)
-  → Ingestion (EventBridge → Lambda → S3 raw Parquet)
+  → Ingestion (sage-generate → Parquet on disk)
   → Transform (SQL models → Postgres star schema)
   → ★ Metric layer (YAML, ~20-25 governed metrics)
   → ★ Detectors (deterministic: z-score, WoW change, threshold → signals table)
-  → ★ Agent fleet (Strands + Bedrock): Watcher · Analyst/Correlator · Briefing · Ask
-  → API (FastAPI on Lambda + API Gateway; agent runs async via SQS)
-  → Delivery (Next.js web app on Amplify + Telegram bot push)
+  → ★ Agent fleet (Strands, one model — Claude Sonnet 4.5): Watcher · Analyst/Correlator · Briefing · Ask
+  → API (FastAPI/uvicorn; agent runs async via the `agent_runs` table + a worker; host cron)
+  → Delivery (Next.js web app + Telegram bot push, behind Caddy on one Lightsail instance)
 ```
 
 Full detail: [`docs/architecture.md`](docs/architecture.md).
@@ -65,13 +62,13 @@ Full detail: [`docs/architecture.md`](docs/architecture.md).
 | `packages/generator` | Synthetic SME dataset + planted incident library (the eval ground truth) |
 | `packages/warehouse` | Star schema, SQL transforms, **governed metric layer** |
 | `packages/detectors` | Deterministic anomaly detection — no LLM |
-| `packages/agents` | Strands agents, tool surface, prompts, Bedrock integration |
+| `packages/agents` | Strands agents, tool surface, prompts, LLM integration + the `agent_runs` worker |
 | `packages/evals` | Agent eval harness — the headline number |
-| `packages/api` | FastAPI service (Mangum on Lambda) |
-| `packages/notifier` | Telegram bot / SES delivery |
+| `packages/api` | FastAPI service (uvicorn, containerised) |
+| `packages/notifier` | Telegram delivery |
 | `packages/shared` | Cross-package types, settings, constants |
 | `apps/web` | Next.js 15 web app (Morning Brief · Signals · Ask · Connections) |
-| `infra` | AWS CDK (Python) — data / api / agents / frontend stacks |
+| `infra` | Lightsail deploy kit — `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
 | `docs` | Architecture, demo script, pitch, contracts, plans |
 
 ## Stack
@@ -79,9 +76,10 @@ Full detail: [`docs/architecture.md`](docs/architecture.md).
 - **Frontend** — Next.js 15 (App Router) · TypeScript · Tailwind · shadcn/ui · Recharts · SSE
 - **Backend** — Python 3.12 · FastAPI · SQLAlchemy · Pydantic · `uv`
 - **Data** — Polars (generator) · SQL models (transforms) · statsmodels / scipy (detectors)
-- **Agents** — Strands Agents SDK 1.0 + Amazon Bedrock (`anthropic.*` model IDs)
-- **Infra** — Lambda · API Gateway · RDS Postgres (`db.t4g.micro` + pgvector) · S3 · EventBridge · SQS · Amplify
-- **Repo** — one monorepo, `pnpm` + `uv` workspaces, GitHub Actions → Amplify + CDK
+- **Agents** — Strands Agents SDK · one model for all agents: **Claude Sonnet 4.5** via the
+  organisers' Ollama-compatible, Bedrock-backed endpoint
+- **Infra** — one **AWS Lightsail** instance · `docker-compose` (Postgres+pgvector · API · worker · web · Caddy) · host cron
+- **Repo** — one monorepo, `pnpm` + `uv` workspaces, GitHub Actions CI
 
 ## Getting started
 
@@ -95,8 +93,8 @@ pnpm --filter web build    # web app — builds
 ./scripts/dev.sh           # API (:8000) + web app (:3000)
 ```
 
-Full command list: [`CONTRIBUTING.md`](CONTRIBUTING.md). AWS deploy and the demo
-checklist: [`docs/runbook.md`](docs/runbook.md).
+Full command list: [`CONTRIBUTING.md`](CONTRIBUTING.md). Lightsail deploy and the
+demo checklist: [`docs/runbook.md`](docs/runbook.md).
 
 ## Timeline
 

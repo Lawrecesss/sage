@@ -1,0 +1,70 @@
+# Production override. Layered on the repo-root docker-compose.yml:
+#   docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d
+#
+# The base file provides `db` (it reads POSTGRES_PASSWORD from the environment).
+# This file adds the app services and the reverse proxy. All secrets come from
+# /opt/sage/.env on the instance.
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: uvicorn sage_api.main:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD}@db:5432/sage
+      LLM_BASE_URL: ${LLM_BASE_URL:?set in .env}
+      LLM_API_KEY: ${LLM_API_KEY:?set in .env}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-5}
+      CORS_ALLOW_ORIGINS: https://${SAGE_DOMAIN}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: python -m sage_agents.runtime
+    environment:
+      DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD}@db:5432/sage
+      LLM_BASE_URL: ${LLM_BASE_URL:?set in .env}
+      LLM_API_KEY: ${LLM_API_KEY:?set in .env}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-5}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: /api   # browser hits /api via Caddy
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SAGE_DOMAIN: ${SAGE_DOMAIN:?set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

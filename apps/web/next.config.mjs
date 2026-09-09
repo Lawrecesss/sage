@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // STUB. e.g. rewrites to the Sage API, image domains, etc.
+  // Self-contained server build for the Docker image (infra/docker-compose.prod.yml).
+  output: "standalone",
 };
 
 export default nextConfig;

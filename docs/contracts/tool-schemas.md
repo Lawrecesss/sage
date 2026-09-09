@@ -1,8 +1,8 @@
 # Tool JSON schemas (M1 ↔ M2)
 
-> **FREEZE THIS IN WEEK 1.** Every agent tool is a client-side Python tool (Bedrock
-> has no server-side tools). Agents touch data *only* through these. Once signed,
-> changes go through both M1 and M2.
+> **FREEZE THIS IN WEEK 1.** Every agent tool is a client-side Python tool (the LLM
+> endpoint has no server-side tools). Agents touch data *only* through these. Once
+> signed, changes go through both M1 and M2.
 >
 > Status: **DRAFT — shapes below are a starting point, not final.**
 

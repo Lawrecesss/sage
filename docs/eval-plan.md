@@ -33,16 +33,20 @@ enough that a brief has ≤ 5 items.
 Run it in CI on every agent-prompt change.
 
 ### End to end
-Trigger a scheduled run against the demo environment. Verify: signals land in
-Postgres → brief generated → Telegram message received on a phone → brief renders
-in the web app → a follow-up in Ask returns a correct, metric-cited answer → the
-recommended action shows with its dollar rationale. **The whole loop must complete
-in under 90 seconds** for a live demo.
+Trigger a run on the deployed instance (`POST /api/brief/run`, or wait for the host
+cron). Verify: an `agent_runs` row is claimed by the `worker` → signals in Postgres
+→ brief generated → Telegram message received on a phone → brief renders in the web
+app → a follow-up in Ask returns a correct, metric-cited answer → the recommended
+action shows with its dollar rationale. **The whole loop must complete in under 90
+seconds** for a live demo.
 
-### Cost
-Daily check of AWS Cost Explorer and Bedrock token spend. **Hard gate: ≤ $50
-consumed by Sep 28** (code freeze), leaving the back half of the $100 credit for
-dry runs and demo day. Budget alarms at $25 / $50 / $75.
+### Cost & rate limits
+LLM inference runs on the **organisers' Bedrock bill** — no per-token cost to us.
+What to watch instead: **rate limiting / throttling** on the shared endpoint. Keep
+eval runs against the frozen dataset (reproducible, and re-runnable without burning
+quota), back off on 429s, and don't loop the full pipeline in CI more than needed.
+Our only AWS spend is the flat ~$24/mo Lightsail instance — one Lightsail billing
+alert is enough.
 
 ## The frozen dataset
 

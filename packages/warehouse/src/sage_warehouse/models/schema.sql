@@ -17,3 +17,9 @@
 -- signals(signal_id, detected_at, metric_id, grain, dimensions_json, period, observed, expected, deviation, score, dollar_impact_est, detector, status)
 -- briefings(briefing_id, generated_at, run_id, payload_json)
 -- causal_chains(chain_id, briefing_id, signal_ids_json, narrative, dollar_impact, recommended_action, cited_metric_ids_json)
+--
+-- Job queue (no SQS — the `worker` process polls this; see docs/decisions/0002)
+-- agent_runs(run_id, status, as_of_date, requested_at, started_at, finished_at, error)
+--   status: queued | running | done | error
+--   claim pattern: SELECT ... WHERE status='queued' ORDER BY requested_at
+--                  FOR UPDATE SKIP LOCKED LIMIT 1

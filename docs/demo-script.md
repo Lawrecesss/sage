@@ -36,7 +36,7 @@ This is one of the cross-domain-only incidents in
 | # | Beat | Screen | Notes |
 | --- | --- | --- | --- |
 | 1 | The problem — five tabs, no answer | (slide) | 30s max |
-| 2 | Scheduled run fires | trace dashboard / CloudWatch | "this ran at 6am, unassisted" |
+| 2 | Scheduled run fires | Jaeger trace view / `worker` logs | "the host cron fired this at 6am, unassisted" |
 | 3 | Telegram push lands on a real phone | phone on stage | the money shot |
 | 4 | Morning Brief opens | `apps/web` `/` | ≤5 severity-ranked cards |
 | 5 | Expand the hero card — the causal chain | Brief card "why" | every number cites a metric |
@@ -48,4 +48,4 @@ This is one of the cross-domain-only incidents in
 ## Backup plan
 
 Pre-recorded video of the full loop. Deterministic frozen dataset. Demo account
-warmed up before presenting. If live AWS misbehaves, cut to the recording.
+warmed up before presenting. If the live instance misbehaves, cut to the recording.

@@ -1,1 +1,1 @@
-"""sage_api — FastAPI service (Mangum on Lambda + API Gateway)."""
+"""sage_api — FastAPI service (uvicorn, containerised, behind Caddy)."""

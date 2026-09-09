@@ -19,36 +19,46 @@ Never commit real secrets. Key vars:
 
 | Var | Used by | Note |
 | --- | --- | --- |
-| `DATABASE_URL` | warehouse, detectors, api | `postgresql+psycopg://sage:sage@localhost:5432/sage` locally |
-| `AWS_REGION` | agents, api, infra | `us-west-2` for dev; check `ap-southeast-1` day 1 |
-| `BEDROCK_MODEL_ANALYST` | agents | `anthropic.claude-opus-5` |
-| `BEDROCK_MODEL_DEFAULT` | agents | `anthropic.claude-sonnet-5` |
-| `AGENT_QUEUE_URL` | api, agents | SQS queue for async agent runs |
+| `DATABASE_URL` | warehouse, detectors, api, worker | `postgresql+psycopg://sage:sage@localhost:5432/sage` locally; `@db:5432` in compose |
+| `POSTGRES_PASSWORD` | docker-compose | `sage` locally; a real secret in prod |
+| `LLM_BASE_URL` | agents, worker | organisers' Ollama-compatible endpoint (Bedrock-backed) |
+| `LLM_API_KEY` | agents, worker | bearer token for that endpoint |
+| `LLM_MODEL` | agents, worker | `claude-sonnet-4-5` — the only allowed model |
+| `SAGE_DOMAIN` | caddy, api (CORS) | public hostname |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | notifier | demo phone |
 | `SAGE_DATASET_SNAPSHOT` | evals | path/version of the frozen dataset |
 
-## AWS deploy (CDK)
+## Deploy to Lightsail
+
+One instance, `docker-compose`. Full detail in [`../infra/README.md`](../infra/README.md).
 
 ```bash
-cd infra
-uv run cdk bootstrap       # once per account/region
-uv run cdk deploy --all
+# from your laptop (needs the `aws` CLI + Lightsail permissions + a registered SSH key)
+bash infra/provision.sh create      # instance + static IP + firewall (22/80/443)
+# → point your DNS A record at the static IP it prints
+bash infra/provision.sh setup       # ssh in, install Docker, clone, first `compose up --build`
+
+# on the instance: put real secrets in /opt/sage/.env
+#   POSTGRES_PASSWORD  SAGE_DOMAIN  LLM_BASE_URL  LLM_API_KEY  LLM_MODEL  TELEGRAM_*
+bash infra/provision.sh restart
+
+# load the frozen dataset (once M1's generator lands)
+ssh ubuntu@<ip> 'cd /opt/sage && docker compose ... exec api sage-warehouse init-db && ./scripts/seed-demo.sh'
 ```
 
-Stacks: `data` (RDS, S3, EventBridge) → `agents` (worker Lambda, Bedrock IAM,
-OTel) → `api` (API Gateway, Lambda, SQS) → `frontend` (Amplify).
+Redeploy: `bash infra/provision.sh restart`, or the manual `Deploy` GitHub workflow.
 
 ### Day 1
 
-- Request **Bedrock model access** (approval can take days).
-- Set **budget alarms** at $25 / $50 / $75.
-- `cdk deploy` an empty skeleton to prove the pipeline.
+- Get `LLM_BASE_URL` + `LLM_API_KEY` from the organisers; confirm the model string
+  and whether the endpoint is native-Ollama or OpenAI-shaped.
+- Create the Lightsail instance + static IP; point DNS.
+- Bring `api` + `caddy` up so `https://$SAGE_DOMAIN/api/health` answers (unblocks M3).
 
 ## Demo-day checklist
 
-- [ ] Frozen dataset loaded in the demo environment
-- [ ] Demo account warmed up (run the loop once beforehand)
+- [ ] Frozen dataset loaded on the instance
+- [ ] Instance warmed up (run the loop once beforehand)
 - [ ] Telegram bot delivering to the on-stage phone
 - [ ] Backup recording on a local drive
-- [ ] Credit balance healthy (< $50 consumed)
-- [ ] `git tag demo-freeze` is what's deployed
+- [ ] `git tag demo-freeze` is what's deployed (`provision.sh restart` from the tag)

@@ -1,0 +1,18 @@
+# Caddy — TLS termination + reverse proxy for the single-instance deploy.
+# SAGE_DOMAIN is read from the environment (set in /opt/sage/.env).
+# Caddy fetches a Let's Encrypt cert automatically once DNS points at the instance
+# and redirects http→https on its own.
+
+{$SAGE_DOMAIN} {
+	encode gzip
+
+	# API under /api/* — strip the prefix before proxying to FastAPI
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+
+	# everything else → the Next.js app
+	handle {
+		reverse_proxy web:3000
+	}
+}

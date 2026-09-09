@@ -55,8 +55,11 @@ Run your tests with `uv run pytest packages/generator packages/warehouse package
       *Done when:* real `CREATE TABLE` statements for the dims (`dim_date`, `dim_sku`,
       `dim_channel`, `dim_supplier`, `dim_customer_segment`), the facts
       (`fact_order_line`, `fact_stock_movement`, `fact_purchase_order`,
-      `fact_invoice`, `fact_bill`) and the agent-facing tables (`signals`,
-      `briefings`, `causal_chains`). Currently a comment sketch — turn it into DDL.
+      `fact_invoice`, `fact_bill`), the agent-facing tables (`signals`,
+      `briefings`, `causal_chains`) and the job-queue table `agent_runs`
+      (`run_id, status, as_of_date, requested_at, started_at, finished_at, error` —
+      the `worker` polls it; agree the shape with M4). Currently a comment sketch —
+      turn it into DDL.
 
 - [ ] **DB bootstrap** — `packages/warehouse/src/sage_warehouse/db.py`, `cli.py`
       *Done when:* `db.py` exposes an engine/session factory reading
@@ -176,7 +179,7 @@ recoverable cash) trace to your metrics and match the incident's declared
 | M2 | Tool JSON schemas frozen | Sep 14 |
 | M2 | `signals` table populated, all 3 domains, real detectors | Sep 19 |
 | M2 | Frozen dataset snapshot + complete incident library | **Sep 26** |
-| M4 | Schema + migration path that `cdk deploy` can reproduce on RDS | Sep 21 |
+| M4 | `schema.sql` + `sage-warehouse init-db` that runs inside the `api` container | Sep 19 |
 
 ## Your items on the cut list (if a sprint slips — order matters)
 
