@@ -30,3 +30,10 @@ target-version = "py312"
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]
+addopts = "--import-mode=importlib -ra"
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["sage_shared"]
+ignore_missing_imports = true
+check_untyped_defs = true

@@ -11,8 +11,16 @@ with a recommended action, and a briefing agent delivers a prioritised morning b
 to the owner's phone. The owner can then ask follow-ups in plain language.
 
 > Built for the NUS-ISS **"Show Me Your Agents"** Hackathon 2026 — retail vertical.
-> This repo is **scaffold only**: every code file is a documented stub. See
-> [`docs/team-plan.md`](docs/team-plan.md) for who builds what and when.
+>
+> **Status: development-ready skeleton.** The toolchain is wired and verified —
+> `uv sync` and `pnpm install` resolve against committed lockfiles, `pytest` runs
+> green (package-import smoke tests), `ruff` is clean, and the web app builds and
+> lints. Every module, tool, agent, router and CDK stack exists with its docstring
+> and signature; the logic inside is a stub marked with its owning lane and sprint.
+> Each module, tool, agent, router and CDK stack has its file and a docstring
+> saying what belongs there and which lane owns it; the logic is left to be
+> written. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) and
+> [`docs/team-plan.md`](docs/team-plan.md).
 
 ## The three ideas that make this win
 
@@ -78,12 +86,17 @@ Full detail: [`docs/architecture.md`](docs/architecture.md).
 ## Getting started
 
 ```bash
-./scripts/bootstrap.sh     # uv sync, pnpm install, start local Postgres
+./scripts/bootstrap.sh     # uv sync, pnpm install, start Postgres, create .env files
+uv run pytest              # smoke tests — green
+pnpm --filter web build    # web app — builds
+
+# once the relevant stubs are filled in (see docs/team-plan.md):
 ./scripts/seed-demo.sh     # generate dataset, load warehouse, run detectors
-./scripts/dev.sh           # run API + web app locally
+./scripts/dev.sh           # API (:8000) + web app (:3000)
 ```
 
-See [`docs/runbook.md`](docs/runbook.md) for AWS deploy and the demo checklist.
+Full command list: [`CONTRIBUTING.md`](CONTRIBUTING.md). AWS deploy and the demo
+checklist: [`docs/runbook.md`](docs/runbook.md).
 
 ## Timeline
 

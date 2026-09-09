@@ -27,7 +27,8 @@ test: ## Run all tests
 
 lint: ## Lint everything
 	uv run ruff check .
-	uv run mypy packages
+	uv run ruff format --check .
+	uv run mypy
 	pnpm --filter web lint
 
 fmt: ## Format

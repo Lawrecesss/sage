@@ -10,8 +10,7 @@ venv/
 dist/
 build/
 
-# uv
-uv.lock
+# uv (lockfile IS committed for reproducible installs)
 
 # Node / Next.js
 node_modules/
