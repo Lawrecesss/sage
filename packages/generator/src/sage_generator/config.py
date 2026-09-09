@@ -79,6 +79,28 @@ class SeasonalEvent(BaseModel):
         return self.peak + timedelta(days=self.tail_days)
 
 
+class CustomerSegment(BaseModel):
+    """One buyer segment — the mix the sales simulator draws each order from.
+
+    `order_share` is that segment's fraction of all orders; the shares across a
+    config must sum to 1.0. The multipliers apply on top of the channel baselines
+    in `channels`. `pays_on_credit` routes an order into `fact_invoice` / AR ageing
+    instead of settling at checkout.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str  # snake_case dim_customer_segment key
+    label: str  # human name for the brief
+    order_share: float = Field(gt=0, le=1)
+    aov_multiplier: float = Field(default=1.0, gt=0)  # basket value vs channel AOV
+    units_per_order_multiplier: float = Field(default=1.0, gt=0)  # qty per order vs baseline
+    discount_affinity: float = Field(default=0.0, ge=0, le=1)  # skew to discounted buys
+    return_rate_multiplier: float = Field(default=1.0, ge=0)  # returns vs channel baseline
+    repeat_rate: float = Field(default=0.0, ge=0, le=1)  # chance this buyer orders again
+    pays_on_credit: bool = False
+
+
 DEFAULT_CHANNELS: tuple[ChannelMix, ...] = (
     ChannelMix(
         name="outlet",
@@ -146,6 +168,58 @@ DEFAULT_SEASONAL_EVENTS: tuple[SeasonalEvent, ...] = (
     ),
 )
 
+# The default "Lian & Co." buyer mix. `order_share` sums to 1.0.
+DEFAULT_SEGMENTS: tuple[CustomerSegment, ...] = (
+    CustomerSegment(
+        name="walk_in",
+        label="Walk-in shopper",
+        order_share=0.30,
+        aov_multiplier=0.75,
+        units_per_order_multiplier=0.85,
+        discount_affinity=0.15,
+        return_rate_multiplier=0.4,
+        repeat_rate=0.25,
+    ),
+    CustomerSegment(
+        name="online_regular",
+        label="Online regular",
+        order_share=0.34,
+        discount_affinity=0.35,
+        repeat_rate=0.30,
+    ),
+    CustomerSegment(
+        name="loyalty_member",
+        label="Loyalty member",
+        order_share=0.18,
+        aov_multiplier=1.35,
+        units_per_order_multiplier=1.25,
+        discount_affinity=0.30,
+        return_rate_multiplier=0.6,
+        repeat_rate=0.72,
+    ),
+    CustomerSegment(
+        name="deal_seeker",
+        label="Deal seeker",
+        order_share=0.13,
+        aov_multiplier=0.70,
+        units_per_order_multiplier=0.95,
+        discount_affinity=0.90,
+        return_rate_multiplier=1.8,
+        repeat_rate=0.28,
+    ),
+    CustomerSegment(
+        name="trade_wholesale",
+        label="Trade / wholesale",
+        order_share=0.05,
+        aov_multiplier=3.2,
+        units_per_order_multiplier=4.0,
+        discount_affinity=0.10,
+        return_rate_multiplier=0.15,
+        repeat_rate=0.85,
+        pays_on_credit=True,
+    ),
+)
+
 
 class GeneratorConfig(BaseModel):
     """Parameters for one synthetic-dataset run. Defaults = the demo dataset."""
@@ -166,6 +240,9 @@ class GeneratorConfig(BaseModel):
 
     # --- channel mix ---
     channels: tuple[ChannelMix, ...] = DEFAULT_CHANNELS
+
+    # --- customer mix ---
+    customer_segments: tuple[CustomerSegment, ...] = DEFAULT_SEGMENTS
 
     # --- unit economics ---
     target_gross_margin_pct: float = Field(default=0.52, gt=0, lt=1)
@@ -251,6 +328,7 @@ class GeneratorConfig(BaseModel):
             "supplier_count": self.supplier_count,
             "categories": list(self.categories),
             "channels": [c.name for c in self.channels],
+            "customer_segments": [s.name for s in self.customer_segments],
             "seasonal_events": [e.name for e in self.events_in_window],
         }
 
@@ -274,6 +352,20 @@ class GeneratorConfig(BaseModel):
         total = sum(c.revenue_share for c in v)
         if not math.isclose(total, 1.0, abs_tol=0.01):
             raise ValueError(f"channel revenue_share must sum to 1.0 (got {total:.3f})")
+        return v
+
+    @field_validator("customer_segments")
+    @classmethod
+    def _segment_shares_sum_to_one(
+        cls, v: tuple[CustomerSegment, ...]
+    ) -> tuple[CustomerSegment, ...]:
+        if not v:
+            raise ValueError("at least one customer segment is required")
+        if len({s.name for s in v}) != len(v):
+            raise ValueError("customer segment names must be unique")
+        total = sum(s.order_share for s in v)
+        if not math.isclose(total, 1.0, abs_tol=0.01):
+            raise ValueError(f"customer segment order_share must sum to 1.0 (got {total:.3f})")
         return v
 
     @model_validator(mode="after")

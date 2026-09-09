@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 from sage_generator.config import GeneratorConfig
-from sage_generator.entities import build_catalog, build_entities, build_suppliers
+from sage_generator.entities import (
+    build_catalog,
+    build_entities,
+    build_segments,
+    build_suppliers,
+    segments_by_name,
+)
 
 CFG = GeneratorConfig()
 
@@ -58,10 +64,28 @@ def test_abc_split_is_roughly_20_30_50() -> None:
     assert share["C"] == pytest.approx(0.50, abs=0.02)
 
 
+def test_customer_segments_are_a_valid_mix() -> None:
+    segments = build_segments(CFG)
+    assert len(segments) >= 2
+    assert sum(s.order_share for s in segments) == pytest.approx(1.0)
+    assert len({s.name for s in segments}) == len(segments)
+    # exactly one credit segment feeds AR / DSO
+    assert sum(s.pays_on_credit for s in segments) == 1
+    by_name = segments_by_name(segments)
+    assert by_name["deal_seeker"].discount_affinity > by_name["walk_in"].discount_affinity
+
+
+def test_entities_carry_the_segment_mix() -> None:
+    e = build_entities(CFG)
+    assert e.segments == build_segments(CFG)
+    assert set(e.segment_by_name) == {s.name for s in e.segments}
+
+
 def test_deterministic_from_seed() -> None:
     a, b = build_entities(CFG), build_entities(GeneratorConfig())
     assert a.suppliers == b.suppliers
     assert a.catalog == b.catalog
+    assert a.segments == b.segments
 
 
 def test_seed_changes_the_data() -> None:
