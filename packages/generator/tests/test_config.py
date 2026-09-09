@@ -36,6 +36,17 @@ def test_channel_shares_must_sum_to_one() -> None:
         )
 
 
+def test_customer_segment_shares_must_sum_to_one() -> None:
+    assert sum(s.order_share for s in GeneratorConfig().customer_segments) == pytest.approx(1.0)
+    with pytest.raises(ValidationError, match="order_share must sum to 1.0"):
+        GeneratorConfig(
+            customer_segments=(
+                {"name": "a", "label": "A", "order_share": 0.3},
+                {"name": "b", "label": "B", "order_share": 0.3},
+            ),
+        )
+
+
 def test_seasonal_event_must_reference_known_categories() -> None:
     with pytest.raises(ValidationError, match="unknown categories"):
         GeneratorConfig(
