@@ -4,86 +4,101 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Work out what changed, so downstream jobs only run when relevant.
-  # The filter keys mirror the labels in .github/labeler.yml.
+  # Work out what to test from the PR's labels (see .github/labeler.yml,
+  # which is the source of truth for what each label covers).
+  #
+  # The Labeler workflow (pull_request_target) and this one (pull_request)
+  # both fire on `opened`, so a run can start here before labels have
+  # landed. We don't special-case that: it just resolves to "no labels yet"
+  # and tests get skipped. The `labeled`/`unlabeled` trigger above then
+  # fires a fresh run once the Labeler workflow applies them, and the
+  # concurrency group cancels the stale run — so the check that ends up
+  # counting is always the one with the right labels.
   changes:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     outputs:
-      web: ${{ steps.meta.outputs.web }}
-      python: ${{ steps.meta.outputs.python }}
-      agent: ${{ steps.meta.outputs.agent }}
-      infra: ${{ steps.meta.outputs.infra }}
-      packages: ${{ steps.pkgs.outputs.list }}
+      web: ${{ steps.map.outputs.web }}
+      agent: ${{ steps.map.outputs.agent }}
+      lint_python: ${{ steps.map.outputs.lint_python }}
+      packages: ${{ steps.map.outputs.packages }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dorny/paths-filter@v3
-        id: meta
-        with:
-          filters: |
-            web:
-              - 'apps/web/**'
-              - 'pnpm-lock.yaml'
-              - 'package.json'
-              - 'pnpm-workspace.yaml'
-            python:
-              - 'packages/**'
-              - 'pyproject.toml'
-              - 'uv.lock'
-            agent:
-              - 'packages/mcp/**'
-              - 'openclaw/**'
-              - 'packages/evals/**'
-              - 'docs/contracts/**'
-            infra:
-              - 'infra/**'
-              - 'Dockerfile'
-              - 'docker-compose*.yml'
-            root_python:
-              - 'pyproject.toml'
-              - 'uv.lock'
-
-      # Separate step so `changes` is a clean list of only the package names.
-      - uses: dorny/paths-filter@v3
-        id: pkg
-        with:
-          filters: |
-            warehouse: ['packages/warehouse/**']
-            generator: ['packages/generator/**']
-            detectors: ['packages/detectors/**']
-            mcp:       ['packages/mcp/**']
-            evals:     ['packages/evals/**']
-            api:       ['packages/api/**']
-            notifier:  ['packages/notifier/**']
-            shared:    ['packages/shared/**']
-
-      - id: pkgs
+      - name: Read PR labels
+        id: labels
         env:
-          CHANGED: ${{ steps.pkg.outputs.changes }}
-          SHARED_TOUCHED: ${{ steps.pkg.outputs.shared }}
-          ROOT_TOUCHED: ${{ steps.meta.outputs.root_python }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # A change to sage-shared or the workspace root affects every package.
-          if [ "$SHARED_TOUCHED" = "true" ] || [ "$ROOT_TOUCHED" = "true" ]; then
-            list='["warehouse","generator","detectors","mcp","evals","api","notifier","shared"]'
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            labels=$(gh pr view "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" \
+              --json labels -q '[.labels[].name] | join(",")')
           else
-            list="$CHANGED"
+            # Push to main (post-merge): no PR/labels to key off — test everything.
+            labels="__all__"
           fi
-          echo "list=$list" >> "$GITHUB_OUTPUT"
-          echo "Testing packages: $list"
+          echo "labels=$labels" >> "$GITHUB_OUTPUT"
+          echo "Labels: $labels"
+
+      # Label -> test target mapping. Keep label names in sync with
+      # .github/labeler.yml.
+      - id: map
+        env:
+          LABELS: ",${{ steps.labels.outputs.labels }},"
+        run: |
+          set -euo pipefail
+          has() { [[ "$LABELS" == *",$1,"* ]]; }
+
+          if [ "$LABELS" = ",__all__," ]; then
+            web=true
+            agent=true
+            lint_python=true
+            packages='["warehouse","generator","detectors","mcp","evals","api","notifier","shared"]'
+          else
+            web=false
+            agent=false
+            pkgs=()
+
+            has "data/metrics" && pkgs+=(warehouse generator)
+            has "detectors"    && pkgs+=(detectors)
+            has "agent"        && { pkgs+=(mcp evals); agent=true; }
+            has "backend"      && pkgs+=(api)
+            has "notifier"     && pkgs+=(notifier)
+            has "frontend"     && web=true
+
+            # Shared code or a dependency bump can affect every package.
+            if has "shared" || has "deps"; then
+              pkgs=(warehouse generator detectors mcp evals api notifier shared)
+              agent=true
+              web=true
+            fi
+
+            if [ "${#pkgs[@]}" -gt 0 ]; then
+              lint_python=true
+              packages=$(printf '%s\n' "${pkgs[@]}" | sort -u | jq -R . | jq -sc .)
+            else
+              lint_python=false
+              packages='[]'
+            fi
+          fi
+
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "agent=$agent" >> "$GITHUB_OUTPUT"
+          echo "lint_python=$lint_python" >> "$GITHUB_OUTPUT"
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+          echo "Resolved: web=$web agent=$agent lint_python=$lint_python packages=$packages"
 
   lint-python:
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: needs.changes.outputs.lint_python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -143,7 +158,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm build
 
-  # Runs when agent prompts / tools / contracts change — see docs/eval-plan.md.
+  # Runs when the "agent" label is set — see docs/eval-plan.md.
   eval:
     needs: changes
     if: needs.changes.outputs.agent == 'true'

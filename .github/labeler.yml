@@ -1,6 +1,7 @@
 # Auto-label PRs by the files they touch. Consumed by .github/workflows/labeler.yml
-# (actions/labeler@v5). Keep the globs in sync with the filters in
-# .github/workflows/ci.yml — that workflow decides which tests run per label.
+# (actions/labeler@v5). .github/workflows/ci.yml reads the resulting labels
+# straight off the PR to decide which tests to run — if you add or rename a
+# label here, update the mapping in that workflow's `changes` job too.
 
 "data/metrics":
   - changed-files:
