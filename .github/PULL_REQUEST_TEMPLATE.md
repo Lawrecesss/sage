@@ -1,10 +1,13 @@
-## What
+## Description
 
 <!-- one or two sentences -->
 
 ## Lane
 
-<!-- M1 data/metrics · M2 agents · M3 frontend · M4 platform -->
+- [ ] Data/Matric
+- [ ] Agentic
+- [ ] Frontend/Backend
+- [ ] Infra and others
 
 ## Contract impact
 
