@@ -1,0 +1,51 @@
+# Code owners.
+#
+# GitHub requests a review from the matching owner(s) on any PR touching these
+# paths, and (with "Require review from Code Owners" enabled in the main branch
+# protection rule) a PR cannot merge until an owner of every path it touches has
+# approved. Later patterns take precedence over earlier ones, so the broad
+# catch-all comes first and the specific lanes come after — see
+# https://docs.github.com/articles/about-code-owners/
+#
+# Lawrecesss (Lin Htet Shein) has push/admin on the whole repo and is listed as
+# a co-owner on every lane below, in addition to solely owning data/metrics.
+
+# Default owner for anything not matched more specifically below.
+*                               @Lawrecesss
+
+# --- Data & Metrics (M1) --- generator, warehouse, detectors, metric-layer docs
+/packages/generator/            @Lawrecesss
+/packages/warehouse/            @Lawrecesss
+/packages/detectors/            @Lawrecesss
+/docs/metrics-catalog.md        @Lawrecesss
+/docs/incident-library.md       @Lawrecesss
+/docs/eval-plan.md              @Lawrecesss
+/docs/plans/m1-data-metrics.md  @Lawrecesss
+
+# --- Agentic (M2) --- MCP tool server, OpenClaw config, eval harness, tool/brief contracts
+/packages/mcp/                  @Lawrecesss @nann5an1
+/openclaw/                      @Lawrecesss @nann5an1
+/packages/evals/                @Lawrecesss @nann5an1
+/docs/contracts/                @Lawrecesss @nann5an1
+/docs/decisions/0003-openclaw-agent-runtime.md   @Lawrecesss @nann5an1
+/docs/plans/m2-agents.md        @Lawrecesss @nann5an1
+
+# --- Frontend + Backend (M3 + API) --- the web app and the FastAPI service
+/apps/web/                      @Lawrecesss @swamhtetg90
+/packages/api/                  @Lawrecesss @swamhtetg90
+/packages/shared/               @Lawrecesss @swamhtetg90
+/docs/plans/m3-frontend.md      @Lawrecesss @swamhtetg90
+
+# --- Infra + everything else (M4) --- deploy kit, containers, CI/CD, notifier, product docs
+/infra/                         @Lawrecesss @thanthtetaung4
+/Dockerfile                     @Lawrecesss @thanthtetaung4
+/docker-compose.yml             @Lawrecesss @thanthtetaung4
+/apps/web/Dockerfile            @Lawrecesss @thanthtetaung4
+/.github/                       @Lawrecesss @thanthtetaung4
+/packages/notifier/             @Lawrecesss @thanthtetaung4
+/Makefile                       @Lawrecesss @thanthtetaung4
+/scripts/                       @Lawrecesss @thanthtetaung4
+/docs/demo-script.md            @Lawrecesss @thanthtetaung4
+/docs/pitch.md                  @Lawrecesss @thanthtetaung4
+/docs/runbook.md                @Lawrecesss @thanthtetaung4
+/docs/plans/m4-platform.md      @Lawrecesss @thanthtetaung4
