@@ -1,0 +1,58 @@
+# Code owners.
+#
+# GitHub requests a review from the matching owner(s) on any PR touching these
+# paths. Branch protection on main pairs this with:
+#   require_code_owner_reviews: true
+#   required_approving_review_count: 0
+# which means: no review is required by default, but a PR touching a path
+# below CANNOT merge until an owner of that path (other than the PR's own
+# author) has approved. A lane owner working only inside their own lane needs
+# no approval — the only listed owner IS the author, so there's no one else
+# for the rule to require. Touch a path outside your lane and you need that
+# lane's owner to approve. Later patterns take precedence over earlier ones —
+# see https://docs.github.com/articles/about-code-owners/
+#
+# Lawrecesss (Lin Htet Shein) owns data/metrics and is the catch-all default
+# for anything not claimed by a more specific lane below (root config, shared
+# top-level docs, etc.) — not a co-owner of the other three lanes, so their
+# self-contained PRs don't need his approval either.
+
+# Default owner for anything not matched more specifically below.
+*                               @Lawrecesss
+
+# --- Data & Metrics (M1) --- generator, warehouse, detectors, metric-layer docs
+/packages/generator/            @Lawrecesss
+/packages/warehouse/            @Lawrecesss
+/packages/detectors/            @Lawrecesss
+/docs/metrics-catalog.md        @Lawrecesss
+/docs/incident-library.md       @Lawrecesss
+/docs/eval-plan.md              @Lawrecesss
+/docs/plans/m1-data-metrics.md  @Lawrecesss
+
+# --- Agentic (M2) --- MCP tool server, OpenClaw config, eval harness, tool/brief contracts
+/packages/mcp/                  @nann5an1
+/openclaw/                      @nann5an1
+/packages/evals/                @nann5an1
+/docs/contracts/                @nann5an1
+/docs/decisions/0003-openclaw-agent-runtime.md   @nann5an1
+/docs/plans/m2-agents.md        @nann5an1
+
+# --- Frontend + Backend (M3 + API) --- the web app and the FastAPI service
+/apps/web/                      @swamhtetg90
+/packages/api/                  @swamhtetg90
+/packages/shared/               @swamhtetg90
+/docs/plans/m3-frontend.md      @swamhtetg90
+
+# --- Infra + everything else (M4) --- deploy kit, containers, CI/CD, notifier, product docs
+/infra/                         @thanthtetaung4
+/Dockerfile                     @thanthtetaung4
+/docker-compose.yml             @thanthtetaung4
+/apps/web/Dockerfile            @thanthtetaung4
+/.github/                       @thanthtetaung4
+/packages/notifier/             @thanthtetaung4
+/Makefile                       @thanthtetaung4
+/scripts/                       @thanthtetaung4
+/docs/demo-script.md            @thanthtetaung4
+/docs/pitch.md                  @thanthtetaung4
+/docs/runbook.md                @thanthtetaung4
+/docs/plans/m4-platform.md      @thanthtetaung4
