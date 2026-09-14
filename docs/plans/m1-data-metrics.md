@@ -58,8 +58,8 @@ Run your tests with `uv run pytest packages/generator packages/warehouse package
       `fact_invoice`, `fact_bill`), the agent-facing tables (`signals`,
       `briefings`, `causal_chains`) and the job-queue table `agent_runs`
       (`run_id, status, as_of_date, requested_at, started_at, finished_at, error` —
-      the `worker` polls it; agree the shape with M4). Currently a comment sketch —
-      turn it into DDL.
+      the API's background task claims and updates it, and `save_brief` marks it
+      done; agree the shape with M4). Currently a comment sketch — turn it into DDL.
 
 - [ ] **DB bootstrap** — `packages/warehouse/src/sage_warehouse/db.py`, `cli.py`
       *Done when:* `db.py` exposes an engine/session factory reading
@@ -138,8 +138,8 @@ Run your tests with `uv run pytest packages/generator packages/warehouse package
       dataset produces known values; drift fails CI.
 
 **S2 gate (shared, Sep 21):** a real anomaly from your `signals` table is picked up
-by M2's Watcher and shown by M3 in a browser. Your part: real signals exist for all
-3 domains.
+by M2's `sage-briefing` agent (via `get_signals` over MCP) and shown by M3 in a
+browser. Your part: real signals exist for all 3 domains.
 
 ---
 

@@ -1,10 +1,13 @@
-# Tool JSON schemas (M1 ↔ M2)
+# MCP tool schemas (M1 ↔ M2)
 
-> **FREEZE THIS IN WEEK 1.** Every agent tool is a client-side Python tool (the LLM
-> endpoint has no server-side tools). Agents touch data *only* through these. Once
-> signed, changes go through both M1 and M2.
+> **FREEZE THIS IN WEEK 1.** Every tool is served by `packages/mcp` (`sage_mcp`)
+> over MCP — OpenClaw agents touch Sage data *only* through these, via the `sage`
+> MCP server. Once signed, changes go through both M1 and M2. See
+> [`../decisions/0003-openclaw-agent-runtime.md`](../decisions/0003-openclaw-agent-runtime.md).
 >
-> Status: **DRAFT — shapes below are a starting point, not final.**
+> Status: **DRAFT — shapes below are a starting point, not final.** The five read
+> tools carry the shape frozen when this contract was still Strands-side; the
+> swap to MCP changes *how* they're served, not their input/output shapes.
 
 ## `list_metrics()`
 
@@ -117,8 +120,36 @@ The governance story: show the SQL and source tables behind a metric.
 }
 ```
 
-## Rules the Correlator must obey
+## `save_brief(run_id, brief)`
 
-- May only correlate **existing** signals from the `signals` table.
+The write boundary — new with the OpenClaw swap (the old design just hoped the
+agent's final text was valid brief-JSON). `sage-briefing` calls this once, as its
+terminal tool call. The MCP server validates `brief` against
+`sage_shared.types.MorningBrief` before persisting; a malformed payload is a tool
+error, not a silent bad response.
+
+```json
+{
+  "name": "save_brief",
+  "input": {
+    "run_id": "run_20260214_0600",
+    "brief": {
+      "as_of_date": "2026-02-14",
+      "items": [ /* BriefItem[], ≤5 — see brief-json.md */ ]
+    }
+  },
+  "output": { "brief_id": "brief_20260214_0600" }
+}
+```
+
+On a validation failure, the tool returns an error describing which field failed
+(not the raw Pydantic traceback) so the agent can correct and retry.
+
+## Rules `sage-briefing` must obey
+
+- May only correlate **existing** signals from the `signals` table (via
+  `get_signals` / `query_metric` / `compare_period`).
 - Must **cite metric IDs** for every number in its output.
-- Outputs a **strict schema** (see [`brief-json.md`](brief-json.md) → `causal_chains`).
+- Outputs a **strict schema**, enforced at the `save_brief` call (see
+  [`brief-json.md`](brief-json.md) → `causal_chains`) — not a free-form final
+  message.

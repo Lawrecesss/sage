@@ -1,8 +1,13 @@
 # Brief-JSON contract (M2 ↔ M3)
 
-> **FREEZE THIS IN WEEK 1.** The Briefing agent emits this; the web app and the
-> Telegram notifier render it. Mirrored in:
-> - `packages/api/src/sage_api/schemas/brief.py` (Pydantic)
+> **FREEZE THIS IN WEEK 1.** The `sage-briefing` OpenClaw agent emits this via the
+> `save_brief` MCP tool, which validates against `sage_shared.types.MorningBrief`
+> before persisting — so this shape is enforced at the write boundary, not just
+> documented. The web app renders it (Telegram delivery is on hold — see
+> [`../decisions/0003-openclaw-agent-runtime.md`](../decisions/0003-openclaw-agent-runtime.md)).
+> Mirrored in:
+> - `packages/shared/src/sage_shared/types.py` (Pydantic — the source of truth `save_brief` validates against)
+> - `packages/api/src/sage_api/schemas/brief.py` (Pydantic, API response shape)
 > - `apps/web/src/lib/types.ts` (TypeScript)
 >
 > Status: **DRAFT — not final.**
@@ -49,7 +54,7 @@
 
 `severity`: `"high" | "medium" | "low"`. `evidence[].series` feeds the sparklines.
 
-## `CausalChain` (from the Correlator)
+## `CausalChain` (from `sage-briefing`'s cross-domain correlation)
 
 ```json
 {

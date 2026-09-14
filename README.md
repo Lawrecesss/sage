@@ -4,11 +4,11 @@
 
 SME owners get business signal from sales, inventory, accounting, customer enquiries
 and operations — each in a different system, none talking to each other. The owner
-becomes the integration layer. Sage replaces that: a watcher agent runs on a schedule
-against a unified metric layer, deterministic detectors surface anomalies, an analyst
-agent correlates signals across domains into a causal story ranked by dollar impact
-with a recommended action, and a briefing agent delivers a prioritised morning brief
-to the owner's phone. The owner can then ask follow-ups in plain language.
+becomes the integration layer. Sage replaces that: on a schedule, an agent triages
+a unified metric layer where deterministic detectors have surfaced anomalies,
+correlates signals across domains into a causal story ranked by dollar impact with
+a recommended action, and writes a prioritised morning brief to the owner's phone.
+The owner can then ask follow-ups in plain language.
 
 > Built for the NUS-ISS **"Show Me Your Agents"** Hackathon 2026 — retail vertical.
 >
@@ -48,9 +48,12 @@ Connector simulators (3: sales · inventory · accounting)
   → Transform (SQL models → Postgres star schema)
   → ★ Metric layer (YAML, ~20-25 governed metrics)
   → ★ Detectors (deterministic: z-score, WoW change, threshold → signals table)
-  → ★ Agent fleet (Strands, one model — Claude Sonnet 4.5): Watcher · Analyst/Correlator · Briefing · Ask
-  → API (FastAPI/uvicorn; agent runs async via the `agent_runs` table + a worker; host cron)
-  → Delivery (Next.js web app + Telegram bot push, behind Caddy on one Lightsail instance)
+  → ★ MCP server (packages/mcp): the governed tool surface, over MCP
+  → ★ OpenClaw (agent gateway, one model — Claude Sonnet 4.5): sage-briefing · sage-ask
+  → API (FastAPI/uvicorn, the only public entry point; agent runs async via the
+    `agent_runs` table + a background task; OpenClaw's own automation schedules
+    the daily run)
+  → Delivery (Next.js web app, behind Caddy on one Lightsail instance)
 ```
 
 Full detail: [`docs/architecture.md`](docs/architecture.md).
@@ -62,23 +65,26 @@ Full detail: [`docs/architecture.md`](docs/architecture.md).
 | `packages/generator` | Synthetic SME dataset + planted incident library (the eval ground truth) |
 | `packages/warehouse` | Star schema, SQL transforms, **governed metric layer** |
 | `packages/detectors` | Deterministic anomaly detection — no LLM |
-| `packages/agents` | Strands agents, tool surface, prompts, LLM integration + the `agent_runs` worker |
+| `packages/mcp` | MCP server — Sage's governed tool surface, served to OpenClaw |
+| `openclaw` | OpenClaw config: agent definitions, prompts, the daily automation |
 | `packages/evals` | Agent eval harness — the headline number |
-| `packages/api` | FastAPI service (uvicorn, containerised) |
-| `packages/notifier` | Telegram delivery |
-| `packages/shared` | Cross-package types, settings, constants |
+| `packages/api` | FastAPI service (uvicorn, containerised) — the only public entry point |
+| `packages/notifier` | Telegram delivery — currently unwired, see ADR 0003 |
+| `packages/shared` | Cross-package types, settings, constants, the OpenClaw client |
 | `apps/web` | Next.js 15 web app (Morning Brief · Signals · Ask · Connections) |
 | `infra` | Lightsail deploy kit — `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
-| `docs` | Architecture, demo script, pitch, contracts, plans |
+| `docs` | Architecture, demo script, pitch, contracts, plans, decisions |
 
 ## Stack
 
 - **Frontend** — Next.js 15 (App Router) · TypeScript · Tailwind · shadcn/ui · Recharts · SSE
 - **Backend** — Python 3.12 · FastAPI · SQLAlchemy · Pydantic · `uv`
 - **Data** — Polars (generator) · SQL models (transforms) · statsmodels / scipy (detectors)
-- **Agents** — Strands Agents SDK · one model for all agents: **Claude Sonnet 4.5** via the
-  organisers' Ollama-compatible, Bedrock-backed endpoint
-- **Infra** — one **AWS Lightsail** instance · `docker-compose` (Postgres+pgvector · API · worker · web · Caddy) · host cron
+- **Agents** — OpenClaw (self-hosted agent gateway) + an MCP tool server · one model
+  for all agents: **Claude Sonnet 4.5** via the organisers' Ollama-compatible,
+  Bedrock-backed endpoint
+- **Infra** — one **AWS Lightsail** instance · `docker-compose` (Postgres+pgvector ·
+  API · MCP server · OpenClaw gateway · web · Caddy) · OpenClaw automation for scheduling
 - **Repo** — one monorepo, `pnpm` + `uv` workspaces, GitHub Actions CI
 
 ## Getting started

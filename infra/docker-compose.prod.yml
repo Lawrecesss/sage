@@ -1,9 +1,11 @@
 # Production override. Layered on the repo-root docker-compose.yml:
 #   docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d
 #
-# The base file provides `db` (it reads POSTGRES_PASSWORD from the environment).
-# This file adds the app services and the reverse proxy. All secrets come from
-# /opt/sage/.env on the instance.
+# The base file provides `db` and the `agent` profile (`mcp` + `openclaw`) — it
+# reads POSTGRES_PASSWORD from the environment. This file adds the api/web app
+# services and the reverse proxy. All secrets come from /opt/sage/.env on the
+# instance. No `worker` service — see docs/decisions/0003-openclaw-agent-runtime.md;
+# the API drives OpenClaw from a background task instead of a separate process.
 
 services:
   api:
@@ -13,31 +15,28 @@ services:
     command: uvicorn sage_api.main:app --host 0.0.0.0 --port 8000
     environment:
       DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD}@db:5432/sage
-      LLM_BASE_URL: ${LLM_BASE_URL:?set in .env}
-      LLM_API_KEY: ${LLM_API_KEY:?set in .env}
-      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-5}
+      OPENCLAW_BASE_URL: http://openclaw:18789
+      OPENCLAW_TOKEN: ${OPENCLAW_TOKEN:?set in .env}
+      OPENCLAW_AGENT_BRIEFING: ${OPENCLAW_AGENT_BRIEFING:-sage-briefing}
+      OPENCLAW_AGENT_ASK: ${OPENCLAW_AGENT_ASK:-sage-ask}
       CORS_ALLOW_ORIGINS: https://${SAGE_DOMAIN}
     depends_on:
       db:
         condition: service_healthy
+      openclaw:
+        condition: service_started
     restart: unless-stopped
 
-  worker:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    command: python -m sage_agents.runtime
+  # Re-declares the required env vars the base file leaves soft-defaulted (so a
+  # plain local `docker compose up -d db` doesn't need them) — the real deploy
+  # must not silently run OpenClaw without real credentials.
+  openclaw:
     environment:
-      DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD}@db:5432/sage
       LLM_BASE_URL: ${LLM_BASE_URL:?set in .env}
       LLM_API_KEY: ${LLM_API_KEY:?set in .env}
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-5}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
+      OPENCLAW_TOKEN: ${OPENCLAW_TOKEN:?set in .env}
+      MCP_URL: http://mcp:9100/mcp
 
   web:
     build:

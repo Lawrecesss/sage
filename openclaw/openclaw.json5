@@ -1,0 +1,81 @@
+// openclaw/openclaw.json5 — config template for the `openclaw` container.
+//
+// Seeded to ~/.openclaw/openclaw.json inside the container on first boot (see
+// infra/docker-compose.prod.yml, which mounts this directory read-only at
+// /seed and copies it in if no config exists yet). JSON5: comments + trailing
+// commas allowed.
+//
+// STUB — shape only, not a working config yet. Fill in once the organisers'
+// endpoint is confirmed to register under models.providers (see
+// docs/decisions/0003-openclaw-agent-runtime.md, "Unresolved, deliberately").
+//
+// Secrets are environment references, never literals — see .env.example for
+// LLM_BASE_URL / LLM_API_KEY / LLM_MODEL / OPENCLAW_TOKEN.
+{
+  // --- Gateway ---
+  gateway: {
+    bind: "0.0.0.0:18789",           // internal docker network only — never
+                                      // published, never routed by Caddy
+    auth: {
+      // OPENCLAW_TOKEN grants full operator access over HTTP — see
+      // openclaw/README.md before changing this.
+      token: "${OPENCLAW_TOKEN}",
+    },
+    http: {
+      endpoints: {
+        // packages/api talks to this endpoint via sage_shared.openclaw.
+        chatCompletions: { enabled: true },
+      },
+    },
+  },
+
+  // --- Model provider: the organisers' Ollama-compatible, Bedrock-backed endpoint ---
+  models: {
+    providers: {
+      sageOrganisers: {
+        // TODO: confirm on day 1 whether this is native Ollama (/api/chat) or
+        // OpenAI-shaped (/v1), and the exact provider shape OpenClaw expects.
+        baseUrl: "${LLM_BASE_URL}",
+        apiKey: "${LLM_API_KEY}",
+        models: [
+          { id: "${LLM_MODEL}" },    // claude-sonnet-4-5 — the only allowed model
+        ],
+      },
+    },
+  },
+
+  // --- Tool surface: the sage MCP server, nothing else ---
+  mcp: {
+    servers: {
+      sage: {
+        transport: "streamable-http",
+        url: "${MCP_URL}",           // http://mcp:9100/mcp — internal network
+        enabled: true,
+      },
+    },
+  },
+
+  // --- Agents ---
+  agents: {
+    entries: {
+      "sage-briefing": {
+        model: "sageOrganisers/${LLM_MODEL}",
+        systemPromptFile: "/seed/prompts/briefing.md",
+        // Tool profile: sage MCP tools only — no shell, no browser, no filesystem.
+        tools: { profile: ["mcp:sage"] },
+      },
+      "sage-ask": {
+        model: "sageOrganisers/${LLM_MODEL}",
+        systemPromptFile: "/seed/prompts/ask.md",
+        tools: { profile: ["mcp:sage"] },
+      },
+    },
+  },
+
+  // --- Automations (replaces the old host crontab) ---
+  cron: {
+    enabled: true,
+    // The daily-brief job itself is registered once via `openclaw automations
+    // create` (not declared here) — see openclaw/automations/daily-brief.md.
+  },
+}

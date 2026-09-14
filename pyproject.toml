@@ -12,7 +12,7 @@ sage-shared = { workspace = true }
 sage-generator = { workspace = true }
 sage-warehouse = { workspace = true }
 sage-detectors = { workspace = true }
-sage-agents = { workspace = true }
+sage-mcp = { workspace = true }
 sage-evals = { workspace = true }
 sage-api = { workspace = true }
 sage-notifier = { workspace = true }

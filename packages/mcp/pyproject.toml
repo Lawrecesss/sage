@@ -1,21 +1,21 @@
 [project]
-name = "sage-agents"
+name = "sage-mcp"
 version = "0.0.0"
-description = "Strands agents, tool surface, prompts, LLM integration"
+description = "MCP server — Sage's governed tool surface, served to OpenClaw"
 requires-python = ">=3.12"
 dependencies = [
   "sage-shared",
   "sage-warehouse",
-  "strands-agents[ollama]>=1.0",
+  "mcp[cli]>=1.2",
   "pydantic>=2.7",
 ]
 
 [project.scripts]
-sage-worker = "sage_agents.runtime:main"
+sage-mcp = "sage_mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sage_agents"]
+packages = ["src/sage_mcp"]

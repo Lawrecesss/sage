@@ -19,7 +19,8 @@ detectors:
 agent:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/agents/**"
+          - "packages/mcp/**"
+          - "openclaw/**"
           - "packages/evals/**"
           - "docs/contracts/**"
 

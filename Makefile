@@ -1,7 +1,7 @@
 # Sage — common tasks. Everything here is a thin wrapper; see scripts/ and docs/.
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap dev db-up db-down seed test lint fmt eval deploy
+.PHONY: help bootstrap dev db-up db-down agent-up mcp seed test lint fmt eval deploy
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -17,6 +17,12 @@ db-up: ## Start local Postgres
 
 db-down: ## Stop local Postgres
 	docker compose down
+
+agent-up: ## Start mcp + openclaw locally (db must be up)
+	docker compose --profile agent up -d
+
+mcp: ## Run the MCP server locally (outside docker)
+	uv run sage-mcp
 
 seed: ## Generate dataset, load warehouse, run detectors
 	./scripts/seed-demo.sh
@@ -41,4 +47,4 @@ deploy: ## Redeploy the Lightsail instance (git pull + compose up --build)
 	bash infra/provision.sh restart
 
 compose-config: ## Validate the full production compose stack
-	docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml config -q && echo OK
+	docker compose --profile agent -f docker-compose.yml -f infra/docker-compose.prod.yml config -q && echo OK

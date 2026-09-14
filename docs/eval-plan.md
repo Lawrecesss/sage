@@ -33,12 +33,14 @@ enough that a brief has ≤ 5 items.
 Run it in CI on every agent-prompt change.
 
 ### End to end
-Trigger a run on the deployed instance (`POST /api/brief/run`, or wait for the host
-cron). Verify: an `agent_runs` row is claimed by the `worker` → signals in Postgres
-→ brief generated → Telegram message received on a phone → brief renders in the web
-app → a follow-up in Ask returns a correct, metric-cited answer → the recommended
-action shows with its dollar rationale. **The whole loop must complete in under 90
-seconds** for a live demo.
+Trigger a run on the deployed instance (`POST /api/brief/run`, or wait for
+OpenClaw's daily automation). Verify: an `agent_runs` row goes `queued` →
+`running` → `done` as the API's background task calls the `sage-briefing`
+OpenClaw agent → signals read from Postgres via MCP → `save_brief` persists the
+brief → brief renders in the web app → a follow-up in Ask returns a correct,
+metric-cited answer → the recommended action shows with its dollar rationale.
+**The whole loop must complete in under 90 seconds** for a live demo. (Telegram
+delivery is currently unwired — see ADR 0003 — so it's not part of this loop yet.)
 
 ### Cost & rate limits
 LLM inference runs on the **organisers' Bedrock bill** — no per-token cost to us.

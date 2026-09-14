@@ -13,7 +13,9 @@ REGION="${AWS_REGION:-ap-southeast-1}"
 BLUEPRINT="${SAGE_BLUEPRINT:-ubuntu_24_04}"
 BUNDLE="${SAGE_BUNDLE:-medium_3_0}"          # 4 GB / 2 vCPU / 80 GB SSD, ~$24/mo
 SSH_USER="ubuntu"
-COMPOSE="docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml"
+# --profile agent brings in `mcp` + `openclaw` (profiled off in the base file so
+# a plain local `docker compose up -d db` doesn't need agent-runtime env vars).
+COMPOSE="docker compose --profile agent -f docker-compose.yml -f infra/docker-compose.prod.yml"
 
 ip() { aws lightsail get-static-ip --static-ip-name "${INSTANCE}-ip" --region "$REGION" \
         --query 'staticIp.ipAddress' --output text; }

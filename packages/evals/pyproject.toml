@@ -8,7 +8,6 @@ dependencies = [
   "sage-generator",
   "sage-warehouse",
   "sage-detectors",
-  "sage-agents",
   "rich>=13.0",
 ]
 

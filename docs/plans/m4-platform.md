@@ -3,7 +3,9 @@
 ## Lane summary
 
 - **Owns:** the Lightsail instance + `docker-compose` deploy, the API service, the
-  Telegram bot, CI/CD — **and** the pitch, deck, demo script and video.
+  `mcp` + `openclaw` containers, CI/CD — **and** the pitch, deck, demo script and
+  video. (Telegram is on hold — see [`../decisions/0003-openclaw-agent-runtime.md`](../decisions/0003-openclaw-agent-runtime.md) —
+  own it if/when that's unblocked, but don't plan a sprint around it.)
 - **Backs up:** M3 on API integration.
 - **Success test:** `docker compose up` on a fresh Lightsail instance reproduces the
   whole system from clean.
@@ -20,11 +22,12 @@ Linux + Docker + docker-compose, Caddy, a little Lightsail (or the `aws` CLI), C
 | Area | Path |
 | --- | --- |
 | Deploy kit | `infra/cloud-init.yaml`, `infra/docker-compose.prod.yml`, `infra/Caddyfile`, `infra/provision.sh` |
-| Container builds | `Dockerfile` (api + worker), `apps/web/Dockerfile` |
-| Base compose | `docker-compose.yml` |
-| API service | `packages/api/src/sage_api/` — `main.py`, `settings.py`, `deps.py`, `routers/*`, `schemas/*` |
+| Container builds | `Dockerfile` (api + mcp, same image, different command), `apps/web/Dockerfile` |
+| Base compose | `docker-compose.yml` (`db` always-on; `mcp` + `openclaw` behind the `agent` profile) |
+| API service | `packages/api/src/sage_api/` — `main.py`, `settings.py`, `deps.py`, `agent.py`, `routers/*`, `schemas/*` |
 | Job queue table | `packages/warehouse/.../models/schema.sql` (`agent_runs`) — with M1 |
-| Telegram | `packages/notifier/src/sage_notifier/{telegram,render}.py` |
+| OpenClaw deploy | `openclaw/openclaw.json5` mount + env wiring in `docker-compose.yml` (contents owned by M2) |
+| Telegram | `packages/notifier/src/sage_notifier/{telegram,render}.py` — currently unwired, on hold |
 | CI | `.github/workflows/ci.yml`, `deploy.yml` |
 | Product docs | `docs/demo-script.md`, `docs/pitch.md`, `docs/runbook.md` |
 
@@ -37,21 +40,25 @@ Run API tests: `uv run pytest packages/api packages/notifier`.
 - [ ] **🚨 Get the LLM endpoint from the organisers — TODAY.** Blocks every M2 sprint.
       *Done when:* you have `LLM_BASE_URL` + `LLM_API_KEY`, you've confirmed the
       **model string** (Sonnet 4.5) and whether the endpoint is native Ollama
-      (`/api/chat`) or OpenAI-shaped (`/v1`), and you've passed all of it to M2.
+      (`/api/chat`) or OpenAI-shaped (`/v1`), and you've passed all of it to M2 —
+      including for their day-1 spike on whether OpenClaw's `models.providers`
+      accepts it (see `docs/decisions/0003-openclaw-agent-runtime.md`).
 
 - [ ] **Create the Lightsail instance** — `infra/provision.sh`
       *Done when:* `bash infra/provision.sh create` stands up an Ubuntu instance
-      (~4 GB, `medium_3_0`) with a static IP and ports 22/80/443 open; you've pointed
-      a DNS A record at the IP and set `SAGE_DOMAIN`.
+      (~4 GB, `medium_3_0` — budget a bump to `large_3_0` once six containers are
+      running) with a static IP and ports 22/80/443 open; you've pointed a DNS A
+      record at the IP and set `SAGE_DOMAIN`.
 
 - [ ] **Container builds** — `Dockerfile`, `apps/web/Dockerfile`
-      *Done when:* `docker build .` (Python image, runs api + worker) and
+      *Done when:* `docker build .` (Python image, runs api + mcp) and
       `docker build -f apps/web/Dockerfile .` (Next standalone) both succeed;
       `apps/web` has `output: "standalone"`.
 
 - [ ] **Compose stack** — `docker-compose.yml` + `infra/docker-compose.prod.yml` + `infra/Caddyfile`
       *Done when:* `docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml config`
-      validates; `... up -d` on the instance brings up `db · api · worker · web · caddy`.
+      validates; `... up -d` on the instance brings up `db · mcp · openclaw · api ·
+      web · caddy`. `mcp` and `openclaw` publish no ports and aren't in the Caddyfile.
 
 - [ ] **FastAPI app + `/health` behind Caddy — do this early, M3 is waiting** —
       `packages/api/src/sage_api/main.py`, `settings.py`, `deps.py`, `routers/health.py`
@@ -61,8 +68,9 @@ Run API tests: `uv run pytest packages/api packages/notifier`.
 
 - [ ] **cloud-init** — `infra/cloud-init.yaml`
       *Done when:* a brand-new instance launched with it installs Docker, clones the
-      repo, and drops a `.env` template + the daily cron — leaving only "fill in
-      secrets, `compose up`".
+      repo, and drops a `.env` template (now including `OPENCLAW_TOKEN`) — leaving
+      only "fill in secrets, `compose up`, register the daily automation." No host
+      cron — see next sprint.
 
 - [ ] **CI is green on GitHub** — `.github/workflows/ci.yml`
       *Done when:* the workflow passes on `main` and on a PR (ruff / format / mypy /
@@ -77,53 +85,49 @@ CI green; cloud-init reproduces the box from clean.
 
 ---
 
-## Sprint 2 · Sep 15–21 — the API, the worker, the phone
+## Sprint 2 · Sep 15–21 — the API, the agent containers
 
 - [ ] **`agent_runs` table** — `packages/warehouse/.../models/schema.sql` (with M1)
       *Done when:* the table exists (`run_id, status, as_of_date, requested_at,
       started_at, finished_at, error`) and `sage-warehouse init-db` creates it.
 
-- [ ] **API routers** — `packages/api/src/sage_api/routers/{brief,signals,ask}.py`
+- [ ] **API routers** — `packages/api/src/sage_api/routers/{brief,runs,signals,ask}.py`
       *Done when:* `GET /brief/latest`, `GET /brief/{id}`, `POST /brief/run`
-      (insert an `agent_runs` row, return 202), `GET /signals`, `POST /ask`
-      (**SSE stream**). Reads the warehouse via `sage_warehouse`.
+      (insert an `agent_runs` row, schedule a `BackgroundTasks` job that calls
+      OpenClaw, return 202 + `run_id`), `GET /runs/{run_id}` (poll that row),
+      `GET /signals`, `POST /ask` (**SSE stream**, proxied from OpenClaw). Reads
+      the warehouse via `sage_warehouse`; calls agents via `sage_api.agent`.
 
 - [ ] **Response schemas** — `packages/api/src/sage_api/schemas/*`
       *Done when:* they re-use / mirror `sage_shared.types` and
       [`../contracts/brief-json.md`](../contracts/brief-json.md) — no drift.
 
-- [ ] **Worker container** — `infra/docker-compose.prod.yml` + M2's `sage_agents.runtime`
-      *Done when:* the `worker` service runs `python -m sage_agents.runtime`, which
-      claims a `queued` row and runs M2's orchestration. (M2 owns the loop body; you
-      own the container + restart policy + `DATABASE_URL`/`LLM_*` env wiring.)
-
-- [ ] **Host cron** — `infra/cloud-init.yaml`
-      *Done when:* `/etc/cron.d/sage-briefing` POSTs `/api/brief/run` daily and logs
-      to `/var/log/sage-cron.log`.
-
-- [ ] **Telegram bot** — `packages/notifier/src/sage_notifier/{telegram,render}.py`
-      *Done when:* `render.py` turns a `MorningBrief` into a compact message
-      (headline + top 3 titles + recommended action); `telegram.py` sends it. A
-      brief lands on a **real phone**.
+- [ ] **`mcp` + `openclaw` containers** — `docker-compose.yml`, `infra/docker-compose.prod.yml`
+      *Done when:* `mcp` runs `sage-mcp` (M2's package) and `openclaw` runs the
+      gateway, seeded from `./openclaw` (M2 owns the config contents; you own the
+      container, volumes, restart policy, and `DATABASE_URL` / `LLM_*` /
+      `OPENCLAW_TOKEN` / `MCP_URL` env wiring). Neither is published or routed by
+      Caddy. `api` reaches both by service name on the internal network. No
+      `worker` container, no host cron — see ADR 0003.
 
 - [ ] **First full deploy**
-      *Done when:* `db · api · worker · web · caddy` are all up on the instance and
-      talk to each other; M3 points at `https://$SAGE_DOMAIN`.
+      *Done when:* `db · mcp · openclaw · api · web · caddy` are all up on the
+      instance and talk to each other; M3 points at `https://$SAGE_DOMAIN`.
+      (Telegram bot stays on hold this sprint — see ADR 0003.)
 
-**S2 gate (shared, Sep 21):** signals → `agent_runs` → worker → brief → Telegram on a
-phone → brief renders in the web app on the instance. **The most important gate.**
+**S2 gate (shared, Sep 21):** signals → `agent_runs` → API background task →
+OpenClaw → `save_brief` → brief renders in the web app on the instance. **The
+most important gate.**
 
 ---
 
 ## Sprint 3 · Sep 22–28 — scheduled, observable, and the deck
 
-- [ ] **Autonomous runs proven** — the host cron
-      *Done when:* the hero scenario appears "overnight" with no human trigger (the
-      cron POSTed `/api/brief/run`, the worker did the rest).
-
-- [ ] **Trace view (optional)** — `jaeger` service in `docker-compose.yml` + OTLP env
-      *Done when:* Strands agent traces show in Jaeger (`:16686`) — something you can
-      put on screen during the demo (a scoring opportunity). Cut this first if time is short.
+- [ ] **Autonomous runs proven** — OpenClaw's daily automation (M2 registers it;
+      you confirm it survives a container restart)
+      *Done when:* the hero scenario appears "overnight" with no human trigger
+      (OpenClaw's own scheduler fired `sage-briefing`, which called `save_brief`
+      directly — no round trip through the API for the scheduled path).
 
 - [ ] **Hardening + graceful degradation**
       *Done when:* the API returns the last good brief if a run fails; the web app
@@ -132,7 +136,8 @@ phone → brief renders in the web app on the instance. **The most important gat
 
 - [ ] **Cost / limits check**
       *Done when:* one Lightsail billing alert is set; you've watched the shared LLM
-      endpoint for throttling under a full eval run and noted any backoff needed.
+      endpoint for throttling under a full eval run and noted any backoff needed;
+      confirmed the instance size (six containers) is comfortable.
 
 - [ ] **Deck outline + demo-video shot list** — `docs/pitch.md`, `docs/demo-script.md`
       *Done when:* the deck has a slide-by-slide outline (problem → three ideas →
@@ -140,7 +145,8 @@ phone → brief renders in the web app on the instance. **The most important gat
       video shot list matches the demo script.
 
 **S3 gate (hard, Sep 28):** `docker compose up` from a clean instance reproduces
-everything; hero scenario runs unassisted from the cron; `git tag demo-freeze`.
+everything; hero scenario runs unassisted from the OpenClaw automation;
+`git tag demo-freeze`.
 
 ---
 
@@ -170,16 +176,17 @@ everything; hero scenario runs unassisted from the cron; `git tag demo-freeze`.
 | --- | --- | --- |
 | organisers | LLM endpoint creds + model string | Sep 9 |
 | M1 | Warehouse schema + `sage-warehouse init-db` (runs in the `api` container) | Sep 19 |
-| M2 | `sage_agents.runtime` worker loop + what it expects in an `agent_runs` row | Sep 18 |
+| M2 | `openclaw/` config (agent definitions, prompts) + `sage_shared.openclaw` client + what `save_brief` expects in an `agent_runs` row | Sep 18 |
 | M2 | Eval headline number | Sep 27 |
 | M3 | Brief screenshot + UI copy for the deck | Sep 27 |
 
 ## Your items on the cut list (if a sprint slips — order matters)
 
-1. Jaeger trace view → drop it; tail `worker` logs on screen instead.
-2. Host cron → trigger the briefing live via a button (demo it instead of "it ran
-   overnight").
-3. (support M3) UI polish is theirs to cut, not yours.
+1. OpenClaw automation → trigger the briefing live via a button (demo it instead
+   of "it ran overnight"); the API's `POST /brief/run` path already exists, so
+   this is cutting a `openclaw automations create` call, not a code path.
+2. (support M3) UI polish is theirs to cut, not yours.
 
-**Never cut:** the reproducible `docker compose up` deploy, the Telegram push (it's
-the demo's best moment).
+**Never cut:** the reproducible `docker compose up` deploy. (Telegram push was
+the old "best moment" — it's on hold pending the delivery-channel decision; see
+ADR 0003. Don't plan the demo's best moment around it until that's resolved.)

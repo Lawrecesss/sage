@@ -39,7 +39,8 @@ jobs:
               - 'pyproject.toml'
               - 'uv.lock'
             agent:
-              - 'packages/agents/**'
+              - 'packages/mcp/**'
+              - 'openclaw/**'
               - 'packages/evals/**'
               - 'docs/contracts/**'
             infra:
@@ -58,7 +59,7 @@ jobs:
             warehouse: ['packages/warehouse/**']
             generator: ['packages/generator/**']
             detectors: ['packages/detectors/**']
-            agents:    ['packages/agents/**']
+            mcp:       ['packages/mcp/**']
             evals:     ['packages/evals/**']
             api:       ['packages/api/**']
             notifier:  ['packages/notifier/**']
@@ -73,7 +74,7 @@ jobs:
           set -euo pipefail
           # A change to sage-shared or the workspace root affects every package.
           if [ "$SHARED_TOUCHED" = "true" ] || [ "$ROOT_TOUCHED" = "true" ]; then
-            list='["warehouse","generator","detectors","agents","evals","api","notifier","shared"]'
+            list='["warehouse","generator","detectors","mcp","evals","api","notifier","shared"]'
           else
             list="$CHANGED"
           fi
