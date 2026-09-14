@@ -19,13 +19,14 @@ day-to-day task checklists mapped to real files live in
 | Planted incidents | ~20 (obvious + subtle + a few cross-domain-only) | ~40, more incident types |
 | Metric layer | ~20–25 metrics | 40–50 metrics |
 | Detectors | z-score, WoW change, threshold breach | STL residual, run-length, ratio drift |
-| Agents | 1 parameterised Watcher, Correlator, Briefing, Ask | Separate tuned watcher per domain |
-| Actions | Correlator recommends actions as text in the brief | Action agent drafts PO/email/reply + approval queue |
-| Delivery | Web app (Brief + Ask + Signals) + Telegram push | In-app approval UX, Connections page animation |
-| Infra | One Lightsail instance, docker-compose (db · api · worker · web · caddy) + host cron; demo user (no auth) | CI image builds + push-button redeploy; Jaeger trace UI |
+| Agents | OpenClaw: `sage-briefing` (triage + correlate + rank + write) and `sage-ask`, over an MCP tool surface | Separate tuned agent per domain |
+| Actions | `sage-briefing` recommends actions as text in the brief | Action agent drafts PO/email/reply + approval queue |
+| Delivery | Web app (Brief + Ask + Signals); Telegram push exists but is unwired (see ADR 0003) | In-app approval UX, Connections page animation |
+| Infra | One Lightsail instance, docker-compose (db · mcp · openclaw · api · web · caddy) + OpenClaw automation for scheduling; demo user (no auth) | CI image builds + push-button redeploy |
 | Proof | Eval harness with a headline number | Prompt hill-climbing rounds |
 
-**Never cut:** the metric layer, the Correlator agent, the Morning Brief UI, the
+**Never cut:** the metric layer, the `sage-briefing` agent's cross-domain
+correlation, the Morning Brief UI, the
 eval harness, the frozen dataset snapshot.
 
 **Cut list** (order things get cut if a sprint slips): 1. Ask chat richness →
@@ -51,17 +52,20 @@ Backs up: M4 on infrastructure.
   data passes a "does this look real?" eyeball from someone outside the team.
 
 ### M2 — Agent Engineer
-Owns: Strands agents, tool surface, prompts, LLM integration, eval harness.
-Backs up: M1 on detectors.
-- **Wk1:** Strands hello-world against the organisers' endpoint (`OllamaModel`, one
-  model for all agents — Sonnet 4.5); tool contracts frozen with M1; parameterised
-  Watcher against *stub* signals; brief-JSON shape agreed with M3.
-- **Wk2:** Watcher across all 3 domains on *real* signals + Briefing agent → a full
-  morning brief from real data; Ask agent v1 (single-turn, metric-cited); the
-  `agent_runs` worker loop.
-- **Wk3:** Correlator/Analyst — cross-domain causal chains, `$`-impact ranking,
-  recommended action as text, **strict output schema**; eval harness scoring recall /
-  precision / lead-time; one tuning pass.
+Owns: the MCP tool server (`packages/mcp`), the OpenClaw agent config
+(`openclaw/`) — prompts, agent definitions, the daily automation — and the eval
+harness. Backs up: M1 on detectors.
+- **Wk1:** confirm the organisers' endpoint registers under OpenClaw's
+  `models.providers` (the one real unknown — see ADR 0003); tool contracts frozen
+  with M1, served as MCP tools; `sage-briefing` agent against *stub* signals;
+  brief-JSON shape agreed with M3.
+- **Wk2:** `sage-briefing` across all 3 domains on *real* signals → a full morning
+  brief from real data via `save_brief`; `sage-ask` v1 (single-turn, metric-cited);
+  the API's background-task call into OpenClaw (no separate worker process).
+- **Wk3:** cross-domain correlation in `sage-briefing` — causal chains, `$`-impact
+  ranking, recommended action as text, enforced by `save_brief`'s schema check;
+  eval harness scoring recall / precision / lead-time; one prompt-tuning pass;
+  register the daily automation.
 - **Success test:** the eval harness runs and prints a number, and the hero
   scenario's causal chain matches the ground truth.
 
@@ -79,16 +83,18 @@ Backs up: M2 on tool/API contracts.
   without narration.
 
 ### M4 — Platform Engineer & Product Lead
-Owns: the Lightsail instance + docker-compose deploy, API service, Telegram bot,
-CI/CD — and the pitch, deck, demo script and video. Backs up: M3 on API integration.
+Owns: the Lightsail instance + docker-compose deploy, API service, the `mcp` +
+`openclaw` containers, CI/CD — and the pitch, deck, demo script and video.
+Backs up: M3 on API integration.
 - **Wk1:** get `LLM_BASE_URL` + `LLM_API_KEY` from the organisers; create the
   Lightsail instance + static IP + DNS; `Dockerfile`s + `docker-compose.prod.yml` +
   `Caddyfile` + cloud-init; `api` + `caddy` up so `https://$SAGE_DOMAIN/api/health`
   answers (unblocks M3); CI green; first draft of `docs/demo-script.md`.
-- **Wk2:** API routers + `agent_runs` table + `worker` container + host cron;
-  Telegram bot pushing the brief to a real phone; first full deploy.
-- **Wk3:** optional Jaeger trace UI; hardening and graceful degradation; deck
-  outline + demo-video shot list.
+- **Wk2:** API routers + `agent_runs` table + the API's background-task call into
+  OpenClaw (no separate worker container); `mcp` + `openclaw` containers up and
+  reachable from `api` on the internal network; register the daily automation;
+  first full deploy. (Telegram delivery is on hold — see ADR 0003; don't block on it.)
+- **Wk3:** hardening and graceful degradation; deck outline + demo-video shot list.
 - **Success test:** `docker compose up` on a fresh instance reproduces the whole
   system from clean.
 
@@ -107,20 +113,21 @@ CI/CD — and the pitch, deck, demo script and video. Backs up: M3 on API integr
 
 - **Sprint 1 · Sep 8–14 — Foundations & frozen contracts.** LLM endpoint creds in
   hand day 1. Repo + CI. Generator producing plausible 3-source data. Star schema
-  live. Strands hello-world against the endpoint. App shell rendering the static
-  brief mock. Lightsail instance up; `api` + `caddy` serving `/api/health` over HTTPS.
-  **Gate (Sep 14):** every member's lane runs locally; tool-JSON and brief-JSON
-  contracts signed and committed.
+  live. OpenClaw hello-world against the endpoint (day-1 spike — ADR 0003). App
+  shell rendering the static brief mock. Lightsail instance up; `api` + `caddy`
+  serving `/api/health` over HTTPS.
+  **Gate (Sep 14):** every member's lane runs locally; tool-JSON (now MCP) and
+  brief-JSON contracts signed and committed.
 - **Sprint 2 · Sep 15–21 — The vertical slice, end to end on the instance.** Full
   pipeline for all 3 domains but shallow: generator → warehouse → ~20 metrics → 3
-  detectors → Watcher → Briefing → real brief in the deployed web app, pushed to
-  Telegram. Ask answers a single question with a citation.
+  detectors → `sage-briefing` (via OpenClaw) → real brief in the deployed web app.
+  Ask answers a single question with a citation.
   **Gate (Sep 21):** a real anomaly, detected and explained, visible in a browser
-  on the deployed instance and on a phone. **The most important gate in the plan.**
-- **Sprint 3 · Sep 22–28 — The differentiator, then freeze.** Correlator shipping
-  real cross-domain causal chains with `$`-impact ranking and a recommended action.
-  Eval harness producing a headline number. Autonomous runs via the host cron.
-  Realism tuning. Dataset snapshot frozen. UI polish.
+  on the deployed instance. **The most important gate in the plan.**
+- **Sprint 3 · Sep 22–28 — The differentiator, then freeze.** `sage-briefing`
+  shipping real cross-domain causal chains with `$`-impact ranking and a
+  recommended action. Eval harness producing a headline number. Autonomous runs
+  via the OpenClaw automation. Realism tuning. Dataset snapshot frozen. UI polish.
   **Gate (Sep 28, hard):** the hero scenario runs end to end, unassisted, from a
   scheduled trigger. Code freeze. `git tag demo-freeze`.
 - **Finals · Sep 29 → Oct 10 — Land it.** Bugfixes only. Demo video recorded early.

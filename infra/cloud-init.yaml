@@ -3,7 +3,7 @@
 # instance, or pass via `aws lightsail create-instances --user-data file://...`.
 #
 # After boot: SSH in, put real secrets in /opt/sage/.env, then
-#   cd /opt/sage && sudo docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --build
+#   cd /opt/sage && sudo docker compose --profile agent -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --build
 
 package_update: true
 packages:
@@ -34,12 +34,15 @@ runcmd:
     LLM_BASE_URL=
     LLM_API_KEY=
     LLM_MODEL=claude-sonnet-4-5
+    OPENCLAW_TOKEN=change-me
     TELEGRAM_BOT_TOKEN=
     TELEGRAM_CHAT_ID=
     EOF
 
-  # --- Daily briefing cron (06:00 instance time) ---
-  - echo '0 6 * * * root curl -fsS -XPOST http://localhost/api/brief/run >> /var/log/sage-cron.log 2>&1' > /etc/cron.d/sage-briefing
+  # NOTE: the daily briefing is scheduled by an OpenClaw automation, not a host
+  # crontab — see openclaw/automations/daily-brief.md. Register it once, after
+  # the stack is up:
+  #   docker compose exec openclaw openclaw automations create --name sage-daily-brief ...
 
   # NOTE: bring the stack up manually after editing /opt/sage/.env:
-  #   cd /opt/sage && docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --build
+  #   cd /opt/sage && docker compose --profile agent -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --build

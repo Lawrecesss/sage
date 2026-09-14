@@ -16,7 +16,8 @@
 
 | Command | What |
 | --- | --- |
-| `./scripts/dev.sh` | API (`:8000`) + web app (`:3000`) with reload |
+| `./scripts/dev.sh` | MCP server + API (`:8000`) + web app (`:3000`) with reload |
+| `make agent-up` | `mcp` + `openclaw` in docker, for the full agent loop |
 | `make test` | `uv run pytest` + web tests |
 | `make lint` | ruff + mypy + `next lint` |
 | `make fmt` | `ruff format` |
@@ -27,14 +28,14 @@
 
 - **Python** — a `uv` workspace. Every `packages/*` is a member with its own
   `pyproject.toml`. Add a dependency with `uv add --package sage-<name> <dep>`.
-  Cross-package deps resolve automatically. (`infra/` is a plain deploy kit — no
-  Python, not a workspace member.)
+  Cross-package deps resolve automatically. (`infra/` and `openclaw/` are plain
+  config/deploy kits — no Python, not workspace members.)
 - **Web** — a `pnpm` workspace with a single member, `apps/web`.
 - Lockfiles (`uv.lock`, `pnpm-lock.yaml`) are committed — keep them in sync.
 
 ## Branching & PRs
 
-- Branch off `main`: `m<lane>/<short-topic>` (e.g. `m2/watcher-agent`).
+- Branch off `main`: `m<lane>/<short-topic>` (e.g. `m2/briefing-prompt`).
 - PRs are auto-labelled from the files they touch (`data/metrics`, `agent`,
   `frontend`, `backend`, `infra`, …) — see `.github/labeler.yml`. CI runs only the
   jobs those paths need (per-package `pytest`, web build, eval).

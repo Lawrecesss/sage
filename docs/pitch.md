@@ -43,15 +43,17 @@ day." — produced by `packages/evals`, on a slide.
 
 ## Stack credibility
 
-Runs on **AWS Lightsail**; agents built on the **Strands Agents SDK** against a
-**Bedrock-backed** inference endpoint. The whole system is one `docker compose up`
-on a fresh instance — reproducible from clean, local == prod.
+Runs on **AWS Lightsail**; agents run on **OpenClaw**, a self-hosted agent
+gateway, calling Sage's tool surface over **MCP** — against a **Bedrock-backed**
+inference endpoint. The whole system is one `docker compose up` on a fresh
+instance — reproducible from clean, local == prod.
 
 Note we deliberately run a **single mid-tier model (Claude Sonnet 4.5)** for every
 agent. The reliability comes from the *architecture* — a governed metric layer so no
 number is hallucinated, deterministic detection so anomalies are found the same way
-every run, and a Correlator constrained to a strict output schema over existing
-signals — not from throwing a frontier model at the problem.
+every run, an MCP tool boundary the agent cannot step outside of, and a brief that's
+schema-validated at the `save_brief` tool call — not from throwing a frontier model
+at the problem.
 
 ## Deck outline (TBD)
 
