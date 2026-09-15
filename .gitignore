@@ -26,15 +26,17 @@ pnpm-debug.log*
 !.env.example
 !apps/web/.env.local.example
 
-# Data artifacts (synthetic dataset, snapshots, parquet)
-/data/
+# Data artifacts (synthetic dataset, snapshots, parquet) — NOT the top-level
+# /data package (generator/warehouse/detectors source, tracked); runtime output
+# lives under /var/data instead to avoid colliding with that directory name.
+/var/data/
 *.parquet
 *.duckdb
 *.sqlite
 
 # AWS CDK
-infra/cdk.out/
-infra/.cdk.staging/
+platform/infra/cdk.out/
+platform/infra/.cdk.staging/
 
 # Editors / OS
 .DS_Store

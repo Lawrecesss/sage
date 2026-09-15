@@ -6,7 +6,7 @@
 ┌─ Connector simulators (3) ──── sales · inventory · accounting
 │   generate 12 months of correlated history, once, frozen
 │     ↓
-├─ Ingestion: sage-generate → Parquet on disk (./data)
+├─ Ingestion: sage-generate → Parquet on disk (./var/data)
 │     ↓
 ├─ Transform: SQL models → Postgres star schema (facts + dims)
 │     ↓
@@ -16,7 +16,7 @@
 ├─ ★ DETECTORS (deterministic Python/SQL) ── rolling z-score,
 │     week-over-week change, threshold breach → writes `signals` table
 │     ↓
-├─ ★ MCP SERVER (`packages/mcp`) ── the governed tool surface: list_metrics ·
+├─ ★ MCP SERVER (`agent/mcp`) ── the governed tool surface: list_metrics ·
 │     query_metric · compare_period · get_signals · trace_lineage · save_brief
 │     ↓ MCP (streamable HTTP, internal network only)
 ├─ ★ OPENCLAW (self-hosted agent gateway, one model — Claude Sonnet 4.5)
@@ -31,7 +31,7 @@
 │   stream straight through.
 │     ↓
 └─ Delivery: Next.js web app, behind Caddy on one host. (Telegram push via
-    `packages/notifier` exists but is currently unwired — see
+    `platform/notifier` exists but is currently unwired — see
     `decisions/0003-openclaw-agent-runtime.md`.)
 ```
 
@@ -43,24 +43,24 @@ extra detector types (STL residual, run-length, ratio drift).
 
 | Component | Package | Responsibility |
 | --- | --- | --- |
-| Connector simulators | `packages/generator/simulators` | Emit Shopify-/WMS-/Xero-shaped payloads over 12 months of correlated history |
-| Incident library | `packages/generator/incidents` | ~20 planted incidents = the eval ground truth |
-| Ingestion + transform | `packages/warehouse` | Parquet (on disk) → staging → fact/dim star schema |
-| Metric layer | `packages/warehouse/metrics` | Governed YAML catalog; `query_metric` / `list_metrics` / `trace_lineage` |
-| Detectors | `packages/detectors` | z-score / WoW / threshold → `signals` table + `$`-impact estimate + ranking |
-| MCP server | `packages/mcp` | The governed tool surface, served over MCP to OpenClaw; `save_brief` validates + persists the brief |
-| Agent runtime | `openclaw/` | OpenClaw config template, agent prompts (`sage-briefing`, `sage-ask`), the daily automation |
-| Eval harness | `packages/evals` | Replay frozen dataset → drive the OpenClaw briefing agent → score recall / correlation / impact-error / lead-time / precision |
-| API | `packages/api` | REST + SSE (uvicorn), the only public entry point; `POST /brief/run` enqueues an `agent_runs` row and calls OpenClaw |
-| Notifier | `packages/notifier` | Telegram push — currently unwired, see ADR 0003 |
+| Connector simulators | `data/generator/simulators` | Emit Shopify-/WMS-/Xero-shaped payloads over 12 months of correlated history |
+| Incident library | `data/generator/incidents` | ~20 planted incidents = the eval ground truth |
+| Ingestion + transform | `data/warehouse` | Parquet (on disk) → staging → fact/dim star schema |
+| Metric layer | `data/warehouse/metrics` | Governed YAML catalog; `query_metric` / `list_metrics` / `trace_lineage` |
+| Detectors | `data/detectors` | z-score / WoW / threshold → `signals` table + `$`-impact estimate + ranking |
+| MCP server | `agent/mcp` | The governed tool surface, served over MCP to OpenClaw; `save_brief` validates + persists the brief |
+| Agent runtime | `agent/openclaw/` | OpenClaw config template, agent prompts (`sage-briefing`, `sage-ask`), the daily automation |
+| Eval harness | `agent/evals` | Replay frozen dataset → drive the OpenClaw briefing agent → score recall / correlation / impact-error / lead-time / precision |
+| API | `platform/api` | REST + SSE (uvicorn), the only public entry point; `POST /brief/run` enqueues an `agent_runs` row and calls OpenClaw |
+| Notifier | `platform/notifier` | Telegram push — currently unwired, see ADR 0003 |
 | Web app | `apps/web` | Morning Brief · Signals list · Ask chat · Connections visual |
-| Infra | `infra` | Lightsail deploy kit: `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
+| Infra | `platform/infra` | Lightsail deploy kit: `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
 
 ## Contracts (freeze these in week 1)
 
 - **Tool JSON schemas** — M1 ↔ M2. See [`contracts/tool-schemas.md`](contracts/tool-schemas.md).
 - **Brief-JSON** — M2 ↔ M3. See [`contracts/brief-json.md`](contracts/brief-json.md).
-- **API shapes** — M2 ↔ M3, mirrored in `packages/api/src/sage_api/schemas/` and
+- **API shapes** — M2 ↔ M3, mirrored in `platform/api/src/sage_api/schemas/` and
   `apps/web/src/lib/types.ts`.
 
 Everyone codes against stubs until the real thing lands.
@@ -69,27 +69,27 @@ Everyone codes against stubs until the real thing lands.
 
 The team's AWS access is **Lightsail only**. Everything runs on a single instance
 (Ubuntu, ~4 GB, ~$24/mo — budget for a bump to `large_3_0` if six containers are
-tight) via `docker-compose`, provisioned by `infra/cloud-init.yaml`.
+tight) via `docker-compose`, provisioned by `platform/infra/cloud-init.yaml`.
 See [`decisions/0002-lightsail-single-instance.md`](decisions/0002-lightsail-single-instance.md)
 and [`decisions/0003-openclaw-agent-runtime.md`](decisions/0003-openclaw-agent-runtime.md).
 
 | Concern | Choice | Note |
 | --- | --- | --- |
-| Compute | 1 Lightsail instance, `docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d` | local == prod |
+| Compute | 1 Lightsail instance, `docker compose -f docker-compose.yml -f platform/infra/docker-compose.prod.yml up -d` | local == prod |
 | Services | `db` · `api` · `mcp` · `openclaw` · `web` · `caddy` | one box, six containers |
-| Agent runtime | **OpenClaw** (self-hosted agent gateway) | agent definitions live in `openclaw/`, not Python |
-| Tool surface | **MCP server** (`packages/mcp`, `sage_mcp`) | the only way OpenClaw touches Sage data; internal network only |
-| LLM (OpenClaw's model provider) | Organisers' **Ollama-compatible endpoint, Bedrock-backed** | configured under `models.providers.*` in `openclaw/openclaw.json5` |
+| Agent runtime | **OpenClaw** (self-hosted agent gateway) | agent definitions live in `agent/openclaw/`, not Python |
+| Tool surface | **MCP server** (`agent/mcp`, `sage_mcp`) | the only way OpenClaw touches Sage data; internal network only |
+| LLM (OpenClaw's model provider) | Organisers' **Ollama-compatible endpoint, Bedrock-backed** | configured under `models.providers.*` in `agent/openclaw/openclaw.json5` |
 | Database | `pgvector/pgvector:pg16` container | data on the instance disk; not exposed |
-| Object store | Parquet on the instance disk (`./data`) | frozen dataset is a few hundred MB — no bucket needed |
+| Object store | Parquet on the instance disk (`./var/data`) | frozen dataset is a few hundred MB — no bucket needed |
 | Scheduling | **OpenClaw automation** (built-in cron) wakes `sage-briefing` directly | no host crontab, no `worker` container |
 | Async agent runs | `agent_runs` table; the API drives the OpenClaw call from a `BackgroundTasks` job | no separate worker process, no SQS |
 | API | FastAPI on uvicorn, behind Caddy; the only public entry point | `/api/*` → api, everything else → web |
 | Frontend hosting | `web` container (Next.js `output: "standalone"`) | behind Caddy |
-| TLS / routing | Caddy 2 (`infra/Caddyfile`) | automatic Let's Encrypt; `mcp`/`openclaw` are never routed |
+| TLS / routing | Caddy 2 (`platform/infra/Caddyfile`) | automatic Let's Encrypt; `mcp`/`openclaw` are never routed |
 | Auth | Hardcoded demo user | no login for the demo |
-| Provisioning | `infra/cloud-init.yaml` + `infra/provision.sh` (`aws lightsail` CLI) | |
-| Notifications | Telegram Bot API via `packages/notifier` | currently unwired — see ADR 0003 |
+| Provisioning | `platform/infra/cloud-init.yaml` + `platform/infra/provision.sh` (`aws lightsail` CLI) | |
+| Notifications | Telegram Bot API via `platform/notifier` | currently unwired — see ADR 0003 |
 
 **Cost:** flat ~$24–48/mo for the instance. LLM inference runs on the **organisers'
 Bedrock bill** — there's no per-token cost to us, but watch for rate limiting /
@@ -100,8 +100,8 @@ throttling, and keep runs reproducible against the frozen dataset.
 One model for **every** agent: **Claude Sonnet 4.5** (`LLM_MODEL`; exact string as
 the endpoint lists it). No Opus, no Haiku — the per-tier scheme is gone. OpenClaw's
 model provider config points at the organisers' endpoint; agent definitions
-(system prompt, model, MCP tool profile) live in `openclaw/openclaw.json5` and
-`openclaw/prompts/*.md`, not in Python.
+(system prompt, model, MCP tool profile) live in `agent/openclaw/openclaw.json5` and
+`agent/openclaw/prompts/*.md`, not in Python.
 
 | Agent (OpenClaw `agents.entries`) | Model | Notes |
 | --- | --- | --- |
@@ -115,7 +115,7 @@ letting it take several tool-use turns (decompose → gather → synthesise).
 
 ### Constraints — design around these from day one
 
-- **Every tool is an MCP tool**, served by `packages/mcp` over streamable HTTP,
+- **Every tool is an MCP tool**, served by `agent/mcp` over streamable HTTP,
   reachable only on the internal docker network. OpenClaw has no other way to
   touch Sage data — no shell, no filesystem, no browser tool profile.
 - **No explicit prompt caching** (`cache_control` breakpoints) or effort/thinking

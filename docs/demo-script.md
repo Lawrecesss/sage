@@ -17,7 +17,7 @@ One persona, one story.
 > a median of **X days** earlier than manual review, at **Y minutes** of owner
 > attention per day."
 
-Numbers come from `packages/evals`. Do not say a number the harness hasn't produced.
+Numbers come from `agent/evals`. Do not say a number the harness hasn't produced.
 
 ## The hero scenario (scripted end to end)
 
@@ -29,7 +29,7 @@ Supplier delay → stockout → revenue + margin → recommended recovery action
 > PO-4471 is expedited (S$180 rush fee)."
 
 This is one of the cross-domain-only incidents in
-`packages/generator/src/sage_generator/incidents/planted/`.
+`data/generator/src/sage_generator/incidents/planted/`.
 
 ## Run of show (target: full loop < 90s)
 

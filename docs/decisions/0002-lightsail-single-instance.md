@@ -20,7 +20,7 @@ Two things changed:
 
 - **One Lightsail instance** (Ubuntu, ~4 GB, ~$24/mo) runs everything via
   `docker-compose` (`db` · `api` · `worker` · `web` · `caddy`), provisioned by
-  `infra/cloud-init.yaml`. Local `docker compose up` == prod.
+  `platform/infra/cloud-init.yaml`. Local `docker compose up` == prod.
 - **Postgres is the `pgvector/pgvector:pg16` container** on that instance; data on
   the instance disk. No managed database, no S3 (Parquet sits on disk).
 - **LLM via Strands' Ollama provider** — `OllamaModel(host=LLM_BASE_URL, headers=Bearer)`.
@@ -31,7 +31,7 @@ Two things changed:
 - **Scheduling is a host `crontab`** that POSTs `/api/brief/run` daily. No EventBridge.
 - **Caddy** terminates TLS and routes `/api/*` → api, everything else → web. No API
   Gateway, no Amplify.
-- **`infra/`** is a deploy kit — `cloud-init.yaml`, `docker-compose.prod.yml`,
+- **`platform/infra/`** is a deploy kit — `cloud-init.yaml`, `docker-compose.prod.yml`,
   `Caddyfile`, `provision.sh` — not a CDK app. It is no longer a `uv` workspace member.
 
 ## Consequences

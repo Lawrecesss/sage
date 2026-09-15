@@ -4,7 +4,7 @@ The governed metric layer is the **contract between data and agents**. Agents ge
 `list_metrics()` and `query_metric()` over it — nothing else. Every claim in a
 briefing traces back to a metric definition here.
 
-Source of truth: [`packages/warehouse/src/sage_warehouse/metrics/metrics.yaml`](../packages/warehouse/src/sage_warehouse/metrics/metrics.yaml).
+Source of truth: [`data/warehouse/src/sage_warehouse/metrics/metrics.yaml`](../data/warehouse/src/sage_warehouse/metrics/metrics.yaml).
 
 ## Each metric declares
 

@@ -2,8 +2,8 @@
 
 ## Lane summary
 
-- **Owns:** the MCP tool server (`packages/mcp`), the OpenClaw agent config
-  (`openclaw/` — agent definitions, prompts, the daily automation), and the eval
+- **Owns:** the MCP tool server (`agent/mcp`), the OpenClaw agent config
+  (`agent/openclaw/` — agent definitions, prompts, the daily automation), and the eval
   harness.
 - **Backs up:** M1 on detectors.
 - **Success test:** the eval harness runs and prints a number, and the hero
@@ -25,17 +25,17 @@ than hand-rolling an agent loop.
 
 | Area | Path |
 | --- | --- |
-| MCP server | `packages/mcp/src/sage_mcp/server.py` |
-| Tools (MCP, read) | `packages/mcp/src/sage_mcp/tools/{list_metrics,query_metric,compare_period,get_signals,trace_lineage}.py` |
-| Tool (MCP, write) | `packages/mcp/src/sage_mcp/tools/save_brief.py` — the brief-JSON schema boundary |
-| MCP server settings | `packages/mcp/src/sage_mcp/settings.py` |
-| OpenClaw config template | `openclaw/openclaw.json5` — agent definitions, model provider, MCP registration |
-| Agent prompts | `openclaw/prompts/{briefing,ask}.md` |
-| Daily automation | `openclaw/automations/daily-brief.md` |
-| Shared OpenClaw client | `packages/shared/src/sage_shared/openclaw.py` (used by `packages/api` too — coordinate signature changes with M4) |
-| Eval harness | `packages/evals/src/sage_evals/{harness,metrics,report}.py` |
+| MCP server | `agent/mcp/src/sage_mcp/server.py` |
+| Tools (MCP, read) | `agent/mcp/src/sage_mcp/tools/{list_metrics,query_metric,compare_period,get_signals,trace_lineage}.py` |
+| Tool (MCP, write) | `agent/mcp/src/sage_mcp/tools/save_brief.py` — the brief-JSON schema boundary |
+| MCP server settings | `agent/mcp/src/sage_mcp/settings.py` |
+| OpenClaw config template | `agent/openclaw/openclaw.json5` — agent definitions, model provider, MCP registration |
+| Agent prompts | `agent/openclaw/prompts/{briefing,ask}.md` |
+| Daily automation | `agent/openclaw/automations/daily-brief.md` |
+| Shared OpenClaw client | `shared/src/sage_shared/openclaw.py` (used by `platform/api` too — coordinate signature changes with M4) |
+| Eval harness | `agent/evals/src/sage_evals/{harness,metrics,report}.py` |
 
-Run your tests with `uv run pytest packages/mcp packages/evals`.
+Run your tests with `uv run pytest agent/mcp agent/evals`.
 
 ## LLM setup — one model, via the organisers' proxy
 
@@ -50,7 +50,7 @@ agent: Claude Sonnet 4.5** — no Opus, no Haiku, no per-tier scheme.
 | `sage-ask` | Claude Sonnet 4.5 | conversational drill-down, same MCP tools |
 
 **Constraints — design around these from day one:**
-- **Every tool is an MCP tool**, served by `packages/mcp` over streamable HTTP.
+- **Every tool is an MCP tool**, served by `agent/mcp` over streamable HTTP.
   OpenClaw's tool profile for both agents is `["mcp:sage"]` — no shell, browser,
   or filesystem tools. Don't widen this without updating ADR 0003.
 - **No `cache_control` prompt caching**, no adaptive-thinking / effort control
@@ -79,7 +79,7 @@ agent: Claude Sonnet 4.5** — no Opus, no Haiku, no per-tier scheme.
       cleanly, the fallback is a small OpenAI-shaped shim in front of the
       endpoint; decide that today, not in week 3.
 
-- [ ] **MCP server skeleton** — `packages/mcp/src/sage_mcp/server.py`, `settings.py`
+- [ ] **MCP server skeleton** — `agent/mcp/src/sage_mcp/server.py`, `settings.py`
       *Done when:* `uv run sage-mcp` starts a streamable-HTTP MCP server and an
       MCP client (or `curl`) can list its (still-stub) tools.
 
@@ -94,7 +94,7 @@ agent: Claude Sonnet 4.5** — no Opus, no Haiku, no per-tier scheme.
       *Done when:* the doc says "FROZEN" and is committed. **Deadline Sep 14.**
 
 - [ ] **🔒 Freeze brief-JSON with M3** — [`../contracts/brief-json.md`](../contracts/brief-json.md)
-      and `packages/shared/src/sage_shared/types.py`
+      and `shared/src/sage_shared/types.py`
       *Done when:* `MorningBrief` / `BriefItem` / `CausalChain` Pydantic models are
       final in `types.py`, the contract doc matches, and M3's `types.ts` mirrors it.
       **Deadline Sep 14.**
@@ -103,8 +103,8 @@ agent: Claude Sonnet 4.5** — no Opus, no Haiku, no per-tier scheme.
       *Done when:* it validates a payload against `MorningBrief` and returns a
       clear validation error for a malformed one (persistence can still be a stub).
 
-- [ ] **`sage-briefing` agent config against stub signals** — `openclaw/openclaw.json5`,
-      `openclaw/prompts/briefing.md`
+- [ ] **`sage-briefing` agent config against stub signals** — `agent/openclaw/openclaw.json5`,
+      `agent/openclaw/prompts/briefing.md`
       *Done when:* the agent is registered in OpenClaw, its tool profile is
       `["mcp:sage"]`, and a manual run against stub signals produces a
       structured (if rough) brief via `save_brief`.
@@ -117,7 +117,7 @@ runs end to end against stub data.
 
 ## Sprint 2 · Sep 15–21 — the vertical slice
 
-- [ ] **`sage-briefing` on real signals** — `openclaw/prompts/briefing.md`,
+- [ ] **`sage-briefing` on real signals** — `agent/openclaw/prompts/briefing.md`,
       `tools/get_signals.py`
       *Done when:* the agent reads M1's real `signals` table (via `get_signals`)
       for each of sales / inventory / accounting and produces triaged
@@ -125,17 +125,17 @@ runs end to end against stub data.
       correlation yet — that's Sprint 3).
 
 - [ ] **Brief assembly + `save_brief`** — `tools/save_brief.py`,
-      `openclaw/prompts/briefing.md`
+      `agent/openclaw/prompts/briefing.md`
       *Done when:* a full `MorningBrief` (≤5 items, severity-ranked, in Mei's
       language, every number citing a metric id) is persisted via `save_brief`
       from real data. Emits the frozen brief-JSON.
 
-- [ ] **`sage-ask` v1** — `openclaw/openclaw.json5`, `openclaw/prompts/ask.md`
+- [ ] **`sage-ask` v1** — `agent/openclaw/openclaw.json5`, `agent/openclaw/prompts/ask.md`
       *Done when:* single-turn Q&A that answers a question with a metric-cited
       number using `query_metric` / `compare_period`, reachable through OpenClaw's
       `POST /v1/chat/completions`.
 
-- [ ] **`sage_shared.openclaw` client** — `packages/shared/src/sage_shared/openclaw.py`
+- [ ] **`sage_shared.openclaw` client** — `shared/src/sage_shared/openclaw.py`
       *Done when:* `run_agent(agent_id, prompt, *, stream=...)` works against the
       real gateway for both a streaming and non-streaming call. M4 (API) and you
       (evals) both depend on this — agree the signature together before either
@@ -148,7 +148,7 @@ runs end to end against stub data.
 
 ## Sprint 3 · Sep 22–28 — the differentiator, then the number
 
-- [ ] **Cross-domain correlation** — `openclaw/prompts/briefing.md`
+- [ ] **Cross-domain correlation** — `agent/openclaw/prompts/briefing.md`
       *Done when:* `sage-briefing` produces cross-domain causal chains with
       `$`-impact ranking and a recommended action as text, under three hard
       constraints: (1) may only correlate **existing** signals from the
@@ -156,27 +156,27 @@ runs end to end against stub data.
       (3) `save_brief` **rejects** anything that doesn't fit the `CausalChain`
       schema — no free-form.
 
-- [ ] **Eval scoring functions** — `packages/evals/src/sage_evals/metrics.py`
+- [ ] **Eval scoring functions** — `agent/evals/src/sage_evals/metrics.py`
       *Done when:* pure functions for detection recall, precision, correlation
       accuracy (chain vs. ground-truth chain), impact-estimation error, and lead
       time — unit-tested.
 
-- [ ] **Eval harness** — `packages/evals/src/sage_evals/harness.py`
+- [ ] **Eval harness** — `agent/evals/src/sage_evals/harness.py`
       *Done when:* `uv run sage-evals` replays the full pipeline over M1's **frozen
       dataset snapshot**, calling `sage-briefing` through `sage_shared.openclaw`
       with a **fresh OpenClaw session per case** (reused sessions carry history
       and will poison determinism), and scores against the incident library.
 
-- [ ] **Eval report** — `packages/evals/src/sage_evals/report.py`
+- [ ] **Eval report** — `agent/evals/src/sage_evals/report.py`
       *Done when:* the harness prints a slide-ready summary ("surfaced N of ~20, a
       median of X days earlier, precision Y") and writes JSON. Hand the number to M4.
 
-- [ ] **Register the daily automation** — `openclaw/automations/daily-brief.md`
+- [ ] **Register the daily automation** — `agent/openclaw/automations/daily-brief.md`
       *Done when:* `openclaw automations create ...` is run on the deployed
       instance and `openclaw automations run sage-daily-brief` produces a real
       brief off-schedule, proving the job works before relying on its schedule.
 
-- [ ] **One tuning pass** — `openclaw/prompts/*.md`
+- [ ] **One tuning pass** — `agent/openclaw/prompts/*.md`
       *Done when:* run the harness, adjust prompts once, re-run, record the delta.
       Wire `uv run sage-evals` into CI on agent-prompt changes (mind the shared
       endpoint's rate limits — don't loop the full pipeline more than needed).

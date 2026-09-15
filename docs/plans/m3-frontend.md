@@ -32,7 +32,7 @@ Dev: `pnpm --filter web dev`. Build check: `pnpm --filter web build`. Lint: `pnp
 
 - [ ] **🔒 Freeze brief-JSON types with M2** — `apps/web/src/lib/types.ts` mirroring
       [`../contracts/brief-json.md`](../contracts/brief-json.md) and
-      `packages/shared/src/sage_shared/types.py`
+      `shared/src/sage_shared/types.py`
       *Done when:* `MorningBrief`, `BriefItem`, `CausalChain`, `Severity` TS types
       match the Pydantic models exactly. **Deadline Sep 14.** This is your source of
       truth for the rest of the build.

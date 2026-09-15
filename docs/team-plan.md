@@ -52,8 +52,8 @@ Backs up: M4 on infrastructure.
   data passes a "does this look real?" eyeball from someone outside the team.
 
 ### M2 — Agent Engineer
-Owns: the MCP tool server (`packages/mcp`), the OpenClaw agent config
-(`openclaw/`) — prompts, agent definitions, the daily automation — and the eval
+Owns: the MCP tool server (`agent/mcp`), the OpenClaw agent config
+(`agent/openclaw/`) — prompts, agent definitions, the daily automation — and the eval
 harness. Backs up: M1 on detectors.
 - **Wk1:** confirm the organisers' endpoint registers under OpenClaw's
   `models.providers` (the one real unknown — see ADR 0003); tool contracts frozen

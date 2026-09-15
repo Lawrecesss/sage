@@ -1,13 +1,13 @@
 # Evaluation plan
 
-The eval number goes on a slide. `packages/evals` replays the full pipeline over
+The eval number goes on a slide. `agent/evals` replays the full pipeline over
 the **frozen dataset snapshot** and scores against the planted incident library.
 
 ## Layers of verification
 
 ### Data layer
 Load the frozen dataset; assert every planted incident in `incidents/` is visible
-as a metric deviation. `pytest packages/warehouse` checks referential integrity and
+as a metric deviation. `pytest data/warehouse` checks referential integrity and
 that metric SQL returns sane values at every grain.
 
 ### Metric layer
@@ -20,7 +20,7 @@ Run against the incident library, report precision/recall per detector.
 enough that a brief has ≤ 5 items.
 
 ### Agents — the headline number
-`packages/evals` replays the pipeline over the frozen dataset and scores:
+`agent/evals` replays the pipeline over the frozen dataset and scores:
 
 | Metric | Definition |
 | --- | --- |

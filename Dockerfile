@@ -1,5 +1,5 @@
 # Python image for the `api` and `worker` services (same image, different command —
-# the command is set per-service in infra/docker-compose.prod.yml).
+# the command is set per-service in platform/infra/docker-compose.prod.yml).
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
@@ -9,7 +9,10 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 # Dependency layer — cached unless the lockfile or a pyproject changes.
 COPY pyproject.toml uv.lock .python-version ./
-COPY packages ./packages
+COPY data ./data
+COPY agent ./agent
+COPY platform ./platform
+COPY shared ./shared
 RUN uv sync --frozen --no-dev --all-packages
 
 # Source

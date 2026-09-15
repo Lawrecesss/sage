@@ -39,7 +39,7 @@ why, and bring it to the owner.
 
 "On 12 months of SME data with ~20 planted incidents, Sage surfaced N of them, a
 median of X days earlier than manual review, at Y minutes of owner attention per
-day." — produced by `packages/evals`, on a slide.
+day." — produced by `agent/evals`, on a slide.
 
 ## Stack credibility
 

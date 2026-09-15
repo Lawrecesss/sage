@@ -61,22 +61,22 @@ jobs:
             web=true
             agent=true
             lint_python=true
-            packages='["warehouse","generator","detectors","mcp","evals","api","notifier","shared"]'
+            packages='["data/warehouse","data/generator","data/detectors","agent/mcp","agent/evals","platform/api","platform/notifier","shared"]'
           else
             web=false
             agent=false
             pkgs=()
 
-            has "data/metrics" && pkgs+=(warehouse generator)
-            has "detectors"    && pkgs+=(detectors)
-            has "agent"        && { pkgs+=(mcp evals); agent=true; }
-            has "backend"      && pkgs+=(api)
-            has "notifier"     && pkgs+=(notifier)
+            has "data/metrics" && pkgs+=(data/warehouse data/generator)
+            has "detectors"    && pkgs+=(data/detectors)
+            has "agent"        && { pkgs+=(agent/mcp agent/evals); agent=true; }
+            has "backend"      && pkgs+=(platform/api)
+            has "notifier"     && pkgs+=(platform/notifier)
             has "frontend"     && web=true
 
             # Shared code or a dependency bump can affect every package.
             if has "shared" || has "deps"; then
-              pkgs=(warehouse generator detectors mcp evals api notifier shared)
+              pkgs=(data/warehouse data/generator data/detectors agent/mcp agent/evals platform/api platform/notifier shared)
               agent=true
               web=true
             fi
@@ -137,7 +137,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --all-packages
-      - run: uv run pytest packages/${{ matrix.package }}
+      - run: uv run pytest ${{ matrix.package }}
 
   test-web:
     needs: changes

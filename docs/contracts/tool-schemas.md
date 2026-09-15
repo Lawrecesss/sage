@@ -1,6 +1,6 @@
 # MCP tool schemas (M1 ↔ M2)
 
-> **FREEZE THIS IN WEEK 1.** Every tool is served by `packages/mcp` (`sage_mcp`)
+> **FREEZE THIS IN WEEK 1.** Every tool is served by `agent/mcp` (`sage_mcp`)
 > over MCP — OpenClaw agents touch Sage data *only* through these, via the `sage`
 > MCP server. Once signed, changes go through both M1 and M2. See
 > [`../decisions/0003-openclaw-agent-runtime.md`](../decisions/0003-openclaw-agent-runtime.md).

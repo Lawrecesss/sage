@@ -6,8 +6,8 @@
 "data/metrics":
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/warehouse/**"
-          - "packages/generator/**"
+          - "data/warehouse/**"
+          - "data/generator/**"
           - "docs/metrics-catalog.md"
           - "docs/incident-library.md"
           - "docs/eval-plan.md"
@@ -15,20 +15,20 @@
 detectors:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/detectors/**"
+          - "data/detectors/**"
 
 agent:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/mcp/**"
-          - "openclaw/**"
-          - "packages/evals/**"
+          - "agent/mcp/**"
+          - "agent/openclaw/**"
+          - "agent/evals/**"
           - "docs/contracts/**"
 
 backend:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/api/**"
+          - "platform/api/**"
 
 frontend:
   - changed-files:
@@ -38,17 +38,17 @@ frontend:
 notifier:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/notifier/**"
+          - "platform/notifier/**"
 
 shared:
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/shared/**"
+          - "shared/**"
 
 infra:
   - changed-files:
       - any-glob-to-any-file:
-          - "infra/**"
+          - "platform/infra/**"
           - "Dockerfile"
           - ".dockerignore"
           - "docker-compose*.yml"

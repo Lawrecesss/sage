@@ -23,10 +23,10 @@ The owner can then ask follow-ups in plain language.
 
 1. **A metric layer, not text-to-SQL.** Agents never write SQL. They call
    `query_metric(metric_id, dimensions, period)` against a governed YAML catalog
-   ([`packages/warehouse/.../metrics/metrics.yaml`](packages/warehouse/src/sage_warehouse/metrics/metrics.yaml)).
+   ([`data/warehouse/.../metrics/metrics.yaml`](data/warehouse/src/sage_warehouse/metrics/metrics.yaml)).
    Every number in a brief is traceable to a metric definition.
 2. **Detection is deterministic; explanation is the LLM.** Statistics find anomalies
-   ([`packages/detectors`](packages/detectors)); the LLM interprets, correlates,
+   ([`data/detectors`](data/detectors)); the LLM interprets, correlates,
    prioritises, communicates. Reproducible run-to-run, ~80% cheaper in tokens.
 3. **Cross-source correlation is the product.** Only a system reading sales,
    inventory and accounting together can say: *"Supplier SG-Textiles slipped 6 days
@@ -48,7 +48,7 @@ Connector simulators (3: sales · inventory · accounting)
   → Transform (SQL models → Postgres star schema)
   → ★ Metric layer (YAML, ~20-25 governed metrics)
   → ★ Detectors (deterministic: z-score, WoW change, threshold → signals table)
-  → ★ MCP server (packages/mcp): the governed tool surface, over MCP
+  → ★ MCP server (agent/mcp): the governed tool surface, over MCP
   → ★ OpenClaw (agent gateway, one model — Claude Sonnet 4.5): sage-briefing · sage-ask
   → API (FastAPI/uvicorn, the only public entry point; agent runs async via the
     `agent_runs` table + a background task; OpenClaw's own automation schedules
@@ -62,17 +62,17 @@ Full detail: [`docs/architecture.md`](docs/architecture.md).
 
 | Path | What |
 | --- | --- |
-| `packages/generator` | Synthetic SME dataset + planted incident library (the eval ground truth) |
-| `packages/warehouse` | Star schema, SQL transforms, **governed metric layer** |
-| `packages/detectors` | Deterministic anomaly detection — no LLM |
-| `packages/mcp` | MCP server — Sage's governed tool surface, served to OpenClaw |
-| `openclaw` | OpenClaw config: agent definitions, prompts, the daily automation |
-| `packages/evals` | Agent eval harness — the headline number |
-| `packages/api` | FastAPI service (uvicorn, containerised) — the only public entry point |
-| `packages/notifier` | Telegram delivery — currently unwired, see ADR 0003 |
-| `packages/shared` | Cross-package types, settings, constants, the OpenClaw client |
+| `data/generator` | Synthetic SME dataset + planted incident library (the eval ground truth) |
+| `data/warehouse` | Star schema, SQL transforms, **governed metric layer** |
+| `data/detectors` | Deterministic anomaly detection — no LLM |
+| `agent/mcp` | MCP server — Sage's governed tool surface, served to OpenClaw |
+| `agent/openclaw` | OpenClaw config: agent definitions, prompts, the daily automation |
+| `agent/evals` | Agent eval harness — the headline number |
+| `platform/api` | FastAPI service (uvicorn, containerised) — the only public entry point |
+| `platform/notifier` | Telegram delivery — currently unwired, see ADR 0003 |
+| `platform/infra` | Lightsail deploy kit — `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
+| `shared` | Cross-package types, settings, constants, the OpenClaw client |
 | `apps/web` | Next.js 15 web app (Morning Brief · Signals · Ask · Connections) |
-| `infra` | Lightsail deploy kit — `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
 | `docs` | Architecture, demo script, pitch, contracts, plans, decisions |
 
 ## Stack

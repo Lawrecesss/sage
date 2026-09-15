@@ -32,27 +32,27 @@ Never commit real secrets. Key vars:
 
 ## Deploy to Lightsail
 
-One instance, `docker-compose`. Full detail in [`../infra/README.md`](../infra/README.md).
+One instance, `docker-compose`. Full detail in [`../platform/infra/README.md`](../platform/infra/README.md).
 
 ```bash
 # from your laptop (needs the `aws` CLI + Lightsail permissions + a registered SSH key)
-bash infra/provision.sh create      # instance + static IP + firewall (22/80/443)
+bash platform/infra/provision.sh create      # instance + static IP + firewall (22/80/443)
 # → point your DNS A record at the static IP it prints
-bash infra/provision.sh setup       # ssh in, install Docker, clone, first `compose up --build`
+bash platform/infra/provision.sh setup       # ssh in, install Docker, clone, first `compose up --build`
 
 # on the instance: put real secrets in /opt/sage/.env
 #   POSTGRES_PASSWORD  SAGE_DOMAIN  LLM_BASE_URL  LLM_API_KEY  LLM_MODEL
 #   OPENCLAW_TOKEN  TELEGRAM_*
-bash infra/provision.sh restart
+bash platform/infra/provision.sh restart
 
-# register the daily automation once — see openclaw/automations/daily-brief.md
+# register the daily automation once — see agent/openclaw/automations/daily-brief.md
 ssh ubuntu@<ip> 'cd /opt/sage && docker compose exec openclaw openclaw automations create ...'
 
 # load the frozen dataset (once M1's generator lands)
 ssh ubuntu@<ip> 'cd /opt/sage && docker compose ... exec api sage-warehouse init-db && ./scripts/seed-demo.sh'
 ```
 
-Redeploy: `bash infra/provision.sh restart`, or the manual `Deploy` GitHub workflow.
+Redeploy: `bash platform/infra/provision.sh restart`, or the manual `Deploy` GitHub workflow.
 
 ### Day 1
 

@@ -18,19 +18,19 @@ SQL, Polars (the generator + transforms use it), a bit of time-series stats
 
 | Area | Path |
 | --- | --- |
-| Generator | `packages/generator/src/sage_generator/` |
-| Incident library | `packages/generator/src/sage_generator/incidents/` |
-| Warehouse schema + transforms | `packages/warehouse/src/sage_warehouse/models/` |
-| Metric layer | `packages/warehouse/src/sage_warehouse/metrics/` |
-| Detectors | `packages/detectors/src/sage_detectors/` |
+| Generator | `data/generator/src/sage_generator/` |
+| Incident library | `data/generator/src/sage_generator/incidents/` |
+| Warehouse schema + transforms | `data/warehouse/src/sage_warehouse/models/` |
+| Metric layer | `data/warehouse/src/sage_warehouse/metrics/` |
+| Detectors | `data/detectors/src/sage_detectors/` |
 
-Run your tests with `uv run pytest packages/generator packages/warehouse packages/detectors`.
+Run your tests with `uv run pytest data/generator data/warehouse data/detectors`.
 
 ---
 
 ## Sprint 1 · Sep 8–14 — a plausible 3-source dataset, locally
 
-- [ ] **Generator config** — `packages/generator/src/sage_generator/config.py`
+- [ ] **Generator config** — `data/generator/src/sage_generator/config.py`
       *Done when:* a `GeneratorConfig` (Pydantic) carries date range, seed, channel
       mix, category list and seasonality knobs; defaults reproduce a 12-month run.
 
@@ -46,12 +46,12 @@ Run your tests with `uv run pytest packages/generator packages/warehouse package
       data is **correlated** — an order in sales moves stock in inventory and COGS in
       accounting for the same SKU and day.
 
-- [ ] **Generator CLI** — `packages/generator/src/sage_generator/cli.py`
-      *Done when:* `uv run sage-generate generate --months 12 --seed 42 --out ./data`
+- [ ] **Generator CLI** — `data/generator/src/sage_generator/cli.py`
+      *Done when:* `uv run sage-generate generate --months 12 --seed 42 --out ./var/data`
       writes Parquet per source plus a `manifest.json`. This is what
       `scripts/seed-demo.sh` calls.
 
-- [ ] **Warehouse DDL** — `packages/warehouse/src/sage_warehouse/models/schema.sql`
+- [ ] **Warehouse DDL** — `data/warehouse/src/sage_warehouse/models/schema.sql`
       *Done when:* real `CREATE TABLE` statements for the dims (`dim_date`, `dim_sku`,
       `dim_channel`, `dim_supplier`, `dim_customer_segment`), the facts
       (`fact_order_line`, `fact_stock_movement`, `fact_purchase_order`,
@@ -61,14 +61,14 @@ Run your tests with `uv run pytest packages/generator packages/warehouse package
       the API's background task claims and updates it, and `save_brief` marks it
       done; agree the shape with M4). Currently a comment sketch — turn it into DDL.
 
-- [ ] **DB bootstrap** — `packages/warehouse/src/sage_warehouse/db.py`, `cli.py`
+- [ ] **DB bootstrap** — `data/warehouse/src/sage_warehouse/db.py`, `cli.py`
       *Done when:* `db.py` exposes an engine/session factory reading
       `Settings.database_url`; `uv run sage-warehouse init-db` applies `schema.sql`
       (and `CREATE EXTENSION vector`) against local Postgres from `docker-compose.yml`.
 
-- [ ] **Loader** — `packages/warehouse/src/sage_warehouse/loader.py`,
+- [ ] **Loader** — `data/warehouse/src/sage_warehouse/loader.py`,
       `models/run_transforms.py`
-      *Done when:* `uv run sage-warehouse load ./data` loads raw Parquet → staging →
+      *Done when:* `uv run sage-warehouse load ./var/data` loads raw Parquet → staging →
       the star schema; `run_transforms.py` executes the ordered `.sql` files in
       `models/transforms/`.
 
@@ -89,13 +89,13 @@ Run your tests with `uv run pytest packages/generator packages/warehouse package
       committed. **Deadline Sep 14.** *Blocks:* all of M2.
 
 **S1 gate:** `./scripts/seed-demo.sh` runs generate → init-db → load without error;
-`uv run pytest packages/warehouse` is green.
+`uv run pytest data/warehouse` is green.
 
 ---
 
 ## Sprint 2 · Sep 15–21 — the metric layer and real detectors
 
-- [ ] **Metric catalog to ~20–25 metrics** — `packages/warehouse/src/sage_warehouse/metrics/metrics.yaml`
+- [ ] **Metric catalog to ~20–25 metrics** — `data/warehouse/src/sage_warehouse/metrics/metrics.yaml`
       *Done when:* every metric listed in [`../metrics-catalog.md`](../metrics-catalog.md)
       (sales / inventory / accounting) exists with `sql`, `grain`, `dimensions`,
       `unit`, `direction`, `detectors`, `owner_domain` (and `thresholds` where the
@@ -133,7 +133,7 @@ Run your tests with `uv run pytest packages/generator packages/warehouse package
       *Done when:* ~20 total across 12 months, including **4–5 cross-domain-only**
       (invisible from any single source). Types per [`../incident-library.md`](../incident-library.md).
 
-- [ ] **Golden-file metric tests** — `packages/warehouse/tests/`
+- [ ] **Golden-file metric tests** — `data/warehouse/tests/`
       *Done when:* each metric queried at day/week/month grain against a fixed
       dataset produces known values; drift fails CI.
 
@@ -153,7 +153,7 @@ browser. Your part: real signals exist for all 3 domains.
       *Done when:* signals get a combined score (`score × |dollar_impact|`) so a
       brief can be trimmed to **≤5 items**. Feeds M2's Briefing agent.
 
-- [ ] **🔒 Freeze the demo dataset** — versioned snapshot under `./data/snapshots/`
+- [ ] **🔒 Freeze the demo dataset** — versioned snapshot under `./var/data/snapshots/`
       *Done when:* one command reproduces the exact demo dataset, it's tagged
       (`demo-v1`), and `SAGE_DATASET_SNAPSHOT` in `.env.example` points at it.
       Everything downstream now runs against this. *Deterministic, live-demo-safe.*
@@ -162,8 +162,8 @@ browser. Your part: real signals exist for all 3 domains.
       *Done when:* M2 can run the eval harness against a fixed, complete incident
       set. **Deadline Sep 26.**
 
-- [ ] **Referential-integrity tests** — `packages/warehouse/tests/`
-      *Done when:* `uv run pytest packages/warehouse` asserts every planted incident
+- [ ] **Referential-integrity tests** — `data/warehouse/tests/`
+      *Done when:* `uv run pytest data/warehouse` asserts every planted incident
       is visible as a metric deviation, and FK integrity across the star schema.
 
 **S3 gate (hard, Sep 28):** the hero scenario's numbers (revenue drop, margin drop,
