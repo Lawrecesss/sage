@@ -1,5 +1,5 @@
 # Python image for the `mcp` service (agent/shared is nested under agent/, so
-# one COPY covers both). The backend will be a separate Next.js app (apps/web),
+# one COPY covers both). The backend will be a separate Next.js app (web),
 # not built from this image — see docs/decisions/0003-openclaw-agent-runtime.md.
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 

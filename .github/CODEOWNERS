@@ -39,15 +39,15 @@
 /docs/plans/m2-agents.md        @nann5an1
 
 # --- Frontend + Backend (M3) --- the web app; will also own the API once it
-# lands as Next.js routes inside apps/web (see docs/team-plan.md)
-/apps/web/                      @swamhtetg90
+# lands as Next.js routes inside web (see docs/team-plan.md)
+/web/                      @swamhtetg90
 /docs/plans/m3-frontend.md      @swamhtetg90
 
 # --- Infra + everything else (M4) --- deploy kit, containers, CI/CD, notifier, product docs
 /platform/infra/                @thanthtetaung4
 /Dockerfile                     @thanthtetaung4
 /docker-compose.yml             @thanthtetaung4
-/apps/web/Dockerfile            @thanthtetaung4
+/web/Dockerfile            @thanthtetaung4
 /.github/                       @thanthtetaung4
 /platform/notifier/             @thanthtetaung4
 /Makefile                       @thanthtetaung4

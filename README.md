@@ -70,7 +70,7 @@ Full detail: [`docs/architecture.md`](docs/architecture.md).
 | `agent/shared` | Cross-package types, settings, constants, the OpenClaw client |
 | `platform/notifier` | Telegram delivery — currently unwired, see ADR 0003 |
 | `platform/infra` | Lightsail deploy kit — `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
-| `apps/web` | Next.js 15 web app (Morning Brief · Signals · Ask · Connections); the backend (Next.js API routes) lands here too — see docs/team-plan.md |
+| `web` | Next.js 15 web app (Morning Brief · Signals · Ask · Connections); the backend (Next.js API routes) lands here too — see docs/team-plan.md |
 | `docs` | Architecture, demo script, pitch, contracts, plans, decisions |
 
 ## Stack

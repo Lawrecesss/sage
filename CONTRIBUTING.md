@@ -31,7 +31,7 @@
   `pyproject.toml`. Add a dependency with `uv add --package sage-<name> <dep>`.
   Cross-package deps resolve automatically. (`platform/infra/` and `agent/openclaw/`
   are plain config/deploy kits — no Python, not workspace members.)
-- **Web** — a `pnpm` workspace with a single member, `apps/web`.
+- **Web** — a `pnpm` workspace with a single member, `web`.
 - Lockfiles (`uv.lock`, `pnpm-lock.yaml`) are committed — keep them in sync.
 
 ## Branching & PRs

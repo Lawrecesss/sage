@@ -14,7 +14,7 @@ metric id. No raw SQL, no numbers without a `query_metric` / `compare_period`
 call behind them.
 
 The backend proxies this agent's OpenClaw response straight through as an SSE
-stream (`POST /ask` — to be implemented as a Next.js API route in `apps/web`).
+stream (`POST /ask` — to be implemented as a Next.js API route in `web`).
 
 TODO: write the real system prompt — see docs/architecture.md and
 docs/contracts/tool-schemas.md.

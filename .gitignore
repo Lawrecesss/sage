@@ -24,7 +24,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
-!apps/web/.env.local.example
+!web/.env.local.example
 
 # Data artifacts (synthetic dataset, snapshots, parquet) — NOT the top-level
 # /data package (generator/warehouse/detectors source, tracked); runtime output

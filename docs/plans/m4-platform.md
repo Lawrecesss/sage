@@ -1,7 +1,7 @@
 # M4 — Platform Engineer & Product Lead
 
 > **Update (post-restructure):** the API service will be Next.js, built inside
-> `apps/web`, not a separate Python service owned by this lane — see
+> `web`, not a separate Python service owned by this lane — see
 > docs/team-plan.md. `platform/api` (the FastAPI stub this doc's Sprint 1–2
 > tasks describe) has been deleted. The container/compose/CI/deploy-kit
 > ownership below still stands; the specific "build the FastAPI app" tasks in
@@ -31,7 +31,7 @@ Linux + Docker + docker-compose, Caddy, a little Lightsail (or the `aws` CLI), C
 | Area | Path |
 | --- | --- |
 | Deploy kit | `platform/infra/cloud-init.yaml`, `platform/infra/docker-compose.prod.yml`, `platform/infra/Caddyfile`, `platform/infra/provision.sh` |
-| Container builds | `Dockerfile` (mcp), `apps/web/Dockerfile` (will also carry the backend once it's Next.js) |
+| Container builds | `Dockerfile` (mcp), `web/Dockerfile` (will also carry the backend once it's Next.js) |
 | Base compose | `docker-compose.yml` (`db` always-on; `mcp` + `openclaw` behind the `agent` profile) |
 | API service | `platform/api/src/sage_api/` — `main.py`, `settings.py`, `deps.py`, `agent.py`, `routers/*`, `schemas/*` |
 | Job queue table | `data/warehouse/.../models/schema.sql` (`agent_runs`) — with M1 |
@@ -59,10 +59,10 @@ Run notifier tests: `uv run pytest platform/notifier`.
       running) with a static IP and ports 22/80/443 open; you've pointed a DNS A
       record at the IP and set `SAGE_DOMAIN`.
 
-- [ ] **Container builds** — `Dockerfile`, `apps/web/Dockerfile`
+- [ ] **Container builds** — `Dockerfile`, `web/Dockerfile`
       *Done when:* `docker build .` (Python image, runs api + mcp) and
-      `docker build -f apps/web/Dockerfile .` (Next standalone) both succeed;
-      `apps/web` has `output: "standalone"`.
+      `docker build -f web/Dockerfile .` (Next standalone) both succeed;
+      `web` has `output: "standalone"`.
 
 - [ ] **Compose stack** — `docker-compose.yml` + `platform/infra/docker-compose.prod.yml` + `platform/infra/Caddyfile`
       *Done when:* `docker compose -f docker-compose.yml -f platform/infra/docker-compose.prod.yml config`

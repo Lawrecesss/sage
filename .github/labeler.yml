@@ -28,7 +28,7 @@ agent:
 frontend:
   - changed-files:
       - any-glob-to-any-file:
-          - "apps/web/**"
+          - "web/**"
 
 notifier:
   - changed-files:

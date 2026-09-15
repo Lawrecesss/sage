@@ -7,8 +7,8 @@
 > [`../decisions/0003-openclaw-agent-runtime.md`](../decisions/0003-openclaw-agent-runtime.md)).
 > Mirrored in:
 > - `agent/shared/src/sage_shared/types.py` (Pydantic — the source of truth `save_brief` validates against)
-> - the backend's response schema (Next.js, `apps/web` — once built)
-> - `apps/web/src/lib/types.ts` (TypeScript)
+> - the backend's response schema (Next.js, `web` — once built)
+> - `web/src/lib/types.ts` (TypeScript)
 >
 > Status: **DRAFT — not final.**
 

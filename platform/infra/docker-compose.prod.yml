@@ -23,7 +23,7 @@ services:
   web:
     build:
       context: ../..
-      dockerfile: apps/web/Dockerfile
+      dockerfile: web/Dockerfile
     environment:
       NEXT_PUBLIC_API_BASE_URL: /api   # served by this same Next.js app once its API routes land
     restart: unless-stopped

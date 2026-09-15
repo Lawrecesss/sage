@@ -1,7 +1,7 @@
 # Team plan — 4 members
 
 > **Update (post-restructure):** the backend will be **Next.js** (API routes /
-> server actions inside `apps/web`), not a separate FastAPI/Python service.
+> server actions inside `web`), not a separate FastAPI/Python service.
 > `platform/api` (the old FastAPI stub) has been deleted. M4's lane below still
 > owns the deploy kit, containers, and CI/CD; API-service tasks specifically
 > need re-planning against M3 once that work starts — see the notes left in

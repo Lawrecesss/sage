@@ -15,7 +15,7 @@ Local Postgres (with pgvector) comes from `docker-compose.yml` on `localhost:543
 
 ## Environment variables
 
-Copy `.env.example` → `.env` and `apps/web/.env.local.example` → `apps/web/.env.local`.
+Copy `.env.example` → `.env` and `web/.env.local.example` → `web/.env.local`.
 Never commit real secrets. Key vars:
 
 | Var | Used by | Note |
@@ -63,7 +63,7 @@ Redeploy: `bash platform/infra/provision.sh restart`, or the manual `Deploy` Git
 - Create the Lightsail instance + static IP; point DNS.
 - Bring `web` + `caddy` up so `https://$SAGE_DOMAIN` answers (unblocks M3). The
   `/api/health` check specifically needs the backend, which isn't built yet
-  (Next.js, inside `apps/web` — see docs/team-plan.md).
+  (Next.js, inside `web` — see docs/team-plan.md).
 
 ## Demo-day checklist
 

@@ -6,9 +6,9 @@
 .ruff_cache
 .mypy_cache
 node_modules
-apps/web/node_modules
-apps/web/.next
-data
+web/node_modules
+web/.next
+/var/data
 *.parquet
 *.duckdb
 .env

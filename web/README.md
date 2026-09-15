@@ -1,4 +1,4 @@
-# apps/web — Sage web app
+# web — Sage web app
 
 Next.js 15 (App Router) · TypeScript · Tailwind · shadcn/ui · Recharts · SSE.
 

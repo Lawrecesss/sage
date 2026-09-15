@@ -52,7 +52,7 @@ extra detector types (STL residual, run-length, ratio drift).
 | Agent runtime | `agent/openclaw/` | OpenClaw config template, agent prompts (`sage-briefing`, `sage-ask`), the daily automation |
 | Eval harness | `agent/evals` | Replay frozen dataset → drive the OpenClaw briefing agent → score recall / correlation / impact-error / lead-time / precision |
 | Notifier | `platform/notifier` | Telegram push — currently unwired, see ADR 0003 |
-| Web app + API | `apps/web` | Morning Brief · Signals list · Ask chat · Connections visual; the backend (Next.js API routes, the only public entry point; `POST /brief/run` enqueues an `agent_runs` row and calls OpenClaw) lands here too — see docs/team-plan.md |
+| Web app + API | `web` | Morning Brief · Signals list · Ask chat · Connections visual; the backend (Next.js API routes, the only public entry point; `POST /brief/run` enqueues an `agent_runs` row and calls OpenClaw) lands here too — see docs/team-plan.md |
 | Infra | `platform/infra` | Lightsail deploy kit: `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
 
 ## Contracts (freeze these in week 1)
@@ -60,7 +60,7 @@ extra detector types (STL residual, run-length, ratio drift).
 - **Tool JSON schemas** — M1 ↔ M2. See [`contracts/tool-schemas.md`](contracts/tool-schemas.md).
 - **Brief-JSON** — M2 ↔ M3. See [`contracts/brief-json.md`](contracts/brief-json.md).
 - **API shapes** — M2 ↔ M3, mirrored in the backend's response schemas (Next.js,
-  `apps/web`) and `apps/web/src/lib/types.ts`.
+  `web`) and `web/src/lib/types.ts`.
 
 Everyone codes against stubs until the real thing lands.
 

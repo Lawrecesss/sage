@@ -38,7 +38,7 @@ This is one of the cross-domain-only incidents in
 | 1 | The problem — five tabs, no answer | (slide) | 30s max |
 | 2 | Scheduled run fires | `openclaw` / `api` logs | "an OpenClaw automation fired this at 6am, unassisted" |
 | 3 | *(on hold)* Telegram push lands on a real phone | phone on stage | pending the delivery-channel decision — see `docs/decisions/0003-openclaw-agent-runtime.md`; cut this beat from the run-of-show until it's resolved |
-| 4 | Morning Brief opens | `apps/web` `/` | ≤5 severity-ranked cards |
+| 4 | Morning Brief opens | `web` `/` | ≤5 severity-ranked cards |
 | 5 | Expand the hero card — the causal chain | Brief card "why" | every number cites a metric |
 | 6 | Recommended action + dollar rationale | Brief card | "expedite PO-4471, S$180 rush, S$3,100 recoverable" |
 | 7 | Ask a follow-up in plain language | `/ask` | streamed, metric-cited answer |
