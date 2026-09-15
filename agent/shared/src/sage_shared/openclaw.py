@@ -1,9 +1,10 @@
 """Thin HTTP client for OpenClaw's OpenAI-compatible chat-completions endpoint.
 
-Used by `platform/api` (to run `sage-briefing` / `sage-ask`) and by
-`agent/evals` (to replay the frozen dataset through the same path production
-uses). Nothing else in this repo should call an LLM endpoint directly — see
-docs/decisions/0003-openclaw-agent-runtime.md.
+Used by `agent/evals` (to replay the frozen dataset through the same path
+production uses). The backend will be Next.js, not Python, so it will most
+likely call OpenClaw's HTTP endpoint directly rather than through this client
+— see docs/team-plan.md. Nothing else in this repo should call an LLM endpoint
+directly — see docs/decisions/0003-openclaw-agent-runtime.md.
 
 Expected shape:
 
@@ -17,13 +18,12 @@ Expected shape:
     ) -> dict | AsyncIterator[dict]:
         \"\"\"POST {openclaw_base_url}/v1/chat/completions with
         model="openclaw/{agent_id}" and an Authorization: Bearer {openclaw_token}
-        header. stream=True yields parsed SSE `data:` chunks as they arrive
-        (used by sage_api.routers.ask); stream=False returns the final JSON
-        response (used by sage_api.routers.brief and the eval harness).
+        header. stream=True yields parsed SSE `data:` chunks as they arrive;
+        stream=False returns the final JSON response (used by the eval harness).
 
         Raises on a non-2xx response or a malformed SSE frame — callers decide
-        how to map that to their own error handling (e.g. sage_api.agent maps
-        it to a 502, the eval harness records it as a failed case).
+        how to map that to their own error handling (e.g. the eval harness
+        records it as a failed case).
         \"\"\"
 
 Session note: OpenClaw sessions carry conversation history server-side. The eval

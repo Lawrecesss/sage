@@ -1,5 +1,12 @@
 # M3 — Frontend & Experience Engineer
 
+> **Update (post-restructure):** the backend will be Next.js API routes inside
+> this same app, not a separate FastAPI service owned by M4 — see
+> docs/team-plan.md. `platform/api` has been deleted. This doc's references
+> below to M4 delivering "API base URL + /health + /brief/latest" are stale;
+> re-plan that handoff (now likely a task this lane owns itself) once the
+> backend work starts — left as-is here rather than rewritten.
+
 ## Lane summary
 
 - **Owns:** the entire Next.js app, visual design, interaction, the demo's look.
@@ -32,7 +39,7 @@ Dev: `pnpm --filter web dev`. Build check: `pnpm --filter web build`. Lint: `pnp
 
 - [ ] **🔒 Freeze brief-JSON types with M2** — `apps/web/src/lib/types.ts` mirroring
       [`../contracts/brief-json.md`](../contracts/brief-json.md) and
-      `shared/src/sage_shared/types.py`
+      `agent/shared/src/sage_shared/types.py`
       *Done when:* `MorningBrief`, `BriefItem`, `CausalChain`, `Severity` TS types
       match the Pydantic models exactly. **Deadline Sep 14.** This is your source of
       truth for the rest of the build.

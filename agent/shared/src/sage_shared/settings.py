@@ -16,8 +16,6 @@ Fields (pydantic-settings, read from environment / .env):
                          (default "sage-briefing" / "sage-ask")
   mcp_url                 internal URL of the MCP server, e.g.
                          "http://mcp:9100/mcp" (consumed by openclaw.json5)
-  sage_domain             public hostname (Caddy / CORS)
-  cors_allow_origins      list[str]
   telegram_bot_token / telegram_chat_id   platform/notifier — currently unwired,
                          see docs/decisions/0003-openclaw-agent-runtime.md
   sage_dataset_snapshot / sage_gen_seed / sage_gen_months

@@ -32,7 +32,7 @@ than hand-rolling an agent loop.
 | OpenClaw config template | `agent/openclaw/openclaw.json5` — agent definitions, model provider, MCP registration |
 | Agent prompts | `agent/openclaw/prompts/{briefing,ask}.md` |
 | Daily automation | `agent/openclaw/automations/daily-brief.md` |
-| Shared OpenClaw client | `shared/src/sage_shared/openclaw.py` (used by `platform/api` too — coordinate signature changes with M4) |
+| Shared OpenClaw client | `agent/shared/src/sage_shared/openclaw.py` (the future Next.js backend will likely call OpenClaw directly instead — see docs/team-plan.md) |
 | Eval harness | `agent/evals/src/sage_evals/{harness,metrics,report}.py` |
 
 Run your tests with `uv run pytest agent/mcp agent/evals`.
@@ -94,7 +94,7 @@ agent: Claude Sonnet 4.5** — no Opus, no Haiku, no per-tier scheme.
       *Done when:* the doc says "FROZEN" and is committed. **Deadline Sep 14.**
 
 - [ ] **🔒 Freeze brief-JSON with M3** — [`../contracts/brief-json.md`](../contracts/brief-json.md)
-      and `shared/src/sage_shared/types.py`
+      and `agent/shared/src/sage_shared/types.py`
       *Done when:* `MorningBrief` / `BriefItem` / `CausalChain` Pydantic models are
       final in `types.py`, the contract doc matches, and M3's `types.ts` mirrors it.
       **Deadline Sep 14.**
@@ -135,9 +135,9 @@ runs end to end against stub data.
       number using `query_metric` / `compare_period`, reachable through OpenClaw's
       `POST /v1/chat/completions`.
 
-- [ ] **`sage_shared.openclaw` client** — `shared/src/sage_shared/openclaw.py`
+- [ ] **`sage_shared.openclaw` client** — `agent/shared/src/sage_shared/openclaw.py`
       *Done when:* `run_agent(agent_id, prompt, *, stream=...)` works against the
-      real gateway for both a streaming and non-streaming call. M4 (API) and you
+      real gateway for both a streaming and non-streaming call. The future backend and you
       (evals) both depend on this — agree the signature together before either
       builds on it.
 
@@ -192,7 +192,7 @@ the OpenClaw automation, matches the incident library's declared chain.
 | --- | --- | --- |
 | M1 | Frozen MCP tool schemas (jointly) | Sep 14 |
 | M3 | Frozen brief-JSON + `sage_shared.types` models | Sep 14 |
-| M4 | `sage_shared.openclaw.run_agent` signature (agreed jointly) | Sep 16 |
+| M3 | `sage_shared.openclaw.run_agent` signature (agreed jointly, once the backend needs it) | Sep 16 |
 | M3 | A real `MorningBrief` payload shape from `sage-briefing` | Sep 20 |
 | M4 | The daily automation registered and proven with a manual run | Sep 25 |
 | M4 | Eval headline number for the deck | Sep 27 |

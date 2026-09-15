@@ -13,8 +13,8 @@ Constraint carried over from the old Ask agent: every number in an answer cites 
 metric id. No raw SQL, no numbers without a `query_metric` / `compare_period`
 call behind them.
 
-The API proxies this agent's OpenClaw response straight through as an SSE stream
-(`POST /ask` — see `platform/api/src/sage_api/routers/ask.py`).
+The backend proxies this agent's OpenClaw response straight through as an SSE
+stream (`POST /ask` — to be implemented as a Next.js API route in `apps/web`).
 
 TODO: write the real system prompt — see docs/architecture.md and
 docs/contracts/tool-schemas.md.

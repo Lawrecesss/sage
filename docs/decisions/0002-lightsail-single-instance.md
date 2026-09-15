@@ -49,3 +49,9 @@ the organisers' bill — watch rate limits instead); no multi-service IAM.
 "frontier model does the reasoning" slide — the *architecture* (governed metric
 layer, deterministic detection, constrained Correlator) is what makes one mid-tier
 model reliable.
+
+**Update (post-restructure):** the `api` and `worker` containers/routes named
+above are stale on two counts — [0003](0003-openclaw-agent-runtime.md) already
+removed `worker`, and the backend will now be Next.js inside `apps/web`, not a
+separate `api` service — see docs/team-plan.md. Everything else here (Lightsail,
+Postgres on-instance, one model, no managed services) still stands.

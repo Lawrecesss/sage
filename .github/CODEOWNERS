@@ -33,14 +33,14 @@
 /agent/mcp/                     @nann5an1
 /agent/openclaw/                @nann5an1
 /agent/evals/                   @nann5an1
+/agent/shared/                  @nann5an1
 /docs/contracts/                @nann5an1
 /docs/decisions/0003-openclaw-agent-runtime.md   @nann5an1
 /docs/plans/m2-agents.md        @nann5an1
 
-# --- Frontend + Backend (M3 + API) --- the web app and the FastAPI service
+# --- Frontend + Backend (M3) --- the web app; will also own the API once it
+# lands as Next.js routes inside apps/web (see docs/team-plan.md)
 /apps/web/                      @swamhtetg90
-/platform/api/                  @swamhtetg90
-/shared/                        @swamhtetg90
 /docs/plans/m3-frontend.md      @swamhtetg90
 
 # --- Infra + everything else (M4) --- deploy kit, containers, CI/CD, notifier, product docs

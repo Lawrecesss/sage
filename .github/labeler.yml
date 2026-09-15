@@ -25,11 +25,6 @@ agent:
           - "agent/evals/**"
           - "docs/contracts/**"
 
-backend:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "platform/api/**"
-
 frontend:
   - changed-files:
       - any-glob-to-any-file:
@@ -43,7 +38,7 @@ notifier:
 shared:
   - changed-files:
       - any-glob-to-any-file:
-          - "shared/**"
+          - "agent/shared/**"
 
 infra:
   - changed-files:

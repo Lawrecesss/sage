@@ -23,7 +23,8 @@
     },
     http: {
       endpoints: {
-        // platform/api talks to this endpoint via sage_shared.openclaw.
+        // The backend (Next.js, once built) talks to this endpoint; the eval
+        // harness (agent/evals) uses it too, via sage_shared.openclaw.
         chatCompletions: { enabled: true },
       },
     },

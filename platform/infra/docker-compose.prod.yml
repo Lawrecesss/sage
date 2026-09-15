@@ -2,31 +2,13 @@
 #   docker compose -f docker-compose.yml -f platform/infra/docker-compose.prod.yml up -d
 #
 # The base file provides `db` and the `agent` profile (`mcp` + `openclaw`) — it
-# reads POSTGRES_PASSWORD from the environment. This file adds the api/web app
-# services and the reverse proxy. All secrets come from /opt/sage/.env on the
-# instance. No `worker` service — see docs/decisions/0003-openclaw-agent-runtime.md;
-# the API drives OpenClaw from a background task instead of a separate process.
+# reads POSTGRES_PASSWORD from the environment. This file adds the web app
+# service and the reverse proxy. All secrets come from /opt/sage/.env on the
+# instance. No `worker` service — see docs/decisions/0003-openclaw-agent-runtime.md.
+# No separate `api` service — the backend will be Next.js API routes inside
+# `web`, not a standalone Python process; see docs/team-plan.md.
 
 services:
-  api:
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-    command: uvicorn sage_api.main:app --host 0.0.0.0 --port 8000
-    environment:
-      DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD}@db:5432/sage
-      OPENCLAW_BASE_URL: http://openclaw:18789
-      OPENCLAW_TOKEN: ${OPENCLAW_TOKEN:?set in .env}
-      OPENCLAW_AGENT_BRIEFING: ${OPENCLAW_AGENT_BRIEFING:-sage-briefing}
-      OPENCLAW_AGENT_ASK: ${OPENCLAW_AGENT_ASK:-sage-ask}
-      CORS_ALLOW_ORIGINS: https://${SAGE_DOMAIN}
-    depends_on:
-      db:
-        condition: service_healthy
-      openclaw:
-        condition: service_started
-    restart: unless-stopped
-
   # Re-declares the required env vars the base file leaves soft-defaulted (so a
   # plain local `docker compose up -d db` doesn't need them) — the real deploy
   # must not silently run OpenClaw without real credentials.
@@ -43,9 +25,7 @@ services:
       context: ../..
       dockerfile: apps/web/Dockerfile
     environment:
-      NEXT_PUBLIC_API_BASE_URL: /api   # browser hits /api via Caddy
-    depends_on:
-      - api
+      NEXT_PUBLIC_API_BASE_URL: /api   # served by this same Next.js app once its API routes land
     restart: unless-stopped
 
   caddy:
@@ -60,7 +40,6 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - api
       - web
     restart: unless-stopped
 

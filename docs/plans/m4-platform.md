@@ -1,5 +1,14 @@
 # M4 — Platform Engineer & Product Lead
 
+> **Update (post-restructure):** the API service will be Next.js, built inside
+> `apps/web`, not a separate Python service owned by this lane — see
+> docs/team-plan.md. `platform/api` (the FastAPI stub this doc's Sprint 1–2
+> tasks describe) has been deleted. The container/compose/CI/deploy-kit
+> ownership below still stands; the specific "build the FastAPI app" tasks in
+> Sprint 1–2 need re-planning against M3 once the Next.js backend work starts —
+> left as-is here rather than rewritten, since that re-plan is a decision for
+> M3/M4 to make together, not a mechanical path fix.
+
 ## Lane summary
 
 - **Owns:** the Lightsail instance + `docker-compose` deploy, the API service, the
@@ -22,7 +31,7 @@ Linux + Docker + docker-compose, Caddy, a little Lightsail (or the `aws` CLI), C
 | Area | Path |
 | --- | --- |
 | Deploy kit | `platform/infra/cloud-init.yaml`, `platform/infra/docker-compose.prod.yml`, `platform/infra/Caddyfile`, `platform/infra/provision.sh` |
-| Container builds | `Dockerfile` (api + mcp, same image, different command), `apps/web/Dockerfile` |
+| Container builds | `Dockerfile` (mcp), `apps/web/Dockerfile` (will also carry the backend once it's Next.js) |
 | Base compose | `docker-compose.yml` (`db` always-on; `mcp` + `openclaw` behind the `agent` profile) |
 | API service | `platform/api/src/sage_api/` — `main.py`, `settings.py`, `deps.py`, `agent.py`, `routers/*`, `schemas/*` |
 | Job queue table | `data/warehouse/.../models/schema.sql` (`agent_runs`) — with M1 |
@@ -31,7 +40,7 @@ Linux + Docker + docker-compose, Caddy, a little Lightsail (or the `aws` CLI), C
 | CI | `.github/workflows/ci.yml`, `deploy.yml` |
 | Product docs | `docs/demo-script.md`, `docs/pitch.md`, `docs/runbook.md` |
 
-Run API tests: `uv run pytest platform/api platform/notifier`.
+Run notifier tests: `uv run pytest platform/notifier`.
 
 ---
 

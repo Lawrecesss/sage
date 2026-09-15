@@ -61,7 +61,7 @@ jobs:
             web=true
             agent=true
             lint_python=true
-            packages='["data/warehouse","data/generator","data/detectors","agent/mcp","agent/evals","platform/api","platform/notifier","shared"]'
+            packages='["data/warehouse","data/generator","data/detectors","agent/mcp","agent/evals","agent/shared","platform/notifier"]'
           else
             web=false
             agent=false
@@ -70,13 +70,12 @@ jobs:
             has "data/metrics" && pkgs+=(data/warehouse data/generator)
             has "detectors"    && pkgs+=(data/detectors)
             has "agent"        && { pkgs+=(agent/mcp agent/evals); agent=true; }
-            has "backend"      && pkgs+=(platform/api)
             has "notifier"     && pkgs+=(platform/notifier)
             has "frontend"     && web=true
 
             # Shared code or a dependency bump can affect every package.
             if has "shared" || has "deps"; then
-              pkgs=(data/warehouse data/generator data/detectors agent/mcp agent/evals platform/api platform/notifier shared)
+              pkgs=(data/warehouse data/generator data/detectors agent/mcp agent/evals agent/shared platform/notifier)
               agent=true
               web=true
             fi

@@ -6,8 +6,8 @@
 > documented. The web app renders it (Telegram delivery is on hold — see
 > [`../decisions/0003-openclaw-agent-runtime.md`](../decisions/0003-openclaw-agent-runtime.md)).
 > Mirrored in:
-> - `shared/src/sage_shared/types.py` (Pydantic — the source of truth `save_brief` validates against)
-> - `platform/api/src/sage_api/schemas/brief.py` (Pydantic, API response shape)
+> - `agent/shared/src/sage_shared/types.py` (Pydantic — the source of truth `save_brief` validates against)
+> - the backend's response schema (Next.js, `apps/web` — once built)
 > - `apps/web/src/lib/types.ts` (TypeScript)
 >
 > Status: **DRAFT — not final.**

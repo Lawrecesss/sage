@@ -71,3 +71,10 @@ something this decision can freeze in advance.
 **Still true from 0002:** one Lightsail instance, `docker-compose`, Postgres on
 the instance disk, Caddy for TLS/routing, no auth for the demo, one model
 (Claude Sonnet 4.5) for every agent.
+
+**Update (post-restructure):** "the backend" throughout this decision was
+FastAPI (`platform/api`) at the time it was written. The backend will now be
+Next.js, built inside `apps/web`, not a separate Python service — see
+docs/team-plan.md. Everything else in this decision (OpenClaw, MCP, the tool
+boundary, `agent_runs`, no `worker` container, cron via OpenClaw automations)
+stands unchanged; only the language calling the backend "FastAPI" is stale.

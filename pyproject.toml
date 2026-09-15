@@ -11,9 +11,8 @@ members = [
   "data/detectors",
   "agent/mcp",
   "agent/evals",
-  "platform/api",
+  "agent/shared",
   "platform/notifier",
-  "shared",
 ]
 
 [tool.uv.sources]
@@ -23,7 +22,6 @@ sage-warehouse = { workspace = true }
 sage-detectors = { workspace = true }
 sage-mcp = { workspace = true }
 sage-evals = { workspace = true }
-sage-api = { workspace = true }
 sage-notifier = { workspace = true }
 
 [dependency-groups]
@@ -38,7 +36,7 @@ line-length = 100
 target-version = "py312"
 
 [tool.pytest.ini_options]
-testpaths = ["data", "agent", "platform", "shared"]
+testpaths = ["data", "agent", "platform"]
 addopts = "--import-mode=importlib -ra"
 
 [tool.mypy]

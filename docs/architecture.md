@@ -51,17 +51,16 @@ extra detector types (STL residual, run-length, ratio drift).
 | MCP server | `agent/mcp` | The governed tool surface, served over MCP to OpenClaw; `save_brief` validates + persists the brief |
 | Agent runtime | `agent/openclaw/` | OpenClaw config template, agent prompts (`sage-briefing`, `sage-ask`), the daily automation |
 | Eval harness | `agent/evals` | Replay frozen dataset → drive the OpenClaw briefing agent → score recall / correlation / impact-error / lead-time / precision |
-| API | `platform/api` | REST + SSE (uvicorn), the only public entry point; `POST /brief/run` enqueues an `agent_runs` row and calls OpenClaw |
 | Notifier | `platform/notifier` | Telegram push — currently unwired, see ADR 0003 |
-| Web app | `apps/web` | Morning Brief · Signals list · Ask chat · Connections visual |
+| Web app + API | `apps/web` | Morning Brief · Signals list · Ask chat · Connections visual; the backend (Next.js API routes, the only public entry point; `POST /brief/run` enqueues an `agent_runs` row and calls OpenClaw) lands here too — see docs/team-plan.md |
 | Infra | `platform/infra` | Lightsail deploy kit: `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
 
 ## Contracts (freeze these in week 1)
 
 - **Tool JSON schemas** — M1 ↔ M2. See [`contracts/tool-schemas.md`](contracts/tool-schemas.md).
 - **Brief-JSON** — M2 ↔ M3. See [`contracts/brief-json.md`](contracts/brief-json.md).
-- **API shapes** — M2 ↔ M3, mirrored in `platform/api/src/sage_api/schemas/` and
-  `apps/web/src/lib/types.ts`.
+- **API shapes** — M2 ↔ M3, mirrored in the backend's response schemas (Next.js,
+  `apps/web`) and `apps/web/src/lib/types.ts`.
 
 Everyone codes against stubs until the real thing lands.
 
@@ -76,16 +75,15 @@ and [`decisions/0003-openclaw-agent-runtime.md`](decisions/0003-openclaw-agent-r
 | Concern | Choice | Note |
 | --- | --- | --- |
 | Compute | 1 Lightsail instance, `docker compose -f docker-compose.yml -f platform/infra/docker-compose.prod.yml up -d` | local == prod |
-| Services | `db` · `api` · `mcp` · `openclaw` · `web` · `caddy` | one box, six containers |
+| Services | `db` · `mcp` · `openclaw` · `web` · `caddy` | one box, five containers (no separate `api` — see below) |
 | Agent runtime | **OpenClaw** (self-hosted agent gateway) | agent definitions live in `agent/openclaw/`, not Python |
 | Tool surface | **MCP server** (`agent/mcp`, `sage_mcp`) | the only way OpenClaw touches Sage data; internal network only |
 | LLM (OpenClaw's model provider) | Organisers' **Ollama-compatible endpoint, Bedrock-backed** | configured under `models.providers.*` in `agent/openclaw/openclaw.json5` |
 | Database | `pgvector/pgvector:pg16` container | data on the instance disk; not exposed |
 | Object store | Parquet on the instance disk (`./var/data`) | frozen dataset is a few hundred MB — no bucket needed |
 | Scheduling | **OpenClaw automation** (built-in cron) wakes `sage-briefing` directly | no host crontab, no `worker` container |
-| Async agent runs | `agent_runs` table; the API drives the OpenClaw call from a `BackgroundTasks` job | no separate worker process, no SQS |
-| API | FastAPI on uvicorn, behind Caddy; the only public entry point | `/api/*` → api, everything else → web |
-| Frontend hosting | `web` container (Next.js `output: "standalone"`) | behind Caddy |
+| Async agent runs | `agent_runs` table; the backend drives the OpenClaw call from a background job | no separate worker process, no SQS |
+| API + frontend | Next.js (`web` container, `output: "standalone"`), the only public entry point | the backend lands as API routes inside this same app — see docs/team-plan.md; behind Caddy |
 | TLS / routing | Caddy 2 (`platform/infra/Caddyfile`) | automatic Let's Encrypt; `mcp`/`openclaw` are never routed |
 | Auth | Hardcoded demo user | no login for the demo |
 | Provisioning | `platform/infra/cloud-init.yaml` + `platform/infra/provision.sh` (`aws lightsail` CLI) | |

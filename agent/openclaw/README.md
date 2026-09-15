@@ -28,10 +28,10 @@ agent/openclaw/
 - **Model provider:** the organisers' Ollama-compatible, Bedrock-backed
   endpoint, registered under `models.providers.sageOrganisers`. One model for
   every agent — Claude Sonnet 4.5, `LLM_MODEL` in `.env`.
-- **Entry point:** `platform/api` calls this gateway's OpenAI-compatible
-  `POST /v1/chat/completions` (`sage_shared.openclaw.run_agent`), never an LLM
-  directly. `model: "openclaw/sage-briefing"` or `"openclaw/sage-ask"` selects
-  the agent.
+- **Entry point:** the backend (Next.js, once built — see docs/team-plan.md)
+  calls this gateway's OpenAI-compatible `POST /v1/chat/completions`, never an
+  LLM directly; the eval harness does the same via `sage_shared.openclaw.run_agent`.
+  `model: "openclaw/sage-briefing"` or `"openclaw/sage-ask"` selects the agent.
 - **Scheduling:** an OpenClaw automation (`automations/daily-brief.md`) wakes
   `sage-briefing` on its own — no host cron.
 - **Network:** the `openclaw` container is never published by docker-compose
@@ -44,8 +44,8 @@ agent/openclaw/
 2. Add an entry under `agents.entries` in `openclaw.json5` — model, system
    prompt file, tool profile (`["mcp:sage"]` unless there's a real reason for
    more).
-3. Point `sage_shared.settings` (and whichever `platform/api` router needs it)
-   at the new agent id.
+3. Point `sage_shared.settings` (and whichever backend route needs it) at the
+   new agent id.
 
 ## Local dev
 
