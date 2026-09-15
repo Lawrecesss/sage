@@ -34,10 +34,6 @@ pnpm-debug.log*
 *.duckdb
 *.sqlite
 
-# AWS CDK
-platform/infra/cdk.out/
-platform/infra/.cdk.staging/
-
 # Editors / OS
 .DS_Store
 .idea/

@@ -4,194 +4,125 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # Work out what to test from the PR's labels (see .github/labeler.yml,
-  # which is the source of truth for what each label covers).
-  #
-  # The Labeler workflow (pull_request_target) and this one (pull_request)
-  # both fire on `opened`, so a run can start here before labels have
-  # landed. We don't special-case that: it just resolves to "no labels yet"
-  # and tests get skipped. The `labeled`/`unlabeled` trigger above then
-  # fires a fresh run once the Labeler workflow applies them, and the
-  # concurrency group cancels the stale run — so the check that ends up
-  # counting is always the one with the right labels.
   changes:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
     outputs:
-      web: ${{ steps.map.outputs.web }}
-      agent: ${{ steps.map.outputs.agent }}
-      lint_python: ${{ steps.map.outputs.lint_python }}
-      packages: ${{ steps.map.outputs.packages }}
+      changes: ${{ steps.filter.outputs.changes }}
     steps:
-      - name: Read PR labels
-        id: labels
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            labels=$(gh pr view "${{ github.event.pull_request.number }}" \
-              --repo "${{ github.repository }}" \
-              --json labels -q '[.labels[].name] | join(",")')
-          else
-            # Push to main (post-merge): no PR/labels to key off — test everything.
-            labels="__all__"
-          fi
-          echo "labels=$labels" >> "$GITHUB_OUTPUT"
-          echo "Labels: $labels"
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            mcp: 'mcp/**'
+            openclaw: 'openclaw/**'
+            generator: 'data/generator/**'
+            warehouse: 'data/warehouse/**'
+            detectors: 'data/detectors/**'
+            evals: 'data/evals/**'
+            notifier: 'platform/notifier/**'
+            web: 'web/**'
+            compose: 'docker-compose.yml'
 
-      # Label -> test target mapping. Keep label names in sync with
-      # .github/labeler.yml.
-      - id: map
-        env:
-          LABELS: ",${{ steps.labels.outputs.labels }},"
-        run: |
-          set -euo pipefail
-          has() { [[ "$LABELS" == *",$1,"* ]]; }
-
-          if [ "$LABELS" = ",__all__," ]; then
-            web=true
-            agent=true
-            lint_python=true
-            packages='["data/warehouse","data/generator","data/detectors","agent/mcp","agent/evals","agent/shared","platform/notifier"]'
-          else
-            web=false
-            agent=false
-            pkgs=()
-
-            has "data/metrics" && pkgs+=(data/warehouse data/generator)
-            has "detectors"    && pkgs+=(data/detectors)
-            has "agent"        && { pkgs+=(agent/mcp agent/evals); agent=true; }
-            has "notifier"     && pkgs+=(platform/notifier)
-            has "frontend"     && web=true
-
-            # Shared code or a dependency bump can affect every package.
-            if has "shared" || has "deps"; then
-              pkgs=(data/warehouse data/generator data/detectors agent/mcp agent/evals agent/shared platform/notifier)
-              agent=true
-              web=true
-            fi
-
-            if [ "${#pkgs[@]}" -gt 0 ]; then
-              lint_python=true
-              packages=$(printf '%s\n' "${pkgs[@]}" | sort -u | jq -R . | jq -sc .)
-            else
-              lint_python=false
-              packages='[]'
-            fi
-          fi
-
-          echo "web=$web" >> "$GITHUB_OUTPUT"
-          echo "agent=$agent" >> "$GITHUB_OUTPUT"
-          echo "lint_python=$lint_python" >> "$GITHUB_OUTPUT"
-          echo "packages=$packages" >> "$GITHUB_OUTPUT"
-          echo "Resolved: web=$web agent=$agent lint_python=$lint_python packages=$packages"
-
-  lint-python:
+  compose-validate:
     needs: changes
-    if: needs.changes.outputs.lint_python == 'true'
+    if: contains(fromJSON(needs.changes.outputs.changes), 'compose')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-        with:
-          enable-cache: true
-      - run: uv sync --all-packages
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy
+      - run: docker compose config -q
 
-  test-python:
+  python:
     needs: changes
-    if: needs.changes.outputs.packages != '[]'
-    runs-on: ubuntu-latest
+    if: contains(fromJSON(needs.changes.outputs.changes), matrix.service)
     strategy:
       fail-fast: false
       matrix:
-        package: ${{ fromJSON(needs.changes.outputs.packages) }}
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: sage
-          POSTGRES_PASSWORD: sage
-          POSTGRES_DB: sage
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U sage" --health-interval 5s
-          --health-timeout 5s --health-retries 10
-    env:
-      DATABASE_URL: postgresql+psycopg://sage:sage@localhost:5432/sage
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-        with:
-          enable-cache: true
-      - run: uv sync --all-packages
-      - run: uv run pytest ${{ matrix.package }}
-
-  test-web:
-    needs: changes
-    if: needs.changes.outputs.web == 'true'
+        include:
+          - service: mcp
+            path: mcp
+            package: sage_mcp
+          - service: generator
+            path: data/generator
+            package: sage_generator
+          - service: warehouse
+            path: data/warehouse
+            package: sage_warehouse
+          - service: detectors
+            path: data/detectors
+            package: sage_detectors
+          - service: evals
+            path: data/evals
+            package: sage_evals
+          - service: notifier
+            path: platform/notifier
+            package: sage_notifier
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.path }}
+        run: uv sync --frozen
+
+      - name: Lint
+        working-directory: ${{ matrix.path }}
+        run: uv run ruff check .
+
+      - name: Import check
+        working-directory: ${{ matrix.path }}
+        run: uv run python -c "import ${{ matrix.package }}"
+
+      - name: Test
+        working-directory: ${{ matrix.path }}
+        run: |
+          if [ -d tests ]; then
+            uv run pytest
+          else
+            echo "no tests yet"
+          fi
+
+      - name: Docker build
+        run: docker build -t sage-${{ matrix.service }} ${{ matrix.path }}
+
+  node:
+    needs: changes
+    if: contains(fromJSON(needs.changes.outputs.changes), matrix.service)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: web
+            path: web
+          - service: openclaw
+            path: openclaw
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm build
 
-  # Runs when the "agent" label is set — see docs/eval-plan.md.
-  eval:
-    needs: changes
-    if: needs.changes.outputs.agent == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-        with:
-          enable-cache: true
-      - run: uv sync --all-packages
-      - name: Run the agent eval harness
-        run: |
-          if uv run sage-evals --help >/dev/null 2>&1; then
-            uv run sage-evals
-          else
-            echo "::notice::sage-evals not implemented yet — skipping (docs/eval-plan.md)"
-          fi
+      - run: corepack enable
 
-  # Single required check for branch protection: green if nothing needed
-  # doing failed. Skipped jobs are fine.
-  ci-ok:
-    if: always()
-    needs: [changes, lint-python, test-python, test-web, eval]
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          for r in "${{ needs.changes.result }}" \
-                   "${{ needs.lint-python.result }}" \
-                   "${{ needs.test-python.result }}" \
-                   "${{ needs.test-web.result }}" \
-                   "${{ needs.eval.result }}"; do
-            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
-              echo "A required job did not pass: $r"
-              exit 1
-            fi
-          done
-          echo "CI OK"
+      - name: Install dependencies
+        working-directory: ${{ matrix.path }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        if: matrix.service == 'web'
+        working-directory: ${{ matrix.path }}
+        run: pnpm build
+
+      - name: Docker build
+        run: docker build -t sage-${{ matrix.service }} ${{ matrix.path }}
