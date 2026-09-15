@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changes: ${{ steps.filter.outputs.changes }}
+      python: ${{ steps.matrix.outputs.python }}
+      node: ${{ steps.matrix.outputs.node }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -30,6 +32,29 @@ jobs:
             web: 'web/**'
             compose: 'docker-compose.yml'
 
+      # `matrix` isn't available in a job-level `if`, so filter the service
+      # lists here and hand each job a matrix of only the changed services.
+      - name: Build matrices of changed services
+        id: matrix
+        env:
+          CHANGES: ${{ steps.filter.outputs.changes }}
+        run: |
+          python='[
+            {"service":"mcp","path":"mcp","package":"sage_mcp"},
+            {"service":"generator","path":"data/generator","package":"sage_generator"},
+            {"service":"warehouse","path":"data/warehouse","package":"sage_warehouse"},
+            {"service":"detectors","path":"data/detectors","package":"sage_detectors"},
+            {"service":"evals","path":"data/evals","package":"sage_evals"},
+            {"service":"notifier","path":"platform/notifier","package":"sage_notifier"}
+          ]'
+          node='[
+            {"service":"web","path":"web"},
+            {"service":"openclaw","path":"openclaw"}
+          ]'
+          pick() { jq -c --argjson changed "$CHANGES" '[.[] | select(.service as $s | $changed | index($s))]' <<<"$1"; }
+          echo "python=$(pick "$python")" >> "$GITHUB_OUTPUT"
+          echo "node=$(pick "$node")" >> "$GITHUB_OUTPUT"
+
   compose-validate:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.changes), 'compose')
@@ -40,29 +65,11 @@ jobs:
 
   python:
     needs: changes
-    if: contains(fromJSON(needs.changes.outputs.changes), matrix.service)
+    if: needs.changes.outputs.python != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: mcp
-            path: mcp
-            package: sage_mcp
-          - service: generator
-            path: data/generator
-            package: sage_generator
-          - service: warehouse
-            path: data/warehouse
-            package: sage_warehouse
-          - service: detectors
-            path: data/detectors
-            package: sage_detectors
-          - service: evals
-            path: data/evals
-            package: sage_evals
-          - service: notifier
-            path: platform/notifier
-            package: sage_notifier
+        include: ${{ fromJSON(needs.changes.outputs.python) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,15 +103,11 @@ jobs:
 
   node:
     needs: changes
-    if: contains(fromJSON(needs.changes.outputs.changes), matrix.service)
+    if: needs.changes.outputs.node != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: web
-            path: web
-          - service: openclaw
-            path: openclaw
+        include: ${{ fromJSON(needs.changes.outputs.node) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -126,3 +129,18 @@ jobs:
 
       - name: Docker build
         run: docker build -t sage-${{ matrix.service }} ${{ matrix.path }}
+
+  # Single required status check for branch protection. Skipped jobs (no
+  # changes in their paths) count as passing; failed or cancelled ones don't.
+  ci-ok:
+    if: always()
+    needs: [changes, compose-validate, python, node]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS"
+          test "$FAILED" = "false"
