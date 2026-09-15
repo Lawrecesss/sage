@@ -1,1 +1,1 @@
-"""sage_detectors — deterministic anomaly detection. No LLM here."""
+"""sage_detectors — deterministic anomaly detection."""

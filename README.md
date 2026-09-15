@@ -1,108 +1,30 @@
 # Sage
 
-**An agentic monitoring layer for retail / e-commerce SMEs.**
+An agentic monitoring layer for retail / e-commerce SMEs.
 
-SME owners get business signal from sales, inventory, accounting, customer enquiries
-and operations — each in a different system, none talking to each other. The owner
-becomes the integration layer. Sage replaces that: on a schedule, an agent triages
-a unified metric layer where deterministic detectors have surfaced anomalies,
-correlates signals across domains into a causal story ranked by dollar impact with
-a recommended action, and writes a prioritised morning brief to the owner's phone.
-The owner can then ask follow-ups in plain language.
+## Layout
 
-> Built for the NUS-ISS **"Show Me Your Agents"** Hackathon 2026 — retail vertical.
->
-> **Status: development-ready skeleton.** The toolchain is wired and verified —
-> `uv sync` and `pnpm install` resolve against committed lockfiles, `pytest` runs
-> green (package-import smoke tests), `ruff` is clean, and the web app builds and
-> lints. Every module, tool, agent and router has its file and a docstring saying
-> what belongs there and which lane owns it; the logic is left to be written. Start
-> with [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`docs/team-plan.md`](docs/team-plan.md).
+Each top-level folder is an independently buildable microservice: its own
+`Dockerfile`, its own lockfile, no shared workspace. The root `docker-compose.yml`
+wires them together.
 
-## The three ideas that make this win
+- `mcp/` — MCP server, Sage's governed tool surface, served to OpenClaw
+- `openclaw/` — agent runtime config (prompts, automations)
+- `data/generator/` — synthetic dataset entity models
+- `data/warehouse/` — star schema / metric layer
+- `data/detectors/` — anomaly detection
+- `data/evals/` — agent eval harness
+- `platform/notifier/` — pushes the morning brief to Telegram
+- `web/` — Next.js frontend
 
-1. **A metric layer, not text-to-SQL.** Agents never write SQL. They call
-   `query_metric(metric_id, dimensions, period)` against a governed YAML catalog
-   ([`data/warehouse/.../metrics/metrics.yaml`](data/warehouse/src/sage_warehouse/metrics/metrics.yaml)).
-   Every number in a brief is traceable to a metric definition.
-2. **Detection is deterministic; explanation is the LLM.** Statistics find anomalies
-   ([`data/detectors`](data/detectors)); the LLM interprets, correlates,
-   prioritises, communicates. Reproducible run-to-run, ~80% cheaper in tokens.
-3. **Cross-source correlation is the product.** Only a system reading sales,
-   inventory and accounting together can say: *"Supplier SG-Textiles slipped 6 days
-   on PO-4471 → 'Linen Throw' stocked out Tue → category revenue fell S$4,200 and
-   gross margin dropped 2pts as you backfilled with a pricier substitute → S$3,100
-   is still recoverable if PO-4471 is expedited (S$180 rush fee)."*
+Most services are currently skeletons: entity/schema models only, business logic
+not yet implemented.
 
-## Demo persona (never deviate)
-
-**"Lian & Co."** — a Singapore homeware retailer. 1 outlet + Shopify + Lazada/Shopee.
-~1,200 SKUs, 6 staff, ~S$180k monthly revenue. Owner **Mei** spends ~45 min every
-morning across five tabs. One persona, one story.
-
-## Architecture
+## Running
 
 ```
-Connector simulators (3: sales · inventory · accounting)
-  → Ingestion (sage-generate → Parquet on disk)
-  → Transform (SQL models → Postgres star schema)
-  → ★ Metric layer (YAML, ~20-25 governed metrics)
-  → ★ Detectors (deterministic: z-score, WoW change, threshold → signals table)
-  → ★ MCP server (agent/mcp): the governed tool surface, over MCP
-  → ★ OpenClaw (agent gateway, one model — Claude Sonnet 4.5): sage-briefing · sage-ask
-  → API + Delivery (Next.js web app, the only public entry point; agent runs
-    async via the `agent_runs` table + a background job; OpenClaw's own
-    automation schedules the daily run; behind Caddy on one Lightsail instance)
+docker compose up -d db mcp openclaw web
+docker compose --profile jobs up generator warehouse detectors evals notifier
 ```
 
-Full detail: [`docs/architecture.md`](docs/architecture.md).
-
-## Repo layout
-
-| Path | What |
-| --- | --- |
-| `data/generator` | Synthetic SME dataset + planted incident library (the eval ground truth) |
-| `data/warehouse` | Star schema, SQL transforms, **governed metric layer** |
-| `data/detectors` | Deterministic anomaly detection — no LLM |
-| `agent/mcp` | MCP server — Sage's governed tool surface, served to OpenClaw |
-| `agent/openclaw` | OpenClaw config: agent definitions, prompts, the daily automation |
-| `agent/evals` | Agent eval harness — the headline number |
-| `agent/shared` | Cross-package types, settings, constants, the OpenClaw client |
-| `platform/notifier` | Telegram delivery — currently unwired, see ADR 0003 |
-| `platform/infra` | Lightsail deploy kit — `cloud-init.yaml` · `docker-compose.prod.yml` · `Caddyfile` · `provision.sh` |
-| `web` | Next.js 15 web app (Morning Brief · Signals · Ask · Connections); the backend (Next.js API routes) lands here too — see docs/team-plan.md |
-| `docs` | Architecture, demo script, pitch, contracts, plans, decisions |
-
-## Stack
-
-- **Frontend + Backend** — Next.js 15 (App Router) · TypeScript · Tailwind ·
-  shadcn/ui · Recharts · SSE; API routes live in the same app (docs/team-plan.md)
-- **Data** — Python 3.12 · `uv` · Polars (generator) · SQL models (transforms) ·
-  statsmodels / scipy (detectors)
-- **Agents** — OpenClaw (self-hosted agent gateway) + an MCP tool server (Python)
-  · one model for all agents: **Claude Sonnet 4.5** via the organisers'
-  Ollama-compatible, Bedrock-backed endpoint
-- **Infra** — one **AWS Lightsail** instance · `docker-compose` (Postgres+pgvector ·
-  MCP server · OpenClaw gateway · web · Caddy) · OpenClaw automation for scheduling
-- **Repo** — one monorepo, `pnpm` + `uv` workspaces, GitHub Actions CI
-
-## Getting started
-
-```bash
-./scripts/bootstrap.sh     # uv sync, pnpm install, start Postgres, create .env files
-uv run pytest              # smoke tests — green
-pnpm --filter web build    # web app — builds
-
-# once the relevant stubs are filled in (see docs/team-plan.md):
-./scripts/seed-demo.sh     # generate dataset, load warehouse, run detectors
-./scripts/dev.sh           # mcp + web app (:3000) — API routes serve from the same app once built
-```
-
-Full command list: [`CONTRIBUTING.md`](CONTRIBUTING.md). Lightsail deploy and the
-demo checklist: [`docs/runbook.md`](docs/runbook.md).
-
-## Timeline
-
-Build Sep 8 → Sep 28 (3 sprints). Hard code freeze Sep 28 (`git tag demo-freeze`).
-Sep 29 → Oct 10: hardening, deck, demo video, ≥5 dry runs — no new features.
-Committed vs. stretch scope: [`docs/team-plan.md`](docs/team-plan.md).
+Copy `.env.example` to `.env` first.

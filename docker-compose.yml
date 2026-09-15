@@ -1,15 +1,6 @@
-# Base compose file — used directly for local dev (`docker compose up -d db`),
-# and as the base layer for the production deploy:
-#   docker compose -f docker-compose.yml -f platform/infra/docker-compose.prod.yml up -d
-#
-# `mcp` and `openclaw` are declared here (not profiled — a future backend
-# service in the prod overlay will need to depend_on `openclaw`, and this
-# compose version refuses a depends_on pointing at a profile-excluded
-# service). `docker compose up -d db` (what
-# scripts/bootstrap.sh runs) still only starts `db`, because it names that one
-# service explicitly. For the full agent loop locally, either name the services
-# (`docker compose up -d mcp openclaw`) or use `make agent-up`.
-# See docs/decisions/0003-openclaw-agent-runtime.md.
+# Root compose file wiring every microservice. Each service builds from its own
+# folder (own Dockerfile + own lockfile — no shared workspace). Most services are
+# still skeletons (entity models only); their default command is a placeholder.
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -18,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sage}
       POSTGRES_DB: sage
     ports:
-      - "127.0.0.1:5432:5432"   # localhost only; prod never exposes it
+      - "127.0.0.1:5432:5432"
     volumes:
       - sage_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -27,14 +18,8 @@ services:
       timeout: 5s
       retries: 10
 
-  # The MCP server — Sage's governed tool surface, served to OpenClaw. Internal
-  # network only: no published ports, never routed by Caddy.
   mcp:
-    profiles: ["agent"]
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: sage-mcp
+    build: ./mcp
     environment:
       DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD:-sage}@db:5432/sage
     depends_on:
@@ -42,37 +27,46 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # The agent gateway. Config seeded from ./agent/openclaw (mounted read-only);
-  # agent definitions + prompts live there, not in this repo's Python. Internal
-  # network only — its bearer token is a full operator credential.
   openclaw:
-    profiles: ["agent"]
-    image: ${OPENCLAW_IMAGE:-openclaw/openclaw:latest}   # TODO: pin an exact tag
-    volumes:
-      - ./agent/openclaw:/seed:ro
-      - openclaw_data:/root/.openclaw
+    build: ./openclaw
     environment:
-      # Soft defaults here so a plain `docker compose up -d db` (no agent
-      # services requested) doesn't fail parsing a blank .env — compose
-      # interpolates the whole file up front, regardless of which services
-      # actually start. platform/infra/docker-compose.prod.yml re-declares
-      # these as REQUIRED for the real deploy.
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-5}
-      OPENCLAW_TOKEN: ${OPENCLAW_TOKEN:-}
       MCP_URL: http://mcp:9100/mcp
     depends_on:
-      mcp:
-        condition: service_started
+      - mcp
     restart: unless-stopped
 
-  # Optional: agent trace UI. `docker compose up -d jaeger` and point
-  # OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 at it.
-  # jaeger:
-  #   image: jaegertracing/all-in-one:1.60
-  #   ports: ["16686:16686", "4318:4318"]
+  web:
+    build: ./web
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - mcp
+    restart: unless-stopped
+
+  generator:
+    build: ./data/generator
+    profiles: ["jobs"]
+
+  warehouse:
+    build: ./data/warehouse
+    environment:
+      DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD:-sage}@db:5432/sage
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["jobs"]
+
+  detectors:
+    build: ./data/detectors
+    profiles: ["jobs"]
+
+  evals:
+    build: ./data/evals
+    profiles: ["jobs"]
+
+  notifier:
+    build: ./platform/notifier
+    profiles: ["jobs"]
 
 volumes:
   sage_pgdata:
-  openclaw_data:
