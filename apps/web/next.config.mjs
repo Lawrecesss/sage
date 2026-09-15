@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Self-contained server build for the Docker image (infra/docker-compose.prod.yml).
+  // Self-contained server build for the Docker image (platform/infra/docker-compose.prod.yml).
   output: "standalone",
 };
 
