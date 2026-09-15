@@ -1,11 +1,10 @@
-FROM node:20-slim
-WORKDIR /app
-ENV PNPM_HOME=/pnpm
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+FROM ghcr.io/openclaw/openclaw:2026.9.4
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# Config and workspace live outside ~/.openclaw so the state volume mounted
+# there never shadows them; rebuilding the image always picks up changes.
+ENV OPENCLAW_CONFIG_PATH=/opt/sage/openclaw.json
+COPY --chown=node:node openclaw.json /opt/sage/openclaw.json
+COPY --chown=node:node workspace /opt/sage/workspace
 
-COPY . .
-CMD ["node", "-e", "console.log('openclaw — not implemented yet')"]
+EXPOSE 18789
+CMD ["node", "openclaw.mjs", "gateway", "run"]

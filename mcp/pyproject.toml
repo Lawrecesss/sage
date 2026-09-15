@@ -4,7 +4,7 @@ version = "0.0.0"
 description = "MCP server — Sage's governed tool surface, served to OpenClaw"
 requires-python = ">=3.12"
 dependencies = [
-  "mcp[cli]>=1.2",
+  "fastmcp>=2.12",
   "pydantic>=2.7",
 ]
 

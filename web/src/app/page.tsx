@@ -1,3 +1,5 @@
+import { Chat } from "./chat";
+
 export default function Page() {
-  return null;
+  return <Chat />;
 }

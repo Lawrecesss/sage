@@ -2,5 +2,5 @@
   "name": "openclaw",
   "private": true,
   "version": "0.0.0",
-  "description": "OpenClaw agent runtime config — not implemented yet"
+  "description": "OpenClaw agent runtime config — gateway image + openclaw.json wired to the sage MCP server"
 }

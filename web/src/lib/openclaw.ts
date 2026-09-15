@@ -1,0 +1,66 @@
+// Server-only client for the OpenClaw gateway's OpenAI-compatible endpoint.
+// The gateway token grants operator access — never import this from client code.
+
+const OPENCLAW_URL = process.env.OPENCLAW_URL ?? "http://127.0.0.1:18789";
+
+export class OpenClawError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Runs one agent turn and returns the reply as a stream of text deltas.
+ *
+ * OpenClaw keeps conversation history server-side, keyed by `user`, so only the
+ * new message is sent. Tool calls (sage MCP) happen inside the gateway's loop.
+ */
+export async function streamAgentReply(
+  message: string,
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<ReadableStream<string>> {
+  const token = process.env.OPENCLAW_TOKEN;
+  if (!token) throw new OpenClawError("OPENCLAW_TOKEN is not set", 500);
+
+  const res = await fetch(`${OPENCLAW_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "openclaw/default",
+      user: `web:${sessionId}`,
+      stream: true,
+      messages: [{ role: "user", content: message }],
+    }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    throw new OpenClawError(`OpenClaw responded ${res.status}: ${await res.text()}`, 502);
+  }
+
+  return res.body.pipeThrough(new TextDecoderStream()).pipeThrough(sseContentDeltas());
+}
+
+/** Turns an OpenAI chat-completions SSE stream into its `delta.content` strings. */
+function sseContentDeltas(): TransformStream<string, string> {
+  let buffer = "";
+  return new TransformStream({
+    transform(chunk, controller) {
+      buffer += chunk;
+      const events = buffer.split("\n\n");
+      buffer = events.pop() ?? "";
+      for (const event of events) {
+        for (const line of event.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") return;
+          const content = JSON.parse(data).choices?.[0]?.delta?.content;
+          if (content) controller.enqueue(content);
+        }
+      }
+    },
+  });
+}

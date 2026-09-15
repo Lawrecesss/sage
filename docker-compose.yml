@@ -22,25 +22,44 @@ services:
     build: ./mcp
     environment:
       DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD:-sage}@db:5432/sage
+    ports:
+      - "127.0.0.1:9100:9100"
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9100/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   openclaw:
     build: ./openclaw
     environment:
       MCP_URL: http://mcp:9100/mcp
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_TOKEN:-sage-dev-token}
+      LLM_GATEWAY_URL: ${LLM_GATEWAY_URL:-}
+      LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-sonnet4.5}
+    ports:
+      - "127.0.0.1:18789:18789"
+    volumes:
+      - openclaw_state:/home/node/.openclaw
     depends_on:
-      - mcp
+      mcp:
+        condition: service_healthy
     restart: unless-stopped
 
   web:
     build: ./web
+    environment:
+      OPENCLAW_URL: http://openclaw:18789
+      OPENCLAW_TOKEN: ${OPENCLAW_TOKEN:-sage-dev-token}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
-      - mcp
+      - openclaw
     restart: unless-stopped
 
   generator:
@@ -70,3 +89,4 @@ services:
 
 volumes:
   sage_pgdata:
+  openclaw_state:

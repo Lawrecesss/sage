@@ -1,0 +1,64 @@
+// OpenClaw gateway config (JSON5). ${VAR}s are filled from the container env —
+// see the `openclaw` service in docker-compose.yml.
+//
+// Runs OpenClaw as a headless agent loop behind an OpenAI-compatible HTTP API:
+// web backend -> POST /v1/chat/completions -> agent loop -> sage MCP tools.
+// No channels, no cron/heartbeat, no memory plugin, no built-in host tools.
+{
+  gateway: {
+    mode: "local",
+    bind: "lan", // listen on 0.0.0.0 inside the container; compose publishes to 127.0.0.1 only
+    port: 18789,
+    auth: { mode: "token", token: "${OPENCLAW_GATEWAY_TOKEN}" },
+    http: {
+      endpoints: {
+        chatCompletions: { enabled: true },
+      },
+    },
+  },
+  agents: {
+    defaults: {
+      model: { primary: "llm-gateway/${LLM_MODEL}" },
+      // AGENTS.md / SOUL.md / IDENTITY.md are baked into the image (openclaw/workspace).
+      workspace: "/opt/sage/workspace",
+      skipBootstrap: true,
+    },
+  },
+  // Only the sage MCP tools (+ session_status). `session_status` keeps the
+  // allowlist non-empty at resolve time, before bundle-mcp tools have loaded.
+  tools: { allow: ["session_status", "bundle-mcp"] },
+  cron: { enabled: false }, // also disables scheduled heartbeats and memory dreaming
+  plugins: { slots: { memory: "none" } },
+  models: {
+    mode: "merge",
+    providers: {
+      // Self-hosted OpenAI-compatible proxy in front of Bedrock Claude.
+      "llm-gateway": {
+        baseUrl: "${LLM_GATEWAY_URL}/v1",
+        apiKey: "${LLM_GATEWAY_API_KEY}",
+        api: "openai-completions",
+        timeoutSeconds: 300,
+        models: [
+          {
+            id: "${LLM_MODEL}",
+            name: "Sonnet (self-hosted)",
+            reasoning: false,
+            input: ["text"],
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            contextWindow: 200000,
+            maxTokens: 8192,
+          },
+        ],
+      },
+    },
+  },
+  mcp: {
+    servers: {
+      sage: {
+        url: "${MCP_URL}",
+        transport: "streamable-http",
+        enabled: true,
+      },
+    },
+  },
+}

@@ -28,3 +28,25 @@ docker compose --profile jobs up generator warehouse detectors evals notifier
 ```
 
 Copy `.env.example` to `.env` first.
+
+### Agent flow
+
+```
+browser ──> web  POST /api/chat ──> openclaw  POST /v1/chat/completions ──> agent loop ──> mcp (sage tools)
+            (Next.js, holds token)  (headless gateway, 127.0.0.1:18789)                    (FastMCP, 127.0.0.1:9100/mcp)
+```
+
+- `web/src/app/api/chat/route.ts` takes `{ message, sessionId }` and streams back plain text.
+  The OpenClaw token stays server-side (`web/src/lib/openclaw.ts`).
+- OpenClaw keeps conversation history per `sessionId` (sent as the OpenAI `user` field).
+- `openclaw/openclaw.json` runs the gateway headless: HTTP API only, tools restricted to the
+  sage MCP server, no cron/heartbeat/memory. Agent instructions live in `openclaw/workspace/AGENTS.md`.
+- LLM: any OpenAI-compatible endpoint via `LLM_GATEWAY_URL` / `LLM_GATEWAY_API_KEY` / `LLM_MODEL` in `.env`.
+
+Try it: open http://127.0.0.1:3000, or
+
+```
+curl -N http://127.0.0.1:3000/api/chat -H "Content-Type: application/json" \
+  -d '{"message":"Which open signal costs us the most?","sessionId":"demo-session-1"}'
+docker compose exec openclaw node openclaw.mjs mcp probe   # check OpenClaw sees sage's tools
+```
