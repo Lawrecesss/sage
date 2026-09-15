@@ -5,7 +5,15 @@ description = "An agentic monitoring layer for retail / e-commerce SMEs"
 requires-python = ">=3.12"
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = [
+  "data/generator",
+  "data/warehouse",
+  "data/detectors",
+  "agent/mcp",
+  "agent/evals",
+  "agent/shared",
+  "platform/notifier",
+]
 
 [tool.uv.sources]
 sage-shared = { workspace = true }
@@ -14,7 +22,6 @@ sage-warehouse = { workspace = true }
 sage-detectors = { workspace = true }
 sage-mcp = { workspace = true }
 sage-evals = { workspace = true }
-sage-api = { workspace = true }
 sage-notifier = { workspace = true }
 
 [dependency-groups]
@@ -29,7 +36,7 @@ line-length = 100
 target-version = "py312"
 
 [tool.pytest.ini_options]
-testpaths = ["packages"]
+testpaths = ["data", "agent", "platform"]
 addopts = "--import-mode=importlib -ra"
 
 [tool.mypy]

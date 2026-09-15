@@ -1,10 +1,11 @@
 # Base compose file — used directly for local dev (`docker compose up -d db`),
 # and as the base layer for the production deploy:
-#   docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.yml -f platform/infra/docker-compose.prod.yml up -d
 #
-# `mcp` and `openclaw` are declared here (not profiled — the prod overlay's `api`
-# depends_on `openclaw`, and this compose version refuses a depends_on pointing at
-# a profile-excluded service). `docker compose up -d db` (what
+# `mcp` and `openclaw` are declared here (not profiled — a future backend
+# service in the prod overlay will need to depend_on `openclaw`, and this
+# compose version refuses a depends_on pointing at a profile-excluded
+# service). `docker compose up -d db` (what
 # scripts/bootstrap.sh runs) still only starts `db`, because it names that one
 # service explicitly. For the full agent loop locally, either name the services
 # (`docker compose up -d mcp openclaw`) or use `make agent-up`.
@@ -41,21 +42,21 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # The agent gateway. Config seeded from ./openclaw (mounted read-only); agent
-  # definitions + prompts live there, not in this repo's Python. Internal
+  # The agent gateway. Config seeded from ./agent/openclaw (mounted read-only);
+  # agent definitions + prompts live there, not in this repo's Python. Internal
   # network only — its bearer token is a full operator credential.
   openclaw:
     profiles: ["agent"]
     image: ${OPENCLAW_IMAGE:-openclaw/openclaw:latest}   # TODO: pin an exact tag
     volumes:
-      - ./openclaw:/seed:ro
+      - ./agent/openclaw:/seed:ro
       - openclaw_data:/root/.openclaw
     environment:
       # Soft defaults here so a plain `docker compose up -d db` (no agent
       # services requested) doesn't fail parsing a blank .env — compose
       # interpolates the whole file up front, regardless of which services
-      # actually start. infra/docker-compose.prod.yml re-declares these as
-      # REQUIRED for the real deploy.
+      # actually start. platform/infra/docker-compose.prod.yml re-declares
+      # these as REQUIRED for the real deploy.
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-5}

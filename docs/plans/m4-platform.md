@@ -1,5 +1,14 @@
 # M4 — Platform Engineer & Product Lead
 
+> **Update (post-restructure):** the API service will be Next.js, built inside
+> `web`, not a separate Python service owned by this lane — see
+> docs/team-plan.md. `platform/api` (the FastAPI stub this doc's Sprint 1–2
+> tasks describe) has been deleted. The container/compose/CI/deploy-kit
+> ownership below still stands; the specific "build the FastAPI app" tasks in
+> Sprint 1–2 need re-planning against M3 once the Next.js backend work starts —
+> left as-is here rather than rewritten, since that re-plan is a decision for
+> M3/M4 to make together, not a mechanical path fix.
+
 ## Lane summary
 
 - **Owns:** the Lightsail instance + `docker-compose` deploy, the API service, the
@@ -21,17 +30,17 @@ Linux + Docker + docker-compose, Caddy, a little Lightsail (or the `aws` CLI), C
 
 | Area | Path |
 | --- | --- |
-| Deploy kit | `infra/cloud-init.yaml`, `infra/docker-compose.prod.yml`, `infra/Caddyfile`, `infra/provision.sh` |
-| Container builds | `Dockerfile` (api + mcp, same image, different command), `apps/web/Dockerfile` |
+| Deploy kit | `platform/infra/cloud-init.yaml`, `platform/infra/docker-compose.prod.yml`, `platform/infra/Caddyfile`, `platform/infra/provision.sh` |
+| Container builds | `Dockerfile` (mcp), `web/Dockerfile` (will also carry the backend once it's Next.js) |
 | Base compose | `docker-compose.yml` (`db` always-on; `mcp` + `openclaw` behind the `agent` profile) |
-| API service | `packages/api/src/sage_api/` — `main.py`, `settings.py`, `deps.py`, `agent.py`, `routers/*`, `schemas/*` |
-| Job queue table | `packages/warehouse/.../models/schema.sql` (`agent_runs`) — with M1 |
-| OpenClaw deploy | `openclaw/openclaw.json5` mount + env wiring in `docker-compose.yml` (contents owned by M2) |
-| Telegram | `packages/notifier/src/sage_notifier/{telegram,render}.py` — currently unwired, on hold |
+| API service | `platform/api/src/sage_api/` — `main.py`, `settings.py`, `deps.py`, `agent.py`, `routers/*`, `schemas/*` |
+| Job queue table | `data/warehouse/.../models/schema.sql` (`agent_runs`) — with M1 |
+| OpenClaw deploy | `agent/openclaw/openclaw.json5` mount + env wiring in `docker-compose.yml` (contents owned by M2) |
+| Telegram | `platform/notifier/src/sage_notifier/{telegram,render}.py` — currently unwired, on hold |
 | CI | `.github/workflows/ci.yml`, `deploy.yml` |
 | Product docs | `docs/demo-script.md`, `docs/pitch.md`, `docs/runbook.md` |
 
-Run API tests: `uv run pytest packages/api packages/notifier`.
+Run notifier tests: `uv run pytest platform/notifier`.
 
 ---
 
@@ -44,29 +53,29 @@ Run API tests: `uv run pytest packages/api packages/notifier`.
       including for their day-1 spike on whether OpenClaw's `models.providers`
       accepts it (see `docs/decisions/0003-openclaw-agent-runtime.md`).
 
-- [ ] **Create the Lightsail instance** — `infra/provision.sh`
-      *Done when:* `bash infra/provision.sh create` stands up an Ubuntu instance
+- [ ] **Create the Lightsail instance** — `platform/infra/provision.sh`
+      *Done when:* `bash platform/infra/provision.sh create` stands up an Ubuntu instance
       (~4 GB, `medium_3_0` — budget a bump to `large_3_0` once six containers are
       running) with a static IP and ports 22/80/443 open; you've pointed a DNS A
       record at the IP and set `SAGE_DOMAIN`.
 
-- [ ] **Container builds** — `Dockerfile`, `apps/web/Dockerfile`
+- [ ] **Container builds** — `Dockerfile`, `web/Dockerfile`
       *Done when:* `docker build .` (Python image, runs api + mcp) and
-      `docker build -f apps/web/Dockerfile .` (Next standalone) both succeed;
-      `apps/web` has `output: "standalone"`.
+      `docker build -f web/Dockerfile .` (Next standalone) both succeed;
+      `web` has `output: "standalone"`.
 
-- [ ] **Compose stack** — `docker-compose.yml` + `infra/docker-compose.prod.yml` + `infra/Caddyfile`
-      *Done when:* `docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml config`
+- [ ] **Compose stack** — `docker-compose.yml` + `platform/infra/docker-compose.prod.yml` + `platform/infra/Caddyfile`
+      *Done when:* `docker compose -f docker-compose.yml -f platform/infra/docker-compose.prod.yml config`
       validates; `... up -d` on the instance brings up `db · mcp · openclaw · api ·
       web · caddy`. `mcp` and `openclaw` publish no ports and aren't in the Caddyfile.
 
 - [ ] **FastAPI app + `/health` behind Caddy — do this early, M3 is waiting** —
-      `packages/api/src/sage_api/main.py`, `settings.py`, `deps.py`, `routers/health.py`
+      `platform/api/src/sage_api/main.py`, `settings.py`, `deps.py`, `routers/health.py`
       *Done when:* `curl https://$SAGE_DOMAIN/api/health` → 200 and `/api/docs` loads;
       CORS allows the web origin. `./scripts/dev.sh` works locally too.
       *Unblocks:* M3 Sprint 2.
 
-- [ ] **cloud-init** — `infra/cloud-init.yaml`
+- [ ] **cloud-init** — `platform/infra/cloud-init.yaml`
       *Done when:* a brand-new instance launched with it installs Docker, clones the
       repo, and drops a `.env` template (now including `OPENCLAW_TOKEN`) — leaving
       only "fill in secrets, `compose up`, register the daily automation." No host
@@ -87,22 +96,22 @@ CI green; cloud-init reproduces the box from clean.
 
 ## Sprint 2 · Sep 15–21 — the API, the agent containers
 
-- [ ] **`agent_runs` table** — `packages/warehouse/.../models/schema.sql` (with M1)
+- [ ] **`agent_runs` table** — `data/warehouse/.../models/schema.sql` (with M1)
       *Done when:* the table exists (`run_id, status, as_of_date, requested_at,
       started_at, finished_at, error`) and `sage-warehouse init-db` creates it.
 
-- [ ] **API routers** — `packages/api/src/sage_api/routers/{brief,runs,signals,ask}.py`
+- [ ] **API routers** — `platform/api/src/sage_api/routers/{brief,runs,signals,ask}.py`
       *Done when:* `GET /brief/latest`, `GET /brief/{id}`, `POST /brief/run`
       (insert an `agent_runs` row, schedule a `BackgroundTasks` job that calls
       OpenClaw, return 202 + `run_id`), `GET /runs/{run_id}` (poll that row),
       `GET /signals`, `POST /ask` (**SSE stream**, proxied from OpenClaw). Reads
       the warehouse via `sage_warehouse`; calls agents via `sage_api.agent`.
 
-- [ ] **Response schemas** — `packages/api/src/sage_api/schemas/*`
+- [ ] **Response schemas** — `platform/api/src/sage_api/schemas/*`
       *Done when:* they re-use / mirror `sage_shared.types` and
       [`../contracts/brief-json.md`](../contracts/brief-json.md) — no drift.
 
-- [ ] **`mcp` + `openclaw` containers** — `docker-compose.yml`, `infra/docker-compose.prod.yml`
+- [ ] **`mcp` + `openclaw` containers** — `docker-compose.yml`, `platform/infra/docker-compose.prod.yml`
       *Done when:* `mcp` runs `sage-mcp` (M2's package) and `openclaw` runs the
       gateway, seeded from `./openclaw` (M2 owns the config contents; you own the
       container, volumes, restart policy, and `DATABASE_URL` / `LLM_*` /
@@ -176,7 +185,7 @@ everything; hero scenario runs unassisted from the OpenClaw automation;
 | --- | --- | --- |
 | organisers | LLM endpoint creds + model string | Sep 9 |
 | M1 | Warehouse schema + `sage-warehouse init-db` (runs in the `api` container) | Sep 19 |
-| M2 | `openclaw/` config (agent definitions, prompts) + `sage_shared.openclaw` client + what `save_brief` expects in an `agent_runs` row | Sep 18 |
+| M2 | `agent/openclaw/` config (agent definitions, prompts) + `sage_shared.openclaw` client + what `save_brief` expects in an `agent_runs` row | Sep 18 |
 | M2 | Eval headline number | Sep 27 |
 | M3 | Brief screenshot + UI copy for the deck | Sep 27 |
 

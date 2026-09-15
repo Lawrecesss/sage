@@ -9,11 +9,11 @@ MONTHS="${SAGE_GEN_MONTHS:-12}"
 SEED="${SAGE_GEN_SEED:-42}"
 
 echo "==> Generate synthetic SME data (${MONTHS} months, seed ${SEED})"
-uv run sage-generate generate --months "$MONTHS" --seed "$SEED" --out ./data
+uv run sage-generate generate --months "$MONTHS" --seed "$SEED" --out ./var/data
 
 echo "==> Apply schema + load warehouse"
 uv run sage-warehouse init-db
-uv run sage-warehouse load ./data
+uv run sage-warehouse load ./var/data
 
 echo "==> Run detectors -> signals table"
 uv run sage-detectors run

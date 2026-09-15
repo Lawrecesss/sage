@@ -1,0 +1,48 @@
+# Production override. Layered on the repo-root docker-compose.yml:
+#   docker compose -f docker-compose.yml -f platform/infra/docker-compose.prod.yml up -d
+#
+# The base file provides `db` and the `agent` profile (`mcp` + `openclaw`) — it
+# reads POSTGRES_PASSWORD from the environment. This file adds the web app
+# service and the reverse proxy. All secrets come from /opt/sage/.env on the
+# instance. No `worker` service — see docs/decisions/0003-openclaw-agent-runtime.md.
+# No separate `api` service — the backend will be Next.js API routes inside
+# `web`, not a standalone Python process; see docs/team-plan.md.
+
+services:
+  # Re-declares the required env vars the base file leaves soft-defaulted (so a
+  # plain local `docker compose up -d db` doesn't need them) — the real deploy
+  # must not silently run OpenClaw without real credentials.
+  openclaw:
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL:?set in .env}
+      LLM_API_KEY: ${LLM_API_KEY:?set in .env}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-5}
+      OPENCLAW_TOKEN: ${OPENCLAW_TOKEN:?set in .env}
+      MCP_URL: http://mcp:9100/mcp
+
+  web:
+    build:
+      context: ../..
+      dockerfile: web/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: /api   # served by this same Next.js app once its API routes land
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SAGE_DOMAIN: ${SAGE_DOMAIN:?set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,5 +1,6 @@
-# Python image for the `api` and `worker` services (same image, different command —
-# the command is set per-service in infra/docker-compose.prod.yml).
+# Python image for the `mcp` service (agent/shared is nested under agent/, so
+# one COPY covers both). The backend will be a separate Next.js app (web),
+# not built from this image — see docs/decisions/0003-openclaw-agent-runtime.md.
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
@@ -9,12 +10,14 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 # Dependency layer — cached unless the lockfile or a pyproject changes.
 COPY pyproject.toml uv.lock .python-version ./
-COPY packages ./packages
+COPY data ./data
+COPY agent ./agent
+COPY platform ./platform
 RUN uv sync --frozen --no-dev --all-packages
 
 # Source
 COPY . .
 
-EXPOSE 8000
-# Overridden in compose; this default runs the API.
-CMD ["uvicorn", "sage_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# compose always sets `command: sage-mcp` for the `mcp` service — this default
+# just makes `docker run` on this image alone do something sane.
+CMD ["sage-mcp"]

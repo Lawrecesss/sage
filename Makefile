@@ -44,7 +44,7 @@ eval: ## Run the agent eval harness (the headline number)
 	uv run sage-evals
 
 deploy: ## Redeploy the Lightsail instance (git pull + compose up --build)
-	bash infra/provision.sh restart
+	bash platform/infra/provision.sh restart
 
 compose-config: ## Validate the full production compose stack
-	docker compose --profile agent -f docker-compose.yml -f infra/docker-compose.prod.yml config -q && echo OK
+	docker compose --profile agent -f docker-compose.yml -f platform/infra/docker-compose.prod.yml config -q && echo OK

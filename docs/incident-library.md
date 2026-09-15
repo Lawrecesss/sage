@@ -4,9 +4,9 @@ The planted incident library **is the eval ground truth**. Write these **before*
 the agents — they define what success means.
 
 Files live in
-[`packages/generator/src/sage_generator/incidents/planted/`](../packages/generator/src/sage_generator/incidents/planted/),
+[`data/generator/src/sage_generator/incidents/planted/`](../data/generator/src/sage_generator/incidents/planted/),
 one YAML per incident. Schema:
-[`packages/generator/src/sage_generator/incidents/schema.py`](../packages/generator/src/sage_generator/incidents/schema.py).
+[`data/generator/src/sage_generator/incidents/schema.py`](../data/generator/src/sage_generator/incidents/schema.py).
 
 ## Each incident declares
 
@@ -46,5 +46,5 @@ Reachable from **Sales + Inventory + Accounting alone**:
 ## Verification
 
 Load the frozen dataset; assert **every** planted incident is visible as a metric
-deviation. `pytest packages/warehouse` checks referential integrity and that metric
+deviation. `pytest data/warehouse` checks referential integrity and that metric
 SQL returns sane values at every grain. See [`eval-plan.md`](eval-plan.md).

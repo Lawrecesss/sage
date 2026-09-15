@@ -17,7 +17,7 @@ One persona, one story.
 > a median of **X days** earlier than manual review, at **Y minutes** of owner
 > attention per day."
 
-Numbers come from `packages/evals`. Do not say a number the harness hasn't produced.
+Numbers come from `agent/evals`. Do not say a number the harness hasn't produced.
 
 ## The hero scenario (scripted end to end)
 
@@ -29,7 +29,7 @@ Supplier delay → stockout → revenue + margin → recommended recovery action
 > PO-4471 is expedited (S$180 rush fee)."
 
 This is one of the cross-domain-only incidents in
-`packages/generator/src/sage_generator/incidents/planted/`.
+`data/generator/src/sage_generator/incidents/planted/`.
 
 ## Run of show (target: full loop < 90s)
 
@@ -38,7 +38,7 @@ This is one of the cross-domain-only incidents in
 | 1 | The problem — five tabs, no answer | (slide) | 30s max |
 | 2 | Scheduled run fires | `openclaw` / `api` logs | "an OpenClaw automation fired this at 6am, unassisted" |
 | 3 | *(on hold)* Telegram push lands on a real phone | phone on stage | pending the delivery-channel decision — see `docs/decisions/0003-openclaw-agent-runtime.md`; cut this beat from the run-of-show until it's resolved |
-| 4 | Morning Brief opens | `apps/web` `/` | ≤5 severity-ranked cards |
+| 4 | Morning Brief opens | `web` `/` | ≤5 severity-ranked cards |
 | 5 | Expand the hero card — the causal chain | Brief card "why" | every number cites a metric |
 | 6 | Recommended action + dollar rationale | Brief card | "expedite PO-4471, S$180 rush, S$3,100 recoverable" |
 | 7 | Ask a follow-up in plain language | `/ask` | streamed, metric-cited answer |

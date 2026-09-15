@@ -21,35 +21,35 @@
 *                               @Lawrecesss
 
 # --- Data & Metrics (M1) --- generator, warehouse, detectors, metric-layer docs
-/packages/generator/            @Lawrecesss
-/packages/warehouse/            @Lawrecesss
-/packages/detectors/            @Lawrecesss
+/data/generator/                @Lawrecesss
+/data/warehouse/                @Lawrecesss
+/data/detectors/                @Lawrecesss
 /docs/metrics-catalog.md        @Lawrecesss
 /docs/incident-library.md       @Lawrecesss
 /docs/eval-plan.md              @Lawrecesss
 /docs/plans/m1-data-metrics.md  @Lawrecesss
 
 # --- Agentic (M2) --- MCP tool server, OpenClaw config, eval harness, tool/brief contracts
-/packages/mcp/                  @nann5an1
-/openclaw/                      @nann5an1
-/packages/evals/                @nann5an1
+/agent/mcp/                     @nann5an1
+/agent/openclaw/                @nann5an1
+/agent/evals/                   @nann5an1
+/agent/shared/                  @nann5an1
 /docs/contracts/                @nann5an1
 /docs/decisions/0003-openclaw-agent-runtime.md   @nann5an1
 /docs/plans/m2-agents.md        @nann5an1
 
-# --- Frontend + Backend (M3 + API) --- the web app and the FastAPI service
-/apps/web/                      @swamhtetg90
-/packages/api/                  @swamhtetg90
-/packages/shared/               @swamhtetg90
+# --- Frontend + Backend (M3) --- the web app; will also own the API once it
+# lands as Next.js routes inside web (see docs/team-plan.md)
+/web/                      @swamhtetg90
 /docs/plans/m3-frontend.md      @swamhtetg90
 
 # --- Infra + everything else (M4) --- deploy kit, containers, CI/CD, notifier, product docs
-/infra/                         @thanthtetaung4
+/platform/infra/                @thanthtetaung4
 /Dockerfile                     @thanthtetaung4
 /docker-compose.yml             @thanthtetaung4
-/apps/web/Dockerfile            @thanthtetaung4
+/web/Dockerfile            @thanthtetaung4
 /.github/                       @thanthtetaung4
-/packages/notifier/             @thanthtetaung4
+/platform/notifier/             @thanthtetaung4
 /Makefile                       @thanthtetaung4
 /scripts/                       @thanthtetaung4
 /docs/demo-script.md            @thanthtetaung4

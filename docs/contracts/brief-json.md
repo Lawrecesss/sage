@@ -6,9 +6,9 @@
 > documented. The web app renders it (Telegram delivery is on hold — see
 > [`../decisions/0003-openclaw-agent-runtime.md`](../decisions/0003-openclaw-agent-runtime.md)).
 > Mirrored in:
-> - `packages/shared/src/sage_shared/types.py` (Pydantic — the source of truth `save_brief` validates against)
-> - `packages/api/src/sage_api/schemas/brief.py` (Pydantic, API response shape)
-> - `apps/web/src/lib/types.ts` (TypeScript)
+> - `agent/shared/src/sage_shared/types.py` (Pydantic — the source of truth `save_brief` validates against)
+> - the backend's response schema (Next.js, `web` — once built)
+> - `web/src/lib/types.ts` (TypeScript)
 >
 > Status: **DRAFT — not final.**
 
@@ -74,6 +74,6 @@
 ## Rendering rules
 
 - **≤ 5 items** per brief. If detectors produce more, ranking in
-  `packages/detectors/runner.py` trims to the top 5 by `score × |dollar_impact|`.
+  `data/detectors/runner.py` trims to the top 5 by `score × |dollar_impact|`.
 - Every displayed number must map to a `cited_metric_ids` entry (frontend asserts this).
 - Telegram render = `headline` + top 3 item `title` + `recommended_action.text`.

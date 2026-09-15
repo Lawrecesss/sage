@@ -22,15 +22,16 @@
 | `make lint` | ruff + mypy + `next lint` |
 | `make fmt` | `ruff format` |
 | `make eval` | run the agent eval harness |
-| `uv run pytest packages/detectors` | one package's tests |
+| `uv run pytest data/detectors` | one package's tests |
 
 ## Workspace layout
 
-- **Python** — a `uv` workspace. Every `packages/*` is a member with its own
+- **Python** — a `uv` workspace, members grouped by topic: `data/{generator,warehouse,detectors}`,
+  `agent/{mcp,evals}`, `platform/{api,notifier}`, `shared`. Each has its own
   `pyproject.toml`. Add a dependency with `uv add --package sage-<name> <dep>`.
-  Cross-package deps resolve automatically. (`infra/` and `openclaw/` are plain
-  config/deploy kits — no Python, not workspace members.)
-- **Web** — a `pnpm` workspace with a single member, `apps/web`.
+  Cross-package deps resolve automatically. (`platform/infra/` and `agent/openclaw/`
+  are plain config/deploy kits — no Python, not workspace members.)
+- **Web** — a `pnpm` workspace with a single member, `web`.
 - Lockfiles (`uv.lock`, `pnpm-lock.yaml`) are committed — keep them in sync.
 
 ## Branching & PRs

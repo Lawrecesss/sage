@@ -14,7 +14,7 @@ docker compose up -d db
 
 echo "==> Env files"
 [ -f .env ] || { cp .env.example .env && echo "   created .env"; }
-[ -f apps/web/.env.local ] || { cp apps/web/.env.local.example apps/web/.env.local && echo "   created apps/web/.env.local"; }
+[ -f web/.env.local ] || { cp web/.env.local.example web/.env.local && echo "   created web/.env.local"; }
 
 cat <<'EOF'
 

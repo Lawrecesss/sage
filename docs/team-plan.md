@@ -1,5 +1,12 @@
 # Team plan — 4 members
 
+> **Update (post-restructure):** the backend will be **Next.js** (API routes /
+> server actions inside `web`), not a separate FastAPI/Python service.
+> `platform/api` (the old FastAPI stub) has been deleted. M4's lane below still
+> owns the deploy kit, containers, and CI/CD; API-service tasks specifically
+> need re-planning against M3 once that work starts — see the notes left in
+> `docs/plans/m3-frontend.md` and `docs/plans/m4-platform.md`.
+
 Build phase: **Sep 8 → Sep 28** (3 weeks). Hard code freeze Sep 28. Sep 29 → Oct 10
 is hardening, deck, demo video, dry runs, finals — **no new features**.
 
@@ -52,8 +59,8 @@ Backs up: M4 on infrastructure.
   data passes a "does this look real?" eyeball from someone outside the team.
 
 ### M2 — Agent Engineer
-Owns: the MCP tool server (`packages/mcp`), the OpenClaw agent config
-(`openclaw/`) — prompts, agent definitions, the daily automation — and the eval
+Owns: the MCP tool server (`agent/mcp`), the OpenClaw agent config
+(`agent/openclaw/`) — prompts, agent definitions, the daily automation — and the eval
 harness. Backs up: M1 on detectors.
 - **Wk1:** confirm the organisers' endpoint registers under OpenClaw's
   `models.providers` (the one real unknown — see ADR 0003); tool contracts frozen
