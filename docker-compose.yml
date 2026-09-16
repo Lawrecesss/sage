@@ -68,25 +68,15 @@ services:
       - openclaw
     restart: unless-stopped
 
-  generator:
-    build: ./data/generator
-    profiles: ["jobs"]
-
-  warehouse:
-    build: ./data/warehouse
+  simulator:
+    build:
+      context: ./data
+      dockerfile: simulator/Dockerfile
     environment:
       DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD:-sage}@db:5432/sage
     depends_on:
       db:
         condition: service_healthy
-    profiles: ["jobs"]
-
-  detectors:
-    build: ./data/detectors
-    profiles: ["jobs"]
-
-  evals:
-    build: ./data/evals
     profiles: ["jobs"]
 
   notifier:

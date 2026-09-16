@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "description": "One vendor.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "country": {
+      "title": "Country",
+      "type": "string"
+    },
+    "categories": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Categories",
+      "type": "array"
+    },
+    "lead_time_days": {
+      "exclusiveMinimum": 0,
+      "title": "Lead Time Days",
+      "type": "integer"
+    },
+    "lead_time_std_days": {
+      "minimum": 0,
+      "title": "Lead Time Std Days",
+      "type": "number"
+    },
+    "on_time_rate": {
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "title": "On Time Rate",
+      "type": "number"
+    },
+    "payment_terms_days": {
+      "exclusiveMinimum": 0,
+      "title": "Payment Terms Days",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "country",
+    "categories",
+    "lead_time_days",
+    "lead_time_std_days",
+    "on_time_rate",
+    "payment_terms_days"
+  ],
+  "title": "Supplier",
+  "type": "object"
+}

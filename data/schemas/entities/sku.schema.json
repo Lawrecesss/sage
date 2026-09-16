@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "description": "One stock-keeping unit.",
+  "properties": {
+    "sku": {
+      "title": "Sku",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "category": {
+      "title": "Category",
+      "type": "string"
+    },
+    "subcategory": {
+      "title": "Subcategory",
+      "type": "string"
+    },
+    "supplier_id": {
+      "title": "Supplier Id",
+      "type": "string"
+    },
+    "unit_cost_sgd": {
+      "exclusiveMinimum": 0,
+      "title": "Unit Cost Sgd",
+      "type": "number"
+    },
+    "list_price_sgd": {
+      "exclusiveMinimum": 0,
+      "title": "List Price Sgd",
+      "type": "number"
+    },
+    "demand_weight": {
+      "exclusiveMinimum": 0,
+      "title": "Demand Weight",
+      "type": "number"
+    },
+    "abc_class": {
+      "title": "Abc Class",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sku",
+    "name",
+    "category",
+    "subcategory",
+    "supplier_id",
+    "unit_cost_sgd",
+    "list_price_sgd",
+    "demand_weight",
+    "abc_class"
+  ],
+  "title": "Sku",
+  "type": "object"
+}

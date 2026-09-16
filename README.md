@@ -4,30 +4,45 @@ An agentic monitoring layer for retail / e-commerce SMEs.
 
 ## Layout
 
-Each top-level folder is an independently buildable microservice: its own
-`Dockerfile`, its own lockfile, no shared workspace. The root `docker-compose.yml`
-wires them together.
+Each deployed service is independently buildable: its own `Dockerfile`, its own
+lockfile, no shared workspace. The root `docker-compose.yml` wires them together.
+`data/models` is the one exception — a plain library (no Dockerfile, not in
+compose) that `data/simulator` depends on via a local path dependency, and that
+`data/schemas` is generated from.
 
 - `mcp/` — MCP server, Sage's governed tool surface, served to OpenClaw
 - `openclaw/` — agent runtime config (prompts, automations)
-- `data/generator/` — synthetic dataset entity models
-- `data/warehouse/` — star schema / metric layer
-- `data/detectors/` — anomaly detection
-- `data/evals/` — agent eval harness
+- `data/models/` — shared entity shapes (Supplier, Sku, CustomerSegment) — the domain
+  vocabulary every service mirrors; `data/schemas/` is generated from it
+- `data/simulator/` — synthetic dataset seeding + planted incident library
+- `data/schemas/` — generated JSON Schema (`sage-models-export`), never hand-edited
 - `platform/notifier/` — pushes the morning brief to Telegram
 - `web/` — Next.js frontend
 
-Most services are currently skeletons: entity/schema models only, business logic
-not yet implemented.
+Most services are still skeletons (entity/schema models only, business logic not
+yet implemented) — `data/simulator` is the exception: it fully seeds a synthetic
+dataset (orders, stock, invoices/bills, planted incidents) into Postgres.
 
 ## Running
 
+Copy `.env.example` to `.env` first.
+
+A `Makefile` at the repo root wraps the common commands — run `make help` to
+list them:
+
 ```
-docker compose up -d db mcp openclaw web
-docker compose --profile jobs up generator warehouse detectors evals notifier
+make up      # start db, mcp, openclaw, web
+make seed    # (re)seed the synthetic dataset into Postgres — see data/simulator
+make jobs    # run every one-off job container (simulator, notifier)
+make down    # stop everything
 ```
 
-Copy `.env.example` to `.env` first.
+Or drive `docker compose` directly:
+
+```
+docker compose up -d db mcp openclaw web
+docker compose --profile jobs up simulator notifier
+```
 
 ### Agent flow
 

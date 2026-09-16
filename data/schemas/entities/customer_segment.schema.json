@@ -1,0 +1,64 @@
+{
+  "additionalProperties": false,
+  "description": "One buyer segment.\n\n`order_share` is that segment's fraction of all orders; the shares across a\nrun must sum to 1.0. `pays_on_credit` routes an order into `fact_invoice` / AR\nageing instead of settling at checkout.",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "label": {
+      "title": "Label",
+      "type": "string"
+    },
+    "order_share": {
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "title": "Order Share",
+      "type": "number"
+    },
+    "aov_multiplier": {
+      "default": 1.0,
+      "exclusiveMinimum": 0,
+      "title": "Aov Multiplier",
+      "type": "number"
+    },
+    "units_per_order_multiplier": {
+      "default": 1.0,
+      "exclusiveMinimum": 0,
+      "title": "Units Per Order Multiplier",
+      "type": "number"
+    },
+    "discount_affinity": {
+      "default": 0.0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Discount Affinity",
+      "type": "number"
+    },
+    "return_rate_multiplier": {
+      "default": 1.0,
+      "minimum": 0,
+      "title": "Return Rate Multiplier",
+      "type": "number"
+    },
+    "repeat_rate": {
+      "default": 0.0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Repeat Rate",
+      "type": "number"
+    },
+    "pays_on_credit": {
+      "default": false,
+      "title": "Pays On Credit",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "name",
+    "label",
+    "order_share"
+  ],
+  "title": "CustomerSegment",
+  "type": "object"
+}
