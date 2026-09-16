@@ -1,0 +1,45 @@
+.DEFAULT_GOAL := help
+.PHONY: help up down restart build ps logs seed reseed jobs notify psql reset
+
+## Core services (db, mcp, openclaw, web) — the always-on stack
+up: ## Start the core services in the background
+	docker compose up -d db mcp openclaw web
+
+down: ## Stop all services
+	docker compose down
+
+restart: down up ## Restart the core services
+
+build: ## Build (or rebuild) every service image
+	docker compose build
+
+ps: ## Show status of running services
+	docker compose ps
+
+logs: ## Tail logs for a service, e.g. `make logs s=web`
+	docker compose logs -f $(s)
+
+## Data seeding
+seed: ## Seed the demo dataset into Postgres (starts db if needed)
+	docker compose up -d db
+	docker compose run --rm simulator
+
+reseed: seed ## Alias for `make seed` (the simulator always wipes + regenerates)
+
+## One-off job containers (profiles: ["jobs"])
+jobs: ## Run every one-off job container (simulator, notifier, ...)
+	docker compose up -d db
+	docker compose --profile jobs up simulator notifier
+
+notify: ## Run just the notifier job
+	docker compose --profile jobs up notifier
+
+## Misc
+psql: ## Open a psql shell into the db service
+	docker compose exec db psql -U sage -d sage
+
+reset: ## DANGER: stop everything and wipe volumes (drops all seeded data)
+	docker compose down -v
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'

@@ -8,8 +8,13 @@ dependencies = [
   "pydantic>=2.7",
   "pyyaml>=6.0",
   "typer>=0.12",
+  "sqlalchemy>=2.0",
+  "psycopg[binary]>=3.2",
   "sage-models",
 ]
+
+[project.scripts]
+sage-simulate = "sage_simulator.cli:app"
 
 [tool.uv.sources]
 sage-models = { path = "../models" }

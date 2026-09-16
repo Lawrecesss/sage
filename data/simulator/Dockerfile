@@ -16,4 +16,4 @@ COPY simulator/src ./src
 RUN uv sync --frozen --no-dev
 
 ENV PATH="/build/simulator/.venv/bin:$PATH"
-CMD ["python", "-c", "print('sage-simulator — entity models only, no CLI yet')"]
+CMD ["sage-simulate"]
