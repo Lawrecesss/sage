@@ -43,6 +43,32 @@ browser ──> web  POST /api/chat ──> openclaw  POST /v1/chat/completions 
   sage MCP server, no cron/heartbeat/memory. Agent instructions live in `openclaw/workspace/AGENTS.md`.
 - LLM: any OpenAI-compatible endpoint via `LLM_GATEWAY_URL` / `LLM_GATEWAY_API_KEY` / `LLM_MODEL` in `.env`.
 
+### Tracing
+
+OpenClaw exports OTLP traces straight to Langfuse Cloud — one trace per chat
+turn, with a span per model call and per sage MCP tool call. Set
+`LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_BASE_URL` in `.env`
+(blank keys = tracing off) and `docker compose up -d --build openclaw`.
+
+Two things are easy to miss. OpenClaw's `diagnostics-otel` plugin ships
+*disabled*, and while it is, a `diagnostics.otel` block is inert — spans are
+still created and sampled, so logs carry a `traceId`, but nothing exports them;
+`plugins.entries` in `openclaw.json` turns it on. And `openclaw/render-otel.mjs`
+writes the `otel` block at container start rather than it being checked in,
+because the exporter needs `base64(publicKey:secretKey)` as its auth header and
+`${VAR}` interpolation only substitutes into strings.
+
+Langfuse ingests the traces signal only, so metrics and logs stay off.
+
+```
+docker compose exec openclaw node openclaw.mjs plugins list | grep diagnostics
+docker compose exec openclaw node openclaw.mjs config get diagnostics
+```
+
+`LANGFUSE_CAPTURE_CONTENT=false` ships span metadata (model, latency, token
+usage, tool names) without prompt, completion or tool-payload bodies.
+`LANGFUSE_SAMPLE_RATE` (0–1) thins root spans.
+
 Try it: open http://127.0.0.1:3000, or
 
 ```
