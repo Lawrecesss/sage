@@ -1,4 +1,4 @@
-"""Canned rows shaped like the warehouse `signals` table (see data/warehouse schema.sql)."""
+"""Canned rows shaped like the eventual warehouse `signals` table."""
 
 DEMO_SIGNALS: list[dict] = [
     {

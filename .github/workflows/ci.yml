@@ -24,10 +24,10 @@ jobs:
           filters: |
             mcp: 'mcp/**'
             openclaw: 'openclaw/**'
-            generator: 'data/generator/**'
-            warehouse: 'data/warehouse/**'
-            detectors: 'data/detectors/**'
-            evals: 'data/evals/**'
+            models: 'data/models/**'
+            simulator:
+              - 'data/simulator/**'
+              - 'data/models/**'
             notifier: 'platform/notifier/**'
             web: 'web/**'
             compose: 'docker-compose.yml'
@@ -40,12 +40,10 @@ jobs:
           CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
           python='[
-            {"service":"mcp","path":"mcp","package":"sage_mcp"},
-            {"service":"generator","path":"data/generator","package":"sage_generator"},
-            {"service":"warehouse","path":"data/warehouse","package":"sage_warehouse"},
-            {"service":"detectors","path":"data/detectors","package":"sage_detectors"},
-            {"service":"evals","path":"data/evals","package":"sage_evals"},
-            {"service":"notifier","path":"platform/notifier","package":"sage_notifier"}
+            {"service":"mcp","path":"mcp","package":"sage_mcp","context":"mcp","dockerfile":"mcp/Dockerfile"},
+            {"service":"models","path":"data/models","package":"sage_models","context":"","dockerfile":""},
+            {"service":"simulator","path":"data/simulator","package":"sage_simulator","context":"data","dockerfile":"data/simulator/Dockerfile"},
+            {"service":"notifier","path":"platform/notifier","package":"sage_notifier","context":"platform/notifier","dockerfile":"platform/notifier/Dockerfile"}
           ]'
           node='[
             {"service":"web","path":"web"},
@@ -99,7 +97,8 @@ jobs:
           fi
 
       - name: Docker build
-        run: docker build -t sage-${{ matrix.service }} ${{ matrix.path }}
+        if: matrix.dockerfile != ''
+        run: docker build -t sage-${{ matrix.service }} -f ${{ matrix.dockerfile }} ${{ matrix.context }}
 
   node:
     needs: changes

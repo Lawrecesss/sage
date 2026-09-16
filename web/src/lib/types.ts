@@ -1,4 +1,4 @@
-// Brief-JSON + Signal types — mirror docs/contracts/. Source of truth for the frontend.
+// Brief-JSON + Signal types — mirror the generated JSON Schema in data/schemas/entities/.
 // STUB — structure only, no implementation yet.
 
 export {};

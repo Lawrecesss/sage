@@ -1,0 +1,28 @@
+[project]
+name = "sage-simulator"
+version = "0.0.0"
+description = "Synthetic SME dataset + planted incident library — seeds sage_models entities"
+requires-python = ">=3.12"
+dependencies = [
+  "polars>=1.0",
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+  "sage-models",
+]
+
+[tool.uv.sources]
+sage-models = { path = "../models" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sage_simulator"]
+
+[dependency-groups]
+dev = [
+  "ruff>=0.6",
+  "pytest>=8",
+]
