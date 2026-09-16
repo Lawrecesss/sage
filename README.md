@@ -19,17 +19,30 @@ compose) that `data/simulator` depends on via a local path dependency, and that
 - `platform/notifier/` — pushes the morning brief to Telegram
 - `web/` — Next.js frontend
 
-Most services are currently skeletons: entity/schema models only, business logic
-not yet implemented.
+Most services are still skeletons (entity/schema models only, business logic not
+yet implemented) — `data/simulator` is the exception: it fully seeds a synthetic
+dataset (orders, stock, invoices/bills, planted incidents) into Postgres.
 
 ## Running
+
+Copy `.env.example` to `.env` first.
+
+A `Makefile` at the repo root wraps the common commands — run `make help` to
+list them:
+
+```
+make up      # start db, mcp, openclaw, web
+make seed    # (re)seed the synthetic dataset into Postgres — see data/simulator
+make jobs    # run every one-off job container (simulator, notifier)
+make down    # stop everything
+```
+
+Or drive `docker compose` directly:
 
 ```
 docker compose up -d db mcp openclaw web
 docker compose --profile jobs up simulator notifier
 ```
-
-Copy `.env.example` to `.env` first.
 
 ### Agent flow
 
