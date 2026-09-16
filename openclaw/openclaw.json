@@ -28,7 +28,12 @@
   // allowlist non-empty at resolve time, before bundle-mcp tools have loaded.
   tools: { allow: ["session_status", "bundle-mcp"] },
   cron: { enabled: false }, // also disables scheduled heartbeats and memory dreaming
-  plugins: { slots: { memory: "none" } },
+  plugins: {
+    slots: { memory: "none" },
+    // Ships disabled; without this the `diagnostics` block below is inert —
+    // spans get created and sampled, but nothing ever exports them.
+    entries: { "diagnostics-otel": { enabled: true } },
+  },
   models: {
     mode: "merge",
     providers: {
@@ -60,5 +65,13 @@
         enabled: true,
       },
     },
+  },
+  // Traces go to Langfuse Cloud over OTLP. The otel block is generated at
+  // container start by render-otel.mjs (it derives the basic-auth header from
+  // the Langfuse key pair, which `${VAR}` interpolation can't do — it only
+  // substitutes into strings). No Langfuse keys in the env => tracing off.
+  diagnostics: {
+    enabled: true,
+    otel: { $include: "./otel.json" },
   },
 }
