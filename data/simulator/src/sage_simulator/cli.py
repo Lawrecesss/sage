@@ -28,6 +28,9 @@ def generate(
     database_url: str | None = typer.Option(
         None, "--database-url", envvar="DATABASE_URL", help="Postgres connection string."
     ),
+    tenant: str = typer.Option(
+        "demo", "--tenant", envvar="SEED_TENANT", help="Tenant id to (re)provision and seed."
+    ),
 ) -> None:
     """Build a deterministic synthetic dataset and (re)seed it into Postgres."""
     if not database_url:
@@ -64,9 +67,9 @@ def generate(
     typer.echo(f"Applying {len(incidents)} incidents...")
     apply_posthoc(incidents, dataset, entities.sku_by_id, config)
 
-    typer.echo("Seeding Postgres...")
+    typer.echo(f"Seeding Postgres (tenant={tenant})...")
     engine = create_engine(database_url)
-    seed(engine, dataset, entities, config)
+    seed(engine, dataset, entities, config, tenant_id=tenant)
     typer.echo("Done.")
 
 

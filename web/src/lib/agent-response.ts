@@ -3,6 +3,7 @@
 import { ChartSplitter, type Part, chartToMarkdown } from "@/lib/chart-blocks";
 import { OpenClawError, streamAgentReply } from "@/lib/openclaw";
 import { type ReportFileMeta, buildReportFile } from "@/lib/report-file";
+import { type ResolvedTenant, UnknownTenantError, resolveTenant } from "@/lib/tenant";
 import type { ApiError, ChatEvent, ChatRequest, ContentBlock, ReportRequest } from "@/lib/types";
 
 const SESSION_ID = /^[A-Za-z0-9-]{8,64}$/;
@@ -106,9 +107,10 @@ function toPlainStream(text: ReadableStream<string>): ReadableStream<Uint8Array>
 }
 
 /**
- * Runs one agent turn and streams the reply — as `ChatEvent`s if the client asks for them,
- * else as plain text. `options.file` (reports only) attaches the export as the last block of
- * the event stream; plain-text mode has no way to carry a file.
+ * Resolves the tenant (`x-tenant-id` header, see tenant.ts), then runs one agent turn and
+ * streams the reply — as `ChatEvent`s if the client asks for them, else as plain text.
+ * `options.file` (reports only) attaches the export as the last block of the event stream;
+ * plain-text mode has no way to carry a file.
  */
 export async function agentResponse(
   req: Request,
@@ -117,8 +119,20 @@ export async function agentResponse(
   options: { file?: ReportFileMeta } = {},
 ) {
   const path = new URL(req.url).pathname;
+
+  let tenant: ResolvedTenant;
   try {
-    const stream = await streamAgentReply(message, sessionId, req.signal);
+    tenant = await resolveTenant(req);
+  } catch (err) {
+    if (err instanceof UnknownTenantError) {
+      return Response.json({ error: "unknown tenant" } satisfies ApiError, { status: 404 });
+    }
+    console.error(`[${path}] tenant resolution failed`, err);
+    return Response.json({ error: "tenant lookup unavailable" } satisfies ApiError, { status: 502 });
+  }
+
+  try {
+    const stream = await streamAgentReply(message, sessionId, tenant.tenantId, tenant.modules, req.signal);
     if (req.headers.get("accept")?.includes(NDJSON)) {
       return new Response(toEventStream(stream, path, options.file), {
         headers: { "Content-Type": `${NDJSON}; charset=utf-8`, "Cache-Control": "no-store" },

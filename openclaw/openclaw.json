@@ -2,7 +2,7 @@
 // see the `openclaw` service in docker-compose.yml.
 //
 // Runs OpenClaw as a headless agent loop behind an OpenAI-compatible HTTP API:
-// web backend -> POST /v1/chat/completions -> agent loop -> sage MCP tools.
+// web backend -> POST /v1/chat/completions -> agent loop -> retail MCP tools.
 // No channels, no cron/heartbeat, no memory plugin, no built-in host tools.
 {
   gateway: {
@@ -24,7 +24,7 @@
       skipBootstrap: true,
     },
   },
-  // Only the sage MCP tools (+ session_status). `session_status` keeps the
+  // Only the retail MCP tools (+ session_status). `session_status` keeps the
   // allowlist non-empty at resolve time, before bundle-mcp tools have loaded.
   tools: { allow: ["session_status", "bundle-mcp"] },
   cron: { enabled: false }, // also disables scheduled heartbeats and memory dreaming
@@ -57,9 +57,14 @@
       },
     },
   },
+  // One entry per business module (ARCHITECTURE.md §4), not per tenant —
+  // tenant scoping happens inside each tool call (tenant_id argument), not
+  // via which MCP server is connected. This config is static/shared across
+  // every tenant's requests; a future module (e.g. fnb) would be added as
+  // another sibling key here once it has real data behind it.
   mcp: {
     servers: {
-      sage: {
+      retail: {
         url: "${MCP_URL}",
         transport: "streamable-http",
         enabled: true,
