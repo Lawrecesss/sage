@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := help
 .PHONY: help up down restart build ps logs seed reseed jobs notify psql reset
 
-## Core services (db, mcp, openclaw, web) — the always-on stack
+## Core services (db, retail-mcp, openclaw, web) — the always-on stack
 up: ## Start the core services in the background
-	docker compose up -d db mcp openclaw web
+	docker compose up -d db retail-mcp openclaw web
 
 down: ## Stop all services
 	docker compose down
@@ -20,9 +20,9 @@ logs: ## Tail logs for a service, e.g. `make logs s=web`
 	docker compose logs -f $(s)
 
 ## Data seeding
-seed: ## Seed the demo dataset into Postgres (starts db if needed)
+seed: ## Seed the demo dataset into Postgres (starts db if needed). Optional: tenant=<id>
 	docker compose up -d db
-	docker compose run --rm simulator
+	docker compose run --rm -e SEED_TENANT=$(or $(tenant),demo) simulator
 
 reseed: seed ## Alias for `make seed` (the simulator always wipes + regenerates)
 
