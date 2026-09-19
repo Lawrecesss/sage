@@ -3,14 +3,17 @@
 
 // --- Chat API: POST /api/chat and POST /api/reports/[name] ---
 
-/** Request body for POST /api/chat. `message` is trimmed, 1–4000 chars. */
+/**
+ * Request body for POST /api/chat. `message` is trimmed, 1–4000 chars. The tenant is not in
+ * the body: it comes from the `x-tenant-id` header (or DEFAULT_TENANT_ID) — see tenant.ts.
+ */
 export type ChatRequest = {
   message: string;
   /** Conversation key — OpenClaw keeps history per session. 8–64 chars of [A-Za-z0-9-]. */
   sessionId: string;
 };
 
-/** Request body for POST /api/reports/[name]. The prompt is built server-side. */
+/** Request body for POST /api/reports/[name]. The prompt is built server-side; tenant as in ChatRequest. */
 export type ReportRequest = {
   sessionId: string;
   /** ISO timestamp pinning "now" (replay against the frozen dataset). Defaults to the real clock. */
@@ -26,7 +29,10 @@ export type ReportRequest = {
  */
 export type ChatResponse = ReadableStream<Uint8Array>;
 
-/** JSON body of every non-2xx response from these routes (400 bad input, 404 unknown report, 5xx agent). */
+/**
+ * JSON body of every non-2xx response from these routes: 400 bad input, 404 unknown report or
+ * unknown tenant, 502 tenant lookup or agent unavailable.
+ */
 export type ApiError = { error: string };
 
 // --- Rich responses: text, charts, tables, files, saved reports ---
