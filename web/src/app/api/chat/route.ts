@@ -1,4 +1,5 @@
 import { OpenClawError, streamAgentReply } from "@/lib/openclaw";
+import { resolveTenant, UnknownTenantError } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -6,7 +7,11 @@ export const dynamic = "force-dynamic";
 const SESSION_ID = /^[A-Za-z0-9-]{8,64}$/;
 const MAX_MESSAGE_CHARS = 4000;
 
-/** POST { message, sessionId } -> streamed plain-text agent reply. */
+/** POST { message, sessionId } -> streamed plain-text agent reply.
+ *
+ * Tenant is resolved from the `x-tenant-id` header (dev-mode identity —
+ * see ARCHITECTURE.md §9), not from the request body.
+ */
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const message = typeof body?.message === "string" ? body.message.trim() : "";
@@ -19,8 +24,20 @@ export async function POST(req: Request) {
     return Response.json({ error: "invalid sessionId" }, { status: 400 });
   }
 
+  let tenantId: string;
+  let modules: string[];
   try {
-    const stream = await streamAgentReply(message, sessionId, req.signal);
+    ({ tenantId, modules } = await resolveTenant(req));
+  } catch (err) {
+    if (err instanceof UnknownTenantError) {
+      return Response.json({ error: "unknown tenant" }, { status: 404 });
+    }
+    console.error("[api/chat] tenant resolution failed", err);
+    return Response.json({ error: "tenant lookup unavailable" }, { status: 502 });
+  }
+
+  try {
+    const stream = await streamAgentReply(message, sessionId, tenantId, modules, req.signal);
     return new Response(stream.pipeThrough(new TextEncoderStream()), {
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
     });

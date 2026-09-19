@@ -10,7 +10,7 @@ lockfile, no shared workspace. The root `docker-compose.yml` wires them together
 compose) that `data/simulator` depends on via a local path dependency, and that
 `data/schemas` is generated from.
 
-- `mcp/` — MCP server, Sage's governed tool surface, served to OpenClaw
+- `mcp/` — `retail-mcp`, the retail module's MCP server (tenant-scoped, schema-agnostic tools)
 - `openclaw/` — agent runtime config (prompts, automations)
 - `data/models/` — shared entity shapes (Supplier, Sku, CustomerSegment) — the domain
   vocabulary every service mirrors; `data/schemas/` is generated from it
@@ -31,8 +31,8 @@ A `Makefile` at the repo root wraps the common commands — run `make help` to
 list them:
 
 ```
-make up      # start db, mcp, openclaw, web
-make seed    # (re)seed the synthetic dataset into Postgres — see data/simulator
+make up      # start db, retail-mcp, openclaw, web
+make seed    # (re)seed the synthetic dataset for a tenant into Postgres (default: demo) — see data/simulator
 make jobs    # run every one-off job container (simulator, notifier)
 make down    # stop everything
 ```
@@ -40,28 +40,42 @@ make down    # stop everything
 Or drive `docker compose` directly:
 
 ```
-docker compose up -d db mcp openclaw web
+docker compose up -d db retail-mcp openclaw web
 docker compose --profile jobs up simulator notifier
 ```
+
+Seed a second tenant with `make seed tenant=acme` — each tenant gets its own
+Postgres schema, isolated from every other tenant's data. See
+[`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full multi-tenant model.
 
 ### Agent flow
 
 ```
-browser ──> web  POST /api/chat ──> openclaw  POST /v1/chat/completions ──> agent loop ──> mcp (sage tools)
-            (Next.js, holds token)  (headless gateway, 127.0.0.1:18789)                    (FastMCP, 127.0.0.1:9100/mcp)
+browser ──> web  POST /api/chat ──> openclaw  POST /v1/chat/completions ──> agent loop ──> retail-mcp (tenant-scoped tools)
+            (Next.js, holds token,             (headless gateway, 127.0.0.1:18789)                    (FastMCP, 127.0.0.1:9100/mcp)
+            resolves tenant_id + modules)
 ```
 
 - `web/src/app/api/chat/route.ts` takes `{ message, sessionId }` and streams back plain text.
   The OpenClaw token stays server-side (`web/src/lib/openclaw.ts`).
-- OpenClaw keeps conversation history per `sessionId` (sent as the OpenAI `user` field).
+- **Tenancy** (dev-mode only, no real auth yet — see `ARCHITECTURE.md` §9): `web` resolves
+  `tenant_id` from the `x-tenant-id` request header, falling back to `DEFAULT_TENANT_ID`
+  (default `demo`), and looks up its enabled modules from `shared.tenant_modules`
+  (`web/src/lib/tenant.ts`). An unknown/inactive tenant gets a `404` before OpenClaw is
+  ever called. Tenant + modules are passed to OpenClaw as a system message plus the
+  `user` field (`web:${tenantId}:${sessionId}`); OpenClaw keeps conversation history keyed
+  by that combined value.
 - `openclaw/openclaw.json` runs the gateway headless: HTTP API only, tools restricted to the
-  sage MCP server, no cron/heartbeat/memory. Agent instructions live in `openclaw/workspace/AGENTS.md`.
+  `retail` MCP server, no cron/heartbeat/memory. Agent instructions live in `openclaw/workspace/AGENTS.md`.
+- `retail-mcp` validates `tenant_id` against `shared.tenants`/`shared.tenant_modules` on every
+  tool call before touching that tenant's Postgres schema — it doesn't just trust the value
+  the model passed.
 - LLM: any OpenAI-compatible endpoint via `LLM_GATEWAY_URL` / `LLM_GATEWAY_API_KEY` / `LLM_MODEL` in `.env`.
 
 ### Tracing
 
 OpenClaw exports OTLP traces straight to Langfuse Cloud — one trace per chat
-turn, with a span per model call and per sage MCP tool call. Set
+turn, with a span per model call and per retail MCP tool call. Set
 `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_BASE_URL` in `.env`
 (blank keys = tracing off) and `docker compose up -d --build openclaw`.
 
@@ -88,6 +102,7 @@ Try it: open http://127.0.0.1:3000, or
 
 ```
 curl -N http://127.0.0.1:3000/api/chat -H "Content-Type: application/json" \
-  -d '{"message":"Which open signal costs us the most?","sessionId":"demo-session-1"}'
-docker compose exec openclaw node openclaw.mjs mcp probe   # check OpenClaw sees sage's tools
+  -H "x-tenant-id: demo" \
+  -d '{"message":"What was our revenue trend last month?","sessionId":"demo-session-1"}'
+docker compose exec openclaw node openclaw.mjs mcp probe   # check OpenClaw sees retail's tools
 ```

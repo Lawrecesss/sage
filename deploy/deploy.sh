@@ -39,7 +39,7 @@ tar -xzf /tmp/sage-deploy.tar.gz -C $REMOTE_DIR
 mv /tmp/sage.env $REMOTE_DIR/.env
 rm -f /tmp/sage-deploy.tar.gz
 cd $REMOTE_DIR
-sudo docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build db mcp openclaw web
+sudo docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build db retail-mcp openclaw web
 sudo docker image prune -f
 REMOTE
 
