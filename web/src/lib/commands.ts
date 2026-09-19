@@ -5,7 +5,8 @@
 // The reports follow the usual retail cadence: three dayparts that partition the trading day
 // (00–12, 12–18, 18–24, business-local time), then period-close reports (day, week).
 
-import { type ReportWindow, type WindowSpec, formatLocal } from "@/lib/report-windows";
+import type { ReportFileMeta } from "@/lib/report-file";
+import { type ReportWindow, type WindowSpec, formatLocal, localDate } from "@/lib/report-windows";
 import type { ReportKind } from "@/lib/types";
 
 export type ReportCommand = {
@@ -80,6 +81,18 @@ export function findCommand(name: string): ReportCommand | undefined {
   return COMMANDS.find((c) => c.name === name || c.aliases?.includes(name));
 }
 
+/** Name and heading of the markdown file attached to the report (see report-file.ts). */
+export function reportFileMeta(command: ReportCommand, w: ReportWindow, asOf: Date): ReportFileMeta {
+  const period = w.partial
+    ? `${formatLocal(w.start)} to ${formatLocal(w.through)} (partial — window still running)`
+    : `${formatLocal(w.start)} to ${formatLocal(w.end)}`;
+  return {
+    name: `${command.name}-${localDate(w.start)}.md`,
+    title: command.title.charAt(0).toUpperCase() + command.title.slice(1),
+    subtitle: `Period: ${period} · Generated ${formatLocal(asOf)}`,
+  };
+}
+
 export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date): string {
   // Local time for the reader, UTC ISO for matching against tool timestamps.
   const at = (d: Date) => `${formatLocal(d)} [${d.toISOString()}]`;
@@ -100,6 +113,7 @@ export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date)
     "- Call the sage tools and use only figures they return. Tool timestamps are UTC; match them to the window above.",
     "- Label every comparison (vs same weekday last week, etc.). If a figure or comparison isn't available from the tools, say so rather than estimating.",
     "- If the tools have nothing inside the window, say that plainly and name the most recent period they do have.",
+    "- Where a comparison or trend is clearer as a chart, include one or two (format in your instructions), using only figures the tools returned.",
     "- Lead with the answer. Keep it short; use tables only where they help.",
   ].join("\n");
 }

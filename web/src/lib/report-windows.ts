@@ -95,6 +95,11 @@ export function computeWindow(spec: WindowSpec, asOf: Date, tz = BUSINESS_TZ): R
   };
 }
 
+/** The local calendar date as YYYY-MM-DD. */
+export function localDate(date: Date, tz = BUSINESS_TZ): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
 export function formatLocal(date: Date, tz = BUSINESS_TZ): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: tz,

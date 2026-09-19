@@ -1,5 +1,5 @@
 import { agentResponse, parseReportRequest } from "@/lib/agent-response";
-import { buildPrompt, findCommand } from "@/lib/commands";
+import { buildPrompt, findCommand, reportFileMeta } from "@/lib/commands";
 import { computeWindow } from "@/lib/report-windows";
 import type { ApiError } from "@/lib/types";
 
@@ -22,5 +22,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ name: s
 
   const { sessionId, asOf: asOfIso } = parsed.value;
   const asOf = asOfIso === undefined ? new Date() : new Date(asOfIso);
-  return agentResponse(req, buildPrompt(command, computeWindow(command.window, asOf), asOf), sessionId);
+  const window = computeWindow(command.window, asOf);
+  return agentResponse(req, buildPrompt(command, window, asOf), sessionId, {
+    file: reportFileMeta(command, window, asOf),
+  });
 }
