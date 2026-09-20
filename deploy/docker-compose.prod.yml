@@ -1,0 +1,7 @@
+# Prod override: the base compose file binds web to 127.0.0.1 (dev-safe default).
+# On the Lightsail box we expose it on the already-open port 80 instead of opening 3000.
+# Usage: docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d ...
+services:
+  web:
+    ports:
+      - "80:3000"

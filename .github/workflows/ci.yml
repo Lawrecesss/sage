@@ -40,7 +40,7 @@ jobs:
           CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
           python='[
-            {"service":"mcp","path":"mcp","package":"sage_mcp","context":"mcp","dockerfile":"mcp/Dockerfile"},
+            {"service":"mcp","path":"mcp","package":"retail_mcp","context":"mcp","dockerfile":"mcp/Dockerfile"},
             {"service":"models","path":"data/models","package":"sage_models","context":"","dockerfile":""},
             {"service":"simulator","path":"data/simulator","package":"sage_simulator","context":"data","dockerfile":"data/simulator/Dockerfile"},
             {"service":"notifier","path":"platform/notifier","package":"sage_notifier","context":"platform/notifier","dockerfile":"platform/notifier/Dockerfile"}

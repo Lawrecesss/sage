@@ -1,22 +1,24 @@
 [project]
-name = "sage-mcp"
+name = "retail-mcp"
 version = "0.0.0"
-description = "MCP server — Sage's governed tool surface, served to OpenClaw"
+description = "MCP server for the retail module — tenant-scoped, schema-agnostic tools served to OpenClaw"
 requires-python = ">=3.12"
 dependencies = [
   "fastmcp>=2.12",
   "pydantic>=2.7",
+  "sqlalchemy>=2.0",
+  "psycopg[binary]>=3.2",
 ]
 
 [project.scripts]
-sage-mcp = "sage_mcp.server:main"
+retail-mcp = "retail_mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sage_mcp"]
+packages = ["src/retail_mcp"]
 
 [dependency-groups]
 dev = [

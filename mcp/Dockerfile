@@ -4,10 +4,12 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH"
 
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+# No committed uv.lock yet (deps changed with the retail-mcp rename) — run
+# `uv lock` locally and commit the result for reproducible builds.
+COPY pyproject.toml ./
+RUN uv sync --no-dev --no-install-project
 
 COPY src ./src
-RUN uv sync --frozen --no-dev
+RUN uv sync --no-dev
 
-CMD ["sage-mcp"]
+CMD ["retail-mcp"]

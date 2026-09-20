@@ -1,15 +1,16 @@
-"""Wipes and reseeds Postgres from a generated `Dataset`."""
+"""Wipes and reseeds one tenant's Postgres schema from a generated `Dataset`."""
 
 from __future__ import annotations
 
 from dataclasses import asdict
 
-from sqlalchemy import Engine, insert
+from sqlalchemy import Engine, insert, text
 
 from ..config import GeneratorConfig
 from ..entities import Entities
 from ..facts import Dataset
 from . import schema
+from .provision import provision_tenant
 
 __all__ = ["seed"]
 
@@ -19,11 +20,20 @@ def _bulk_insert(conn, table, rows: list[dict]) -> None:
         conn.execute(insert(table), rows)
 
 
-def seed(engine: Engine, dataset: Dataset, entities: Entities, config: GeneratorConfig) -> None:
-    schema.metadata.drop_all(engine)
-    schema.metadata.create_all(engine)
+def seed(
+    engine: Engine,
+    dataset: Dataset,
+    entities: Entities,
+    config: GeneratorConfig,
+    tenant_id: str = "demo",
+) -> None:
+    """(Re)seed the `tenant_id` schema. Provisions the tenant if it doesn't exist yet."""
+    provision_tenant(engine, tenant_id, modules=["retail"])
 
     with engine.begin() as conn:
+        conn.execute(text(f'SET search_path TO "{tenant_id}"'))
+        schema.metadata.drop_all(conn)
+        schema.metadata.create_all(conn)
         _bulk_insert(conn, schema.dim_date, [asdict(row) for row in dataset.dates])
         _bulk_insert(
             conn,

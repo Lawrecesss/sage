@@ -16,11 +16,20 @@ export class OpenClawError extends Error {
  * Runs one agent turn and returns the reply as a stream of text deltas.
  *
  * OpenClaw keeps conversation history server-side, keyed by `user`, so only the
- * new message is sent. Tool calls (sage MCP) happen inside the gateway's loop.
+ * new message is sent. Tool calls (retail MCP) happen inside the gateway's loop.
+ *
+ * OpenClaw's MCP config is static and shared across every tenant's requests
+ * (ARCHITECTURE.md §9) — there's no native per-request tool-call context
+ * injection, so tenant_id is threaded through as a system message instead,
+ * with the model instructed to pass it verbatim on tenant-scoped tool calls.
+ * retail-mcp independently validates tenant_id server-side; this is not a
+ * hard security boundary against a fully adversarial prompt injection.
  */
 export async function streamAgentReply(
   message: string,
   sessionId: string,
+  tenantId: string,
+  modules: string[],
   signal?: AbortSignal,
 ): Promise<ReadableStream<string>> {
   const token = process.env.OPENCLAW_TOKEN;
@@ -31,9 +40,15 @@ export async function streamAgentReply(
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "openclaw/default",
-      user: `web:${sessionId}`,
+      user: `web:${tenantId}:${sessionId}`,
       stream: true,
-      messages: [{ role: "user", content: message }],
+      messages: [
+        {
+          role: "system",
+          content: `You are assisting tenant "${tenantId}". Enabled modules: ${modules.join(", ") || "none"}. When calling a tenant-scoped tool, always pass tenant_id="${tenantId}" exactly.`,
+        },
+        { role: "user", content: message },
+      ],
     }),
     signal,
   });
