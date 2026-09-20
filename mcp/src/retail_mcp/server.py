@@ -117,8 +117,8 @@ def get_sales_timeseries(
             FROM fact_order_line f
             JOIN dim_date d ON d.date = f.date
             {"JOIN dim_sku s ON s.sku = f.sku" if needs_sku_join else ""}
-            WHERE (:start_date IS NULL OR d.date >= CAST(:start_date AS date))
-              AND (:end_date IS NULL OR d.date <= CAST(:end_date AS date))
+            WHERE (CAST(:start_date AS date) IS NULL OR d.date >= CAST(:start_date AS date))
+              AND (CAST(:end_date AS date) IS NULL OR d.date <= CAST(:end_date AS date))
             GROUP BY {group_cols}
             ORDER BY {group_cols}
         """
