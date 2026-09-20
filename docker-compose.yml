@@ -18,10 +18,18 @@ services:
       timeout: 5s
       retries: 10
 
+<<<<<<< Updated upstream
   retail-mcp:
     build: ./mcp
+=======
+  mcp:
+    build:
+      context: .
+      dockerfile: mcp/Dockerfile
+>>>>>>> Stashed changes
     environment:
       DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD:-sage}@db:5432/sage
+      METRICS_PATH: /app/metrics.yaml
     ports:
       - "127.0.0.1:9100:9100"
     depends_on:
