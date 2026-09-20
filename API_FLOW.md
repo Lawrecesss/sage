@@ -107,9 +107,92 @@ in this config.
 
 ---
 
-## 4. Testing each hop independently
+## 4. Testing from the BFF layer (web) — for frontend/BFF developers
 
-### Hop 2 alone (skip `web` and the browser entirely)
+This is the test that actually exercises *your* code (`web/src/app/api/chat/route.ts`,
+`web/src/lib/openclaw.ts`, `web/src/lib/tenant.ts`), not just the agent/MCP
+layer underneath it. Use this to verify your BFF correctly reaches `retail-mcp`
+end to end; use §5 below only to isolate *which* layer broke if this fails.
+
+### 4.1 Prerequisites
+
+1. `.env` exists (copied from `.env.example`) and is filled in — at minimum
+   `LLM_GATEWAY_URL`/`LLM_GATEWAY_API_KEY`/`LLM_MODEL`, `OPENCLAW_TOKEN` (or
+   leave blank to use compose's fallback `sage-dev-token`).
+2. The stack is up: `docker compose up -d db retail-mcp openclaw web` (or
+   `make up`).
+3. At least one tenant is provisioned and seeded — `make seed` (defaults to
+   tenant `demo`), or directly:
+   `docker compose --profile jobs run --rm simulator sage-simulate --seed 42 --months 6 --tenant demo`.
+   Skipping this means `web` will 404 with `"unknown tenant"` — that's not a
+   bug in your BFF code, it's a missing prerequisite.
+
+### 4.2 Confirm every layer is actually healthy before testing through `web`
+
+```bash
+docker compose ps                                    # all four should show healthy/running
+curl -s http://127.0.0.1:9100/health                  # {"status":"ok"} from retail-mcp
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000   # 200 from web
+```
+
+If any of these fail, fix that first — testing `/api/chat` on top of a broken
+dependency just produces a confusing 502.
+
+### 4.3 Call your own `/api/chat` route directly
+
+```bash
+curl -N -X POST http://127.0.0.1:3000/api/chat \
+  -H "Content-Type: application/json" \
+  -H "x-tenant-id: demo" \
+  -d '{"message":"What was our total revenue in February 2026, broken down by channel?","sessionId":"dev-test-session-1"}'
+```
+
+Notes on this exact request:
+- `-N` disables curl's output buffering — required to see the streamed
+  plain-text reply arrive incrementally rather than all at once at the end.
+- `x-tenant-id` is optional — omit it and `web` falls back to
+  `DEFAULT_TENANT_ID` (`demo` by default in `docker-compose.yml`). Set it
+  explicitly when testing a non-default tenant (e.g. one seeded with
+  `make seed tenant=acme`).
+- `sessionId` must match `/^[A-Za-z0-9-]{8,64}$/` (`route.ts`'s own
+  validation) — a too-short or invalid one gets a `400` before anything else
+  runs.
+- Response is `Content-Type: text/plain`, not JSON — the reply text itself,
+  streamed, with no envelope.
+
+Same request in Postman: `POST http://127.0.0.1:3000/api/chat`, header
+`x-tenant-id: demo`, JSON body `{"message": "...", "sessionId": "..."}`.
+Postman streams the response body live if you're on a recent version; if not,
+you'll just see the full text once the request completes.
+
+### 4.4 Or just use the browser
+
+`http://127.0.0.1:3000` — the actual chat UI, exercising the identical code
+path. Fastest sanity check, but curl/Postman is what you want for repeatable
+testing and for checking headers/status codes.
+
+### 4.5 Reading failures
+
+| Symptom | Meaning | Where to look |
+|---|---|---|
+| `400 { "error": "message is required..." }` or `"invalid sessionId"` | Your request body didn't pass `route.ts`'s own validation | Fix the request, not the server |
+| `404 { "error": "unknown tenant" }` | `x-tenant-id` (or `DEFAULT_TENANT_ID`) doesn't have an active row in `shared.tenants` | Provision/seed that tenant (§4.1 step 3) |
+| `502 { "error": "tenant lookup unavailable" }` | `web` couldn't reach Postgres at all for tenant resolution | `docker compose logs web`, check `db` is healthy |
+| `502 { "error": "agent unavailable" }` | The call to OpenClaw itself failed (bad token, OpenClaw down, network) | `docker compose logs openclaw`, re-check `OPENCLAW_TOKEN` matches between `web` and `openclaw` services in `docker-compose.yml` |
+| `200`, but empty/short body | OpenClaw responded but the agent had nothing to say (e.g. genuinely empty query result) — not necessarily a bug | `docker compose logs openclaw` for the reasoning, `docker compose logs retail-mcp` for the actual SQL error if any |
+| Hangs indefinitely | Usually `retail-mcp` or the LLM gateway not responding | Check `docker compose ps` for unhealthy containers, and `LLM_GATEWAY_URL` reachability |
+
+**Isolating which layer is actually broken:** if §4.3 fails but the §5.1 test
+below (same message, direct to OpenClaw, no `web` involved) succeeds, the bug
+is in your BFF code (`route.ts`, `openclaw.ts`, or `tenant.ts`) — not in
+OpenClaw or `retail-mcp`. If §5.1 also fails, the problem is downstream of
+`web` and this isn't a BFF bug at all.
+
+---
+
+## 5. Testing each hop independently
+
+### 5.1 Hop 2 alone (skip `web` and the browser entirely)
 
 Everything `web` does before calling OpenClaw is resolve `tenant_id` and build
 a system message — reproduce that by hand:
@@ -138,7 +221,7 @@ back suspiciously empty.)
 
 Works equally well in Postman: same URL, same header, same JSON body.
 
-### The MCP hop alone (skip OpenClaw too)
+### 5.2 The MCP hop alone (skip OpenClaw too)
 
 ```bash
 curl -s http://127.0.0.1:9100/health
