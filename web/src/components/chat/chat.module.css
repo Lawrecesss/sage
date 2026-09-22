@@ -1,0 +1,253 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--topbar-h));
+  min-height: 460px;
+}
+
+.log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.inner {
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+/* ── Empty state: shortcut cards ─────────────────────────────────────── */
+
+.intro {
+  composes: inner;
+  padding-top: 8px;
+}
+
+.introTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.introText {
+  color: var(--text-muted);
+  margin: 0 0 20px;
+}
+
+.commands {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr));
+  gap: 10px;
+}
+
+.command {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.command:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-inset);
+}
+
+.commandName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.commandDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Messages ────────────────────────────────────────────────────────── */
+
+.row {
+  composes: inner;
+  display: flex;
+  gap: 12px;
+}
+
+.rowUser {
+  composes: row;
+  justify-content: flex-end;
+}
+
+.user {
+  padding: 9px 14px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  max-width: 78%;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.assistant {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.mark {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.assistantText {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+.thinking {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* ── Composer ────────────────────────────────────────────────────────── */
+
+.composer {
+  border-top: 1px solid var(--border);
+  padding: 14px 28px 18px;
+  background: var(--bg);
+}
+
+.form {
+  composes: inner;
+  position: relative;
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+.send {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reset {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.send:disabled,
+.reset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.hint {
+  composes: inner;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.suggest {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 5;
+}
+
+.suggest button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.suggest button:hover {
+  background: var(--surface-muted);
+}
+
+.suggestName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.suggestDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+  .chat {
+    height: auto;
+    min-height: 60dvh;
+  }
+
+  .log {
+    padding: 16px;
+  }
+
+  .composer {
+    padding: 12px 16px 16px;
+  }
+}

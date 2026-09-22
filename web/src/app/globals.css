@@ -1,0 +1,154 @@
+/* Design tokens — strictly monochrome. Two themes, light and dark.
+   Hierarchy comes from weight, size, border and fill, never from hue.
+   Components reference these variables only; no raw colours in CSS modules. */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-muted: #f5f5f4;
+  --surface-inset: #fafaf9;
+  --border: #e4e4e1;
+  --border-strong: #c8c8c4;
+
+  --text: #0a0a0a;
+  --text-muted: #6b6b68;
+  --text-faint: #9a9a96;
+
+  --accent: #0a0a0a; /* ink */
+  --on-accent: #ffffff;
+
+  --grid: #ededea;
+  --overlay: rgba(10, 10, 10, 0.35);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.12);
+
+  /* Chart series — the only colour in the product. Validated categorical slots
+     (blue, orange, aqua) from the data-viz palette; assigned in fixed order,
+     never cycled. Dark mode uses its own steps, not an automatic flip. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-neutral: #9a9a96;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0a0a0a;
+  --surface: #121212;
+  --surface-muted: #1b1b1b;
+  --surface-inset: #161616;
+  --border: #282828;
+  --border-strong: #3d3d3d;
+
+  --text: #fafafa;
+  --text-muted: #a1a1a0;
+  --text-faint: #6f6f6e;
+
+  --accent: #fafafa;
+  --on-accent: #0a0a0a;
+
+  --grid: #232323;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-neutral: #6f6f6e;
+}
+
+:root {
+  --radius: 3px;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sidebar-w: 216px;
+  --sidebar-w-collapsed: 56px;
+  --topbar-h: 56px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* Monospace + tabular figures for every number on screen. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Small uppercase label, the sample's field-label treatment. */
+.label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+::selection {
+  background: var(--text);
+  color: var(--bg);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
