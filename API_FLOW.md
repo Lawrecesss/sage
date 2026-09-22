@@ -2,8 +2,10 @@
 
 How a chat message actually travels through the stack, at the HTTP/API level —
 what calls what, over which endpoint, with which payload. Companion to
-[`ARCHITECTURE.md`](./ARCHITECTURE.md) (the tenancy/scaling model) and the
-README's "Agent flow" section (the short version); this is the detailed one.
+[`ARCHITECTURE.md`](./ARCHITECTURE.md) (the tenancy/scaling model),
+[`MCP_TOOLS.md`](./MCP_TOOLS.md) (what each `retail-mcp` tool actually does),
+and the README's "Agent flow" section (the short version); this is the
+detailed one.
 
 ---
 
@@ -71,13 +73,34 @@ mcp: {
 },
 ```
 
-When the LLM decides it needs data, OpenClaw's runtime calls one of two tools
-exposed by `mcp/src/retail_mcp/server.py`:
+When the LLM decides it needs data, OpenClaw's runtime calls one of 19 tools
+exposed by `mcp/src/retail_mcp/server.py` — every parameter (`metric`,
+`group_by`, `kind`, `status`, `breakdown`) is validated against a fixed
+allowlist before any SQL is built, never passed through as-is. Full
+reference, parameters, and return shapes: **[`MCP_TOOLS.md`](./MCP_TOOLS.md)**.
+Short version:
 
-- `describe_schema(tenant_id)` — introspects the tenant's live Postgres schema
-- `get_sales_timeseries(tenant_id, metric, group_by?, start_date?, end_date?)` —
-  the one analysis tool; `metric`/`group_by` validated against a fixed
-  allowlist before any SQL is built
+- `describe_schema` — introspects the tenant's live Postgres schema
+- `get_sales_timeseries` — revenue/units/refunds/margin/margin_pct over time
+- `get_inventory_status` — current stock on hand
+- `get_supplier_performance` — lead time and delivery delay per supplier
+- `get_accounts_status` — outstanding receivables/payables
+- `get_business_health_summary` — sales+inventory+supplier+accounts, one call
+- `get_stockout_root_causes` — stockouts cross-referenced to supplier delay
+- `compare_periods` — percent-change between two explicit date ranges
+- `get_attention_items` — fixed-threshold checks across every domain, ranked
+- `get_benchmark_gap_analysis` — sales/accounts outcomes vs. industry-typical ranges, gap and direction
+- `get_trending_products` — SKUs genuinely rising vs. their own recent baseline
+- `get_seasonal_pattern` — day-of-week/month/holiday patterns across full history
+- `get_expected_deliveries` — purchase orders due in a date window
+- `get_sku_lifecycle` — new/growing/stable/declining/dead classification per SKU
+- `get_channel_performance` — store/online/click-and-collect side by side
+- `get_cash_flow_forecast` — naive short-horizon cash projection
+- `simulate_reorder_impact` — what-if: proposed PO qty/date vs. resulting stockout risk
+- `get_data_freshness` — latest business-event date per source table
+
+No tool covers customer enquiries or general "operational updates" — there's
+no backing table for either anywhere in `data/simulator/src/sage_simulator/db/schema.py`.
 
 Every call carries `tenant_id`, sourced from the system message OpenClaw was
 given in hop 2 above — this is how tenant identity survives across the hop
@@ -165,13 +188,43 @@ Same request in Postman: `POST http://127.0.0.1:3000/api/chat`, header
 Postman streams the response body live if you're on a recent version; if not,
 you'll just see the full text once the request completes.
 
-### 4.4 Or just use the browser
+### 4.4 Example questions exercising each tool
+
+Same request shape as §4.3 (`curl -N -X POST .../api/chat -H "x-tenant-id:
+demo" -d '{"message": "...", "sessionId": "..."}'`), only the `message`
+changes. These are real prompts verified against the seeded `demo` tenant
+during development — use them to confirm a specific tool works through your
+BFF, not just that *some* tool does. Full tool reference: `MCP_TOOLS.md`.
+
+| Tool | Example `message` |
+|---|---|
+| `get_sales_timeseries` (margin) | `"What was our gross margin percentage in February 2026?"` |
+| `get_inventory_status` | `"List our 5 lowest-stock SKUs right now."` |
+| `get_supplier_performance` | `"Which suppliers have the worst delivery delays?"` |
+| `get_accounts_status` | `"Do we have any overdue supplier bills right now?"` |
+| `get_business_health_summary` | `"How are we doing overall in February 2026? What needs my attention?"` |
+| `get_stockout_root_causes` | `"Why are we out of stock on some items right now? Is it our suppliers?"` |
+| `compare_periods` | `"How did revenue in February 2026 compare to January 2026, broken down by channel?"` |
+| `get_attention_items` | `"Give me a quick automated scan — what crosses a threshold right now?"` |
+
+The model picks which tool(s) to call from the question's phrasing and
+`AGENTS.md`'s instructions — these prompts aren't magic strings that force a
+specific tool, just phrasing known to reliably trigger the one listed. If a
+prompt doesn't behave as expected, that's itself useful signal — check
+`docker compose logs openclaw` for which tool it actually called.
+
+Remember the seeded `demo` tenant's calendar is fixed at **2025-09-01 to
+2026-02-28** — questions about "this month" or "last 30 days" relative to
+today's real date will come back empty. Use explicit dates/months (like the
+examples above) when testing against this dataset.
+
+### 4.5 Or just use the browser
 
 `http://127.0.0.1:3000` — the actual chat UI, exercising the identical code
 path. Fastest sanity check, but curl/Postman is what you want for repeatable
 testing and for checking headers/status codes.
 
-### 4.5 Reading failures
+### 4.6 Reading failures
 
 | Symptom | Meaning | Where to look |
 |---|---|---|
