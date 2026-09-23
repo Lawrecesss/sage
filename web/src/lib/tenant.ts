@@ -2,6 +2,7 @@
 // login (JWT/session -> tenant_id) is a documented follow-up, not built here.
 
 import { getPool } from "@/lib/db";
+import type { ApiError } from "@/lib/types";
 
 export class UnknownTenantError extends Error {}
 
@@ -31,4 +32,21 @@ export async function resolveTenant(req: Request): Promise<ResolvedTenant> {
   );
 
   return { tenantId, modules: moduleRows.map((r) => r.module_name) };
+}
+
+/**
+ * `resolveTenant`, wrapped for routes that just need a tenant check before serving their own
+ * data (not chat/reports) — same 404/502 mapping as agent-response.ts, so an unknown tenant or
+ * a down control plane looks identical everywhere in the API.
+ */
+export async function resolveTenantOrError(req: Request): Promise<{ tenant: ResolvedTenant } | { error: Response }> {
+  try {
+    return { tenant: await resolveTenant(req) };
+  } catch (err) {
+    if (err instanceof UnknownTenantError) {
+      return { error: Response.json({ error: "unknown tenant" } satisfies ApiError, { status: 404 }) };
+    }
+    console.error("[tenant] resolution failed", err);
+    return { error: Response.json({ error: "tenant lookup unavailable" } satisfies ApiError, { status: 502 }) };
+  }
 }

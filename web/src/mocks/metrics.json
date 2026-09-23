@@ -1,0 +1,513 @@
+[
+  {
+    "id": "gross_revenue",
+    "label": "Gross Revenue",
+    "description": "Total sales value before returns and discounts are netted out. The top-line number for \"how much did we sell,\" used as the denominator for most ratio metrics below.",
+    "unit": "SGD",
+    "direction": "higher_is_better",
+    "benchmark": null,
+    "grain": [
+      "day",
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "channel",
+      "category",
+      "sku",
+      "store"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "wow_change"
+    ],
+    "owner_domain": "sales"
+  },
+  {
+    "id": "net_revenue",
+    "label": "Net Revenue",
+    "description": "Gross revenue minus refunds and returns. What actually lands as sales after customers send things back \u2014 the number that should be used for any margin calculation, not gross_revenue.",
+    "unit": "SGD",
+    "direction": "higher_is_better",
+    "benchmark": null,
+    "grain": [
+      "day",
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "channel",
+      "category",
+      "sku",
+      "store"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "wow_change"
+    ],
+    "owner_domain": "sales"
+  },
+  {
+    "id": "average_order_value",
+    "label": "Average Order Value (AOV)",
+    "description": "Net revenue divided by number of distinct orders. Furniture/homeware AOV is typically much higher than fashion or grocery retail because purchases are infrequent but large (a sofa vs. a t-shirt) \u2014 a sudden drop often means a mix shift toward small accessory items, not fewer big-ticket sales.",
+    "unit": "SGD",
+    "direction": "context_dependent",
+    "benchmark": "SGD 150\u2013400 for furniture/homeware; well below this suggests accessory-only baskets",
+    "grain": [
+      "day",
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "channel",
+      "category"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "wow_change"
+    ],
+    "owner_domain": "sales"
+  },
+  {
+    "id": "units_sold",
+    "label": "Units Sold",
+    "description": "Total item quantity sold, independent of price \u2014 useful for spotting volume moves that revenue alone can mask (e.g. a markdown driving units up while revenue stays flat).",
+    "unit": "units",
+    "direction": "higher_is_better",
+    "benchmark": null,
+    "grain": [
+      "day",
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "channel",
+      "category",
+      "sku"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "wow_change"
+    ],
+    "owner_domain": "sales"
+  },
+  {
+    "id": "channel_mix_share",
+    "label": "Channel Mix Share",
+    "description": "Each channel's (store / online / click-and-collect) share of net revenue. IKEA-style retailers watch this closely because a large swing (e.g. store share collapsing) usually signals an operational problem at that channel specifically, not a change in overall demand.",
+    "unit": "percent",
+    "direction": "context_dependent",
+    "benchmark": null,
+    "grain": [
+      "day",
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "channel"
+    ],
+    "detectors": [
+      "wow_change"
+    ],
+    "owner_domain": "sales"
+  },
+  {
+    "id": "category_revenue",
+    "label": "Revenue by Category",
+    "description": "Net revenue broken down by product category (e.g. living room, kitchen, storage, bedroom, outdoor). The primary lens for \"which part of the catalog is driving or dragging performance.\"",
+    "unit": "SGD",
+    "direction": "higher_is_better",
+    "benchmark": null,
+    "grain": [
+      "day",
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "category",
+      "channel"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "wow_change"
+    ],
+    "owner_domain": "sales"
+  },
+  {
+    "id": "return_rate",
+    "label": "Return Rate",
+    "description": "Refunded units as a share of units sold. Furniture returns are costly (bulky reverse logistics), so this is watched more tightly than in categories where returns are cheap to process.",
+    "unit": "percent",
+    "direction": "lower_is_better",
+    "benchmark": "3\u20138% typical for furniture/homeware; spikes usually trace to a specific SKU quality issue",
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "category",
+      "sku",
+      "channel"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "threshold_breach"
+    ],
+    "owner_domain": "sales"
+  },
+  {
+    "id": "delivery_attach_rate",
+    "label": "Delivery/Assembly Attach Rate",
+    "description": "Share of orders that add paid delivery and/or assembly service. A meaningful secondary revenue line for bulky furniture, and a leading indicator of operational strain if it drops sharply (customers opting out because promised delivery windows are unreliable).",
+    "unit": "percent",
+    "direction": "higher_is_better",
+    "benchmark": null,
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "channel"
+    ],
+    "detectors": [
+      "wow_change"
+    ],
+    "owner_domain": "sales"
+  },
+  {
+    "id": "stock_on_hand",
+    "label": "Stock on Hand",
+    "description": "Current inventory quantity by SKU. The base number every other inventory metric derives from.",
+    "unit": "units",
+    "direction": "context_dependent",
+    "benchmark": null,
+    "grain": [
+      "day"
+    ],
+    "dimensions": [
+      "sku",
+      "category",
+      "store"
+    ],
+    "detectors": [
+      "threshold_breach"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "stockout_rate",
+    "label": "Stockout Rate",
+    "description": "Share of SKUs (within a category, weighted by normal sales volume) at zero stock. The single most important inventory metric for this business model \u2014 a stockout on a popular flat-pack item can silently erase a category's revenue for days before anyone notices in a manual review.",
+    "unit": "percent",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "day",
+      "week"
+    ],
+    "dimensions": [
+      "category",
+      "store"
+    ],
+    "detectors": [
+      "threshold_breach",
+      "zscore_7d"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "days_of_supply",
+    "label": "Days of Supply",
+    "description": "Current stock divided by average daily sales velocity \u2014 \"how many days until this SKU runs out at the current rate.\" Low values combined with a long supplier lead time (see supplier_lead_time_days) are the setup for a stockout before a reorder can land.",
+    "unit": "days",
+    "direction": "higher_is_better",
+    "benchmark": "10\u201330 days typical; below the supplier lead time is a reorder-urgency signal",
+    "grain": [
+      "day"
+    ],
+    "dimensions": [
+      "sku",
+      "category"
+    ],
+    "detectors": [
+      "threshold_breach"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "inventory_turnover",
+    "label": "Inventory Turnover",
+    "description": "COGS over a period divided by average inventory value \u2014 how many times stock \"cycles\" per year. Furniture retail turns much slower than fashion or grocery because items are large, expensive, and purchased infrequently; a falling turnover usually means dead stock building up, not a sales problem.",
+    "unit": "ratio",
+    "direction": "higher_is_better",
+    "benchmark": "2\u20134x/year typical for furniture/homeware (vs. 8x+ for fashion)",
+    "grain": [
+      "month"
+    ],
+    "dimensions": [
+      "category"
+    ],
+    "detectors": [
+      "wow_change"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "dead_stock_value",
+    "label": "Dead Stock Value",
+    "description": "Inventory value of SKUs with no sales in the last 90 days. Ties up warehouse space and working capital \u2014 a slow-moving companion metric to stockout_rate, watching the opposite failure mode: too much stock of the wrong things instead of too little of the right things.",
+    "unit": "SGD",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "category",
+      "sku"
+    ],
+    "detectors": [
+      "wow_change"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "supplier_lead_time_days",
+    "label": "Supplier Lead Time",
+    "description": "Days between placing a purchase order and stock arriving, by supplier. The upstream trigger for most stockout incidents \u2014 a supplier slipping their normal lead time is often detectable before the resulting stockout shows up in sales.",
+    "unit": "days",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "supplier",
+      "category"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "wow_change"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "purchase_order_delay",
+    "label": "Purchase Order Delay",
+    "description": "Actual delivery date minus promised delivery date for open/recent POs. A more direct early-warning signal than lead time alone \u2014 flags a specific PO that's running late right now, which is what the Correlator needs to trace forward to an eventual stockout.",
+    "unit": "days",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "day",
+      "week"
+    ],
+    "dimensions": [
+      "supplier",
+      "sku"
+    ],
+    "detectors": [
+      "threshold_breach"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "reorder_point_breach_count",
+    "label": "Reorder Point Breaches",
+    "description": "Count of SKUs that have fallen below their configured reorder point without an open purchase order to replenish them. A direct operational gap \u2014 this is a SKU someone should have already reordered and hasn't.",
+    "unit": "count",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "day"
+    ],
+    "dimensions": [
+      "category",
+      "store"
+    ],
+    "detectors": [
+      "threshold_breach"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "damage_shrinkage_rate",
+    "label": "Damage/Shrinkage Rate",
+    "description": "Units written off as damaged or missing, as a share of units received. Flat-pack furniture has real in-transit and in-warehouse damage rates worth tracking separately from returns, since it's a supply-side loss rather than a customer decision.",
+    "unit": "percent",
+    "direction": "lower_is_better",
+    "benchmark": "1\u20133% typical for bulky flat-pack goods",
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "category",
+      "supplier"
+    ],
+    "detectors": [
+      "zscore_7d"
+    ],
+    "owner_domain": "inventory"
+  },
+  {
+    "id": "cogs",
+    "label": "Cost of Goods Sold",
+    "description": "The direct cost of the inventory that was sold in the period. The main input, alongside net_revenue, for every margin metric below.",
+    "unit": "SGD",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "day",
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "category",
+      "channel"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "wow_change"
+    ],
+    "owner_domain": "accounting"
+  },
+  {
+    "id": "gross_margin_pct",
+    "label": "Gross Margin %",
+    "description": "(Net revenue \u2212 COGS) / net revenue. The headline profitability metric \u2014 the one number that turns \"we sold more\" into \"we made more,\" since a revenue increase driven by discounting can still shrink this.",
+    "unit": "percent",
+    "direction": "higher_is_better",
+    "benchmark": "30\u201345% typical for furniture/homeware retail",
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "category",
+      "channel"
+    ],
+    "detectors": [
+      "zscore_7d",
+      "wow_change"
+    ],
+    "owner_domain": "accounting"
+  },
+  {
+    "id": "cogs_ratio",
+    "label": "COGS as % of Revenue",
+    "description": "The inverse view of gross margin \u2014 COGS divided by net revenue. Useful as its own metric because a creeping COGS ratio (rising unit costs from a supplier) can erode margin even while gross_margin_pct still looks acceptable at the aggregate level.",
+    "unit": "percent",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "category",
+      "supplier"
+    ],
+    "detectors": [
+      "wow_change"
+    ],
+    "owner_domain": "accounting"
+  },
+  {
+    "id": "discount_impact",
+    "label": "Discount Impact",
+    "description": "Total revenue given up to discounts/markdowns in the period. Pairs with units_sold to catch the \"discount that killed margin without lifting volume\" pattern \u2014 revenue and units both need to move to justify a markdown; if only revenue drops and units don't rise, the discount didn't work.",
+    "unit": "SGD",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "category",
+      "channel"
+    ],
+    "detectors": [
+      "wow_change"
+    ],
+    "owner_domain": "accounting"
+  },
+  {
+    "id": "ar_ageing",
+    "label": "Accounts Receivable Ageing",
+    "description": "Value of customer invoices (B2B/trade accounts, if the business has them) overdue by bucket (30/60/90+ days). Mostly relevant if this retailer has trade/wholesale accounts alongside consumer sales; a blowout here is a cash-flow risk independent of sales performance.",
+    "unit": "SGD",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "ageing_bucket"
+    ],
+    "detectors": [
+      "threshold_breach"
+    ],
+    "owner_domain": "accounting"
+  },
+  {
+    "id": "ap_ageing",
+    "label": "Accounts Payable Ageing",
+    "description": "Value of supplier bills by how overdue they are. Watched alongside ar_ageing for overall cash position, and as a signal of supplier relationship strain that could itself cause future lead-time slippage.",
+    "unit": "SGD",
+    "direction": "context_dependent",
+    "benchmark": null,
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [
+      "ageing_bucket",
+      "supplier"
+    ],
+    "detectors": [
+      "threshold_breach"
+    ],
+    "owner_domain": "accounting"
+  },
+  {
+    "id": "net_cashflow",
+    "label": "Net Cash Flow",
+    "description": "Cash in from sales/collections minus cash out for purchases/bills paid, over the period. The bottom-line liquidity number the Correlator's dollar-impact chains ultimately need to reconcile against.",
+    "unit": "SGD",
+    "direction": "higher_is_better",
+    "benchmark": null,
+    "grain": [
+      "week",
+      "month"
+    ],
+    "dimensions": [],
+    "detectors": [
+      "wow_change"
+    ],
+    "owner_domain": "accounting"
+  },
+  {
+    "id": "operating_expense",
+    "label": "Operating Expense",
+    "description": "Non-COGS operating costs (rent, staff, utilities, marketing) for the period. Context for margin analysis \u2014 a gross-margin dip caused by rising opex is a different story than one caused by COGS or discounting.",
+    "unit": "SGD",
+    "direction": "lower_is_better",
+    "benchmark": null,
+    "grain": [
+      "month"
+    ],
+    "dimensions": [
+      "expense_category"
+    ],
+    "detectors": [
+      "wow_change"
+    ],
+    "owner_domain": "accounting"
+  }
+]
