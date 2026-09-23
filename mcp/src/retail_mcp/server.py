@@ -940,7 +940,7 @@ def get_trending_products(
                 s.category,
                 c.value AS current_value,
                 p.value AS previous_value,
-                ROUND((((c.value - p.value) / p.value) * 100)::numeric, 2) AS pct_change
+                ROUND((((c.value - p.value)::numeric / p.value) * 100), 2) AS pct_change
             FROM current_period c
             JOIN previous_period p ON p.sku = c.sku
             JOIN dim_sku s ON s.sku = c.sku
@@ -1183,7 +1183,7 @@ def get_sku_lifecycle(
                 COALESCE(p.value, 0) AS previous_value,
                 COALESCE(c.value, 0) AS current_value,
                 CASE WHEN COALESCE(p.value, 0) > 0
-                     THEN ROUND((((COALESCE(c.value, 0) - p.value) / p.value) * 100)::numeric, 2)
+                     THEN ROUND((((COALESCE(c.value, 0) - p.value)::numeric / p.value) * 100), 2)
                      ELSE NULL
                 END AS pct_change
             FROM first_sale fs
