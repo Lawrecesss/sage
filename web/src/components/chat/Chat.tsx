@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MessageBlocks } from "@/components/chat/MessageBlocks";
 import { parseInput, SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
+import type { ChatEvent, ContentBlock } from "@/lib/types";
 import styles from "./chat.module.css";
 
-type Message = { role: "user" | "assistant"; content: string };
+type Message = { role: "user"; content: string } | { role: "assistant"; blocks: ContentBlock[] };
 
 const SESSION_KEY = "sage.sessionId";
+const NDJSON = "application/x-ndjson";
 
 // crypto.randomUUID() only exists in secure contexts (https, or http://localhost).
 // getRandomValues has no such restriction, so fall back to it when serving over plain http.
@@ -56,37 +59,67 @@ export function Chat({ initialInput = "" }: { initialInput?: string }) {
 
     setInput("");
     setBusy(true);
-    setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", content: "" }]);
-    const appendToReply = (chunk: string) =>
+    setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [] }]);
+
+    // Mirrors the server's own event -> block reducer (agent-response.ts's toEvents): a text
+    // delta appends to the trailing markdown block, a block event ends it and adds a complete
+    // chart / table / file after it.
+    const applyEvent = (event: ChatEvent) =>
       setMessages((m) => {
         const last = m[m.length - 1];
-        return [...m.slice(0, -1), { ...last, content: last.content + chunk }];
+        if (last.role !== "assistant") return m;
+        if (event.type === "text") {
+          const prev = last.blocks.at(-1);
+          const blocks: ContentBlock[] =
+            prev?.type === "markdown"
+              ? [...last.blocks.slice(0, -1), { ...prev, text: prev.text + event.delta }]
+              : [...last.blocks, { type: "markdown", text: event.delta }];
+          return [...m.slice(0, -1), { ...last, blocks }];
+        }
+        if (event.type === "block") {
+          return [...m.slice(0, -1), { ...last, blocks: [...last.blocks, event.block] }];
+        }
+        if (event.type === "error") {
+          return [...m.slice(0, -1), { ...last, blocks: [...last.blocks, { type: "markdown", text: `\n[error: ${event.error}]` }] }];
+        }
+        return m; // "done": nothing left to apply
       });
 
     try {
       // Report commands (/morning-brief, /daily-report) run the real, window-aware report
-      // instead of a client-built prompt — same plain-text stream contract as /api/chat.
+      // instead of a client-built prompt. Both ask for the NDJSON encoding so charts, tables
+      // and (for reports) the exported file all render instead of leaking as raw text.
       const res = reportName
         ? await fetch(`/api/reports/${reportName}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", Accept: NDJSON },
             body: JSON.stringify({ sessionId }),
           })
         : await fetch("/api/chat", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", Accept: NDJSON },
             body: JSON.stringify({ message: prompt, sessionId }),
           });
       if (!res.ok || !res.body) throw new Error((await res.json().catch(() => null))?.error ?? res.statusText);
 
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buf = "";
       for (;;) {
         const { done, value } = await reader.read();
-        if (done) break;
-        appendToReply(value);
+        if (value) buf += value;
+        let nl: number;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl);
+          buf = buf.slice(nl + 1);
+          if (line.trim()) applyEvent(JSON.parse(line) as ChatEvent);
+        }
+        if (done) {
+          if (buf.trim()) applyEvent(JSON.parse(buf) as ChatEvent);
+          break;
+        }
       }
     } catch (err) {
-      appendToReply(`\n[error: ${err instanceof Error ? err.message : String(err)}]`);
+      applyEvent({ type: "error", error: err instanceof Error ? err.message : String(err) });
     } finally {
       setBusy(false);
       inputRef.current?.focus();
@@ -151,7 +184,11 @@ export function Chat({ initialInput = "" }: { initialInput?: string }) {
                   SG
                 </span>
                 <div className={styles.assistantText}>
-                  {m.content || (busy && i === messages.length - 1 ? <span className={styles.thinking}>Thinking…</span> : "")}
+                  {m.blocks.length ? (
+                    <MessageBlocks blocks={m.blocks} />
+                  ) : busy && i === messages.length - 1 ? (
+                    <span className={styles.thinking}>Thinking…</span>
+                  ) : null}
                 </div>
               </div>
             </div>
