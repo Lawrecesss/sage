@@ -28,6 +28,7 @@ from _schema import (
     fact_purchase_order,
     fact_stock_movement,
     provision_tenant,
+    shared_metadata,
 )
 from fixtures import (
     ALL_ORDER_LINES,
@@ -55,7 +56,11 @@ def engine():
 def _drop_tenant(engine) -> None:
     with engine.begin() as conn:
         conn.execute(text(f'DROP SCHEMA IF EXISTS "{TENANT_ID}" CASCADE'))
+        # On a genuinely fresh DB (e.g. CI, vs. a dev box that already ran `make seed`
+        # for some other tenant) shared.tenants/tenant_modules don't exist yet — create
+        # them (idempotent) before deleting from them, or this fails on first run.
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS shared"))
+        shared_metadata.create_all(conn, checkfirst=True)
         conn.execute(text("DELETE FROM shared.tenant_modules WHERE tenant_id = :t"), {"t": TENANT_ID})
         conn.execute(text("DELETE FROM shared.tenants WHERE tenant_id = :t"), {"t": TENANT_ID})
 
