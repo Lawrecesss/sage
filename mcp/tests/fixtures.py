@@ -23,7 +23,7 @@ straightforward reading of the same data, not a transcription slip.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 # Matches data/simulator/src/sage_simulator/config.py's WEEKDAYS exactly — dim_date.dow
 # must be one of these ("Mon".."Sun"), which server.py's _WEEKDAY_CASE relies on for
@@ -33,7 +33,9 @@ WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 TENANT_ID = "test_retail_mcp"
 
 REF_DATE = date(2025, 6, 15)  # "as_of" for every explicitly-dated tool test
-TODAY = date.today()  # real wall-clock "now" — only for get_attention_items rows
+# get_attention_items filters against Postgres's CURRENT_DATE (the db container's own
+# clock, UTC by default), not Python's local time — anchor to UTC here to match it.
+TODAY = datetime.now(UTC).date()
 
 WINDOW_DAYS = 14  # used by every get_trending_products / get_sku_lifecycle test
 # Current window: (REF_DATE - WINDOW_DAYS, REF_DATE] = 2025-06-02..2025-06-15

@@ -1144,7 +1144,7 @@ def get_sku_lifecycle(
         except ValueError as exc:
             raise ValueError(f"as_of_date must be YYYY-MM-DD, got {as_of_date!r}") from exc
     else:
-        as_of_obj = date.today()
+        as_of_obj = datetime.now(UTC).date()
     limit = _clamp_limit(limit)
     metric_expr = _METRICS[metric]
 
@@ -1208,9 +1208,7 @@ def get_sku_lifecycle(
                 stage = "new"
             elif current == 0:
                 stage = "dead"
-            elif previous == 0:
-                stage = "growing"
-            elif pct is not None and pct >= _LIFECYCLE_GROWTH_THRESHOLD * 100:
+            elif previous == 0 or (pct is not None and pct >= _LIFECYCLE_GROWTH_THRESHOLD * 100):
                 stage = "growing"
             elif pct is not None and pct <= -_LIFECYCLE_GROWTH_THRESHOLD * 100:
                 stage = "declining"
@@ -1467,7 +1465,7 @@ def simulate_reorder_impact(
         except ValueError as exc:
             raise ValueError(f"order_date must be YYYY-MM-DD, got {order_date!r}") from exc
     else:
-        order_date_obj = date.today()
+        order_date_obj = datetime.now(UTC).date()
 
     engine = get_engine()
     with engine.connect() as conn:
@@ -1612,7 +1610,7 @@ def get_data_freshness(tenant_id: str) -> list[dict]:
                 {
                     "table": table,
                     "last_business_date": last_date,
-                    "days_since": (date.today() - last_date).days if last_date is not None else None,
+                    "days_since": (datetime.now(UTC).date() - last_date).days if last_date is not None else None,
                     "row_count": row["row_count"],
                 }
             )
