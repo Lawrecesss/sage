@@ -3,8 +3,9 @@
 import { ChartSplitter, type Part, chartToMarkdown } from "@/lib/chart-blocks";
 import { OpenClawError, streamAgentReply } from "@/lib/openclaw";
 import { type ReportFileMeta, buildReportFile } from "@/lib/report-file";
+import { saveReport } from "@/lib/report-store";
 import { type ResolvedTenant, UnknownTenantError, resolveTenant } from "@/lib/tenant";
-import type { ApiError, ChatEvent, ChatRequest, ContentBlock, ReportRequest } from "@/lib/types";
+import type { ApiError, ChatEvent, ChatRequest, ContentBlock, ReportKind, ReportRequest } from "@/lib/types";
 
 const SESSION_ID = /^[A-Za-z0-9-]{8,64}$/;
 const MAX_MESSAGE_CHARS = 4000;
@@ -106,17 +107,64 @@ function toPlainStream(text: ReadableStream<string>): ReadableStream<Uint8Array>
     .pipeThrough(new TextEncoderStream());
 }
 
+/** Drains a text stream into the same block list `toEventStream` builds, but batched (no
+ * incremental delivery) — for `recordReport` below, which needs the whole reply, not a feed. */
+async function collectBlocks(text: ReadableStream<string>): Promise<ContentBlock[]> {
+  const splitter = new ChartSplitter();
+  const blocks: ContentBlock[] = [];
+  const push = (parts: Part[]) => {
+    for (const part of parts) {
+      if (part.type === "chart") {
+        blocks.push(part.block);
+        continue;
+      }
+      const last = blocks.at(-1);
+      if (last?.type === "markdown") last.text += part.delta;
+      else blocks.push({ type: "markdown", text: part.delta });
+    }
+  };
+  const reader = text.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    push(done ? splitter.end() : splitter.push(value));
+    if (done) return blocks;
+  }
+}
+
+export type ReportMeta = { kind: ReportKind; title: string; periodStart: Date; periodEnd: Date; partial: boolean };
+
+/** Persists the report once its stream finishes, independent of how (or whether) the client
+ * read it — same FileRef a `ChatEvent`-mode client would get, via the same buildReportFile. */
+async function recordReport(
+  path: string,
+  tenantId: string,
+  sessionId: string,
+  meta: ReportMeta,
+  text: ReadableStream<string>,
+  fileMeta?: ReportFileMeta,
+): Promise<void> {
+  try {
+    const blocks = await collectBlocks(text);
+    const file = fileMeta ? buildReportFile(fileMeta, blocks) : undefined;
+    await saveReport(tenantId, { ...meta, sessionId, generatedAt: new Date(), blocks, file });
+  } catch (err) {
+    console.error(`[${path}] report persistence failed`, err);
+  }
+}
+
 /**
  * Resolves the tenant (`x-tenant-id` header, see tenant.ts), then runs one agent turn and
  * streams the reply — as `ChatEvent`s if the client asks for them, else as plain text.
  * `options.file` (reports only) attaches the export as the last block of the event stream;
- * plain-text mode has no way to carry a file.
+ * plain-text mode has no way to carry a file. `options.report` (reports only) additionally
+ * persists the finished reply via report-store.ts, regardless of which encoding the client
+ * used — the UI still only ever reads the response it asked for.
  */
 export async function agentResponse(
   req: Request,
   message: string,
   sessionId: string,
-  options: { file?: ReportFileMeta } = {},
+  options: { file?: ReportFileMeta; report?: ReportMeta } = {},
 ) {
   const path = new URL(req.url).pathname;
 
@@ -132,7 +180,24 @@ export async function agentResponse(
   }
 
   try {
-    const stream = await streamAgentReply(message, sessionId, tenant.tenantId, tenant.modules, req.signal);
+    // Reports must finish generating (and get persisted) even if the browser tab closes
+    // mid-reply — so, unlike chat, don't tie the upstream call to the client's abort signal:
+    // req.signal aborts the one shared fetch behind both tee() branches, not just the
+    // client-facing one, and a disconnect shouldn't be able to kill a report mid-save.
+    const agentStream = await streamAgentReply(
+      message,
+      sessionId,
+      tenant.tenantId,
+      tenant.modules,
+      options.report ? undefined : req.signal,
+    );
+    const [stream, forStorage] = options.report ? agentStream.tee() : [agentStream, undefined];
+    if (forStorage && options.report) {
+      // Fire-and-forget: this is a long-lived container process, not a serverless function
+      // torn down at response time, so the recording finishes even though the response
+      // doesn't wait on it — a slow write must never delay the reply the user is reading.
+      recordReport(path, tenant.tenantId, sessionId, options.report, forStorage, options.file);
+    }
     if (req.headers.get("accept")?.includes(NDJSON)) {
       return new Response(toEventStream(stream, path, options.file), {
         headers: { "Content-Type": `${NDJSON}; charset=utf-8`, "Cache-Control": "no-store" },

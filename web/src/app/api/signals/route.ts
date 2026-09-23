@@ -1,4 +1,5 @@
 import { listSignals } from "@/lib/data";
+import { resolveTenantOrError } from "@/lib/tenant";
 import type { Domain, SignalStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,9 @@ const DOMAINS: Domain[] = ["sales", "inventory", "accounting"];
 
 /** GET ?status=&domain=&limit= → signals, highest score first. */
 export async function GET(req: Request) {
+  const resolved = await resolveTenantOrError(req);
+  if ("error" in resolved) return resolved.error;
+
   const params = new URL(req.url).searchParams;
   const status = STATUSES.find((s) => s === params.get("status"));
   const domain = DOMAINS.find((d) => d === params.get("domain"));

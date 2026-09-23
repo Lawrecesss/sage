@@ -121,7 +121,11 @@ export type ReportSummary = {
   files: FileRef[];
 };
 
-/** A saved report, opened from the Reports page. */
+/**
+ * A saved report, opened from the Reports page. Now actually persisted (lib/report-store.ts)
+ * for every /api/reports/[name] call — see the note on `Brief` below for how this relates to
+ * it.
+ */
 export type Report = ReportSummary & { blocks: ContentBlock[] };
 
 /**
@@ -233,6 +237,15 @@ export interface Kpi {
   sub?: string; // context line, e.g. "vs 14d target"
 }
 
+/**
+ * Mock stand-in for the "morning-brief" `Report` (above): served from mocks/fixtures.ts via
+ * lib/data.ts, not from a real report. `Report`'s `kind: "morning-brief"` rows are now
+ * persisted for real (lib/report-store.ts) but only carry freeform `ContentBlock`s — the
+ * agent's actual reply, not the structured severity/causal_chain/dollar_impact_est fields
+ * below. Those need real detector output (data/simulator's schema.py reserves `briefings` for
+ * it, unbuilt), so `/history` stays on this mock until that exists; don't merge the two types
+ * until it does, or this shape's structure silently disappears.
+ */
 export interface Brief {
   brief_id: string;
   generated_at: string;

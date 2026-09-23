@@ -25,5 +25,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ name: s
   const window = computeWindow(command.window, asOf);
   return agentResponse(req, buildPrompt(command, window, asOf), sessionId, {
     file: reportFileMeta(command, window, asOf),
+    report: {
+      kind: command.name,
+      title: command.title,
+      periodStart: window.start,
+      periodEnd: window.partial ? window.through : window.end,
+      partial: window.partial,
+    },
   });
 }

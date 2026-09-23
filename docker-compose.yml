@@ -63,7 +63,8 @@ services:
       OPENCLAW_URL: http://openclaw:18789
       OPENCLAW_TOKEN: ${OPENCLAW_TOKEN:-sage-dev-token}
       # Plain postgresql:// (not +psycopg) — this is consumed by the `pg` npm
-      # client, not SQLAlchemy. Only ever touches the `shared` schema.
+      # client, not SQLAlchemy. Mostly touches the `shared` schema (tenant
+      # lookups); lib/report-store.ts also owns one per-tenant table, `reports`.
       DATABASE_URL: postgresql://sage:${POSTGRES_PASSWORD:-sage}@db:5432/sage
       DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:-demo}
     ports:

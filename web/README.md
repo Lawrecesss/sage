@@ -14,7 +14,10 @@ Three pages in the sidebar, matching the agreed structure:
 
 Drill-downs, reachable from those pages but not in the nav: `/signals`, `/signals/[id]`, `/metrics`, `/metrics/[id]`.
 
-JSON endpoints: `GET /api/brief`, `/api/signals`, `/api/signals/[id]`, `/api/metrics`.
+JSON endpoints: `GET /api/brief`, `/api/signals`, `/api/signals/[id]`, `/api/metrics`. Like
+`/api/chat`, each resolves the tenant first (`x-tenant-id` header, else `DEFAULT_TENANT_ID`) and
+404s an unknown/inactive one — so, unlike the pages above, these need Postgres with the
+control-plane tables seeded even though they still serve mock data (`lib/data.ts`).
 
 ### Recommended
 

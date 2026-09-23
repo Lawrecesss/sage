@@ -51,7 +51,7 @@ export function Chat({ initialInput = "" }: { initialInput?: string }) {
   }, [messages]);
 
   async function send(raw: string) {
-    const { display, prompt } = parseInput(raw);
+    const { display, prompt, reportName } = parseInput(raw);
     if (!prompt || busy || !sessionId) return;
 
     setInput("");
@@ -64,11 +64,19 @@ export function Chat({ initialInput = "" }: { initialInput?: string }) {
       });
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt, sessionId }),
-      });
+      // Report commands (/morning-brief, /daily-report) run the real, window-aware report
+      // instead of a client-built prompt — same plain-text stream contract as /api/chat.
+      const res = reportName
+        ? await fetch(`/api/reports/${reportName}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId }),
+          })
+        : await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: prompt, sessionId }),
+          });
       if (!res.ok || !res.body) throw new Error((await res.json().catch(() => null))?.error ?? res.statusText);
 
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
