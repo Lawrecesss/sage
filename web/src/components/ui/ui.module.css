@@ -1,0 +1,185 @@
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cardTitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.cardAside {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* ── Badges: rank by fill, not hue ───────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* high / open — solid ink */
+.solid {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* medium / acknowledged — outlined */
+.outline {
+  background: transparent;
+  color: var(--text);
+}
+
+/* low / resolved — quiet */
+.ghost {
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.domain {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.deltaBad {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.deltaGood {
+  color: var(--text-muted);
+}
+
+.deltaNeutral {
+  color: var(--text-faint);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+
+.button,
+.buttonGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.button {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.button:hover {
+  opacity: 0.85;
+}
+
+.buttonGhost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.buttonGhost:hover {
+  background: var(--surface-muted);
+}
+
+.button:disabled,
+.buttonGhost:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.chip,
+.chipActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+  text-transform: capitalize;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.chip:hover {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.chipActive {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.empty {
+  text-align: center;
+  padding: 44px 20px;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.empty strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 4px;
+}
