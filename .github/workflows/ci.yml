@@ -69,6 +69,26 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.python) }}
     runs-on: ubuntu-latest
+    # mcp/tests/ is a real Postgres integration suite (mocking the DB would only prove
+    # mocks return what they're told) — same image/credentials as docker-compose.yml's
+    # `db` service. Unused by services with no tests dir (their "Test" step no-ops), so
+    # one always-on service here is simpler than conditioning it on the matrix entry.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: sage
+          POSTGRES_PASSWORD: sage
+          POSTGRES_DB: sage
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sage"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://sage:sage@localhost:5432/sage
     steps:
       - uses: actions/checkout@v4
 
