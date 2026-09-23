@@ -36,7 +36,7 @@ class ExpectedSignal:
     """A (metric, detector) pair the detectors should fire for this incident."""
 
     metric_id: str
-    detector: str  # zscore_7d | wow_change | threshold
+    detector: str  # zscore_7d | wow_change | shreshold
 
 
 @dataclass(frozen=True)
