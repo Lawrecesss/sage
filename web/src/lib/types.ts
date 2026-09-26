@@ -152,7 +152,14 @@ export type ChatEvent =
 /** One turn as the UI holds it. History lives server-side in OpenClaw, so this is never sent. */
 export type ChatMessage =
   | { role: "user"; content: string }
-  | { role: "assistant"; blocks: ContentBlock[]; report?: ReportSummary };
+  | {
+      role: "assistant";
+      blocks: ContentBlock[];
+      report?: ReportSummary;
+      /** Still being generated. Saved this way when the question is sent, cleared when the
+       * answer completes — so a transcript reloaded mid-answer shows it as interrupted. */
+      pending?: boolean;
+    };
 
 // --- Dashboard page: KPIs, charts, signals (mocked today — see src/mocks) ---
 //

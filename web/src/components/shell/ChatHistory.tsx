@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NewChatLink } from "@/components/chat/NewChatLink";
 import { type ChatSummary, deleteChat, listChats, subscribeChats } from "@/lib/chat-history";
+import { useRunningSessions } from "@/lib/chat-runs";
 import { chatPath, newSessionId } from "@/lib/session-id";
 import styles from "./shell.module.css";
 
@@ -38,6 +39,7 @@ export function ChatHistory() {
   const pathname = usePathname();
   const router = useRouter();
   const [chats, setChats] = useState<ChatSummary[] | null>(null);
+  const running = useRunningSessions();
 
   // localStorage is client-only, so load after mount and follow changes from any tab.
   useEffect(() => {
@@ -77,17 +79,29 @@ export function ChatHistory() {
                     aria-current={chat.id === activeId ? "page" : undefined}
                   >
                     <span className={styles.historyTitle}>{chat.title}</span>
-                    <span className={styles.historyTime}>{timeLabel(chat.updatedAt)}</span>
+                    <span className={styles.historyTime}>
+                      {running.includes(chat.id) ? (
+                        <span className={styles.historyRunning}>
+                          <span className={styles.historyPulse} aria-hidden />
+                          Generating…
+                        </span>
+                      ) : (
+                        timeLabel(chat.updatedAt)
+                      )}
+                    </span>
                   </Link>
-                  <button
-                    type="button"
-                    className={styles.historyDelete}
-                    onClick={() => remove(chat)}
-                    aria-label={`Delete chat: ${chat.title}`}
-                    title="Delete chat"
-                  >
-                    <X size={12} strokeWidth={2} aria-hidden />
-                  </button>
+                  {/* No delete mid-answer: the finished reply would be saved straight back. */}
+                  {!running.includes(chat.id) && (
+                    <button
+                      type="button"
+                      className={styles.historyDelete}
+                      onClick={() => remove(chat)}
+                      aria-label={`Delete chat: ${chat.title}`}
+                      title="Delete chat"
+                    >
+                      <X size={12} strokeWidth={2} aria-hidden />
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

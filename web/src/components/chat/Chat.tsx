@@ -6,15 +6,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
 import { TopBar } from "@/components/shell/TopBar";
 import { buttonClass } from "@/components/ui";
-import { loadTranscript, refreshChatTitle, saveTranscript, shouldRetitle } from "@/lib/chat-history";
+import { sendChatMessage, useChatSession } from "@/lib/chat-runs";
 import { chatPath, newSessionId } from "@/lib/session-id";
-import { parseInput, SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
-import type { ChatEvent, ContentBlock } from "@/lib/types";
+import { SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
 import styles from "./chat.module.css";
 
-type Message = { role: "user"; content: string } | { role: "assistant"; blocks: ContentBlock[] };
-
-const NDJSON = "application/x-ndjson";
 const MAX_INPUT_HEIGHT = 220;
 
 /** Presentation for the suggestion cards; the commands themselves live in slash-commands.ts. */
@@ -26,12 +22,10 @@ const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
 
 export function Chat({ sessionId, initialInput = "" }: { sessionId: string; initialInput?: string }) {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([]);
-  // Set by send(), cleared once the finished turn is saved — so only a completed turn
-  // updates the history (merely opening an old chat must not bump it to "Today").
-  const turnPending = useRef(false);
+  // The conversation and its in-flight reply live in lib/chat-runs.ts, not in this component,
+  // so a reply keeps streaming while another session is open and is here when you come back.
+  const { messages, running: busy } = useChatSession(sessionId);
   const [input, setInput] = useState(initialInput);
-  const [busy, setBusy] = useState(false);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -45,19 +39,9 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
 
   // Effects use block bodies: anything returned is treated as a cleanup function,
   // and newer Chrome returns a Promise from scrollIntoView().
-  // Restore after mount (localStorage is client-only), then persist each completed turn —
-  // which also updates the sidebar's chat history (lib/chat-history.ts).
   useEffect(() => {
-    setMessages(loadTranscript(sessionId));
     inputRef.current?.focus();
   }, [sessionId]);
-  useEffect(() => {
-    if (busy || !turnPending.current) return;
-    turnPending.current = false;
-    saveTranscript(sessionId, messages);
-    // Swap the sidebar title (first question) for a summary of the conversation.
-    if (shouldRetitle(messages)) void refreshChatTitle(sessionId, messages);
-  }, [busy, messages, sessionId]);
   useEffect(() => {
     if (messages.length) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
@@ -75,77 +59,10 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
   }, [input]);
 
   async function send(raw: string) {
-    const { display, prompt, reportName } = parseInput(raw);
-    if (!prompt || busy) return;
-
+    if (busy || !raw.trim()) return;
     setInput("");
-    turnPending.current = true;
-    setBusy(true);
-    setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [] }]);
-
-    // Mirrors the server's own event -> block reducer (agent-response.ts's toEvents): a text
-    // delta appends to the trailing markdown block, a block event ends it and adds a complete
-    // chart / table / file after it.
-    const applyEvent = (event: ChatEvent) =>
-      setMessages((m) => {
-        const last = m[m.length - 1];
-        if (last.role !== "assistant") return m;
-        if (event.type === "text") {
-          const prev = last.blocks.at(-1);
-          const blocks: ContentBlock[] =
-            prev?.type === "markdown"
-              ? [...last.blocks.slice(0, -1), { ...prev, text: prev.text + event.delta }]
-              : [...last.blocks, { type: "markdown", text: event.delta }];
-          return [...m.slice(0, -1), { ...last, blocks }];
-        }
-        if (event.type === "block") {
-          return [...m.slice(0, -1), { ...last, blocks: [...last.blocks, event.block] }];
-        }
-        if (event.type === "error") {
-          return [...m.slice(0, -1), { ...last, blocks: [...last.blocks, { type: "markdown", text: `\n[error: ${event.error}]` }] }];
-        }
-        return m; // "done": nothing left to apply
-      });
-
-    try {
-      // Report commands (/morning-brief, /daily-report) run the real, window-aware report
-      // instead of a client-built prompt. Both ask for the NDJSON encoding so charts, tables
-      // and (for reports) the exported file all render instead of leaking as raw text.
-      const res = reportName
-        ? await fetch(`/api/reports/${reportName}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: NDJSON },
-            body: JSON.stringify({ sessionId }),
-          })
-        : await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: NDJSON },
-            body: JSON.stringify({ message: prompt, sessionId }),
-          });
-      if (!res.ok || !res.body) throw new Error((await res.json().catch(() => null))?.error ?? res.statusText);
-
-      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buf = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (value) buf += value;
-        let nl: number;
-        while ((nl = buf.indexOf("\n")) >= 0) {
-          const line = buf.slice(0, nl);
-          buf = buf.slice(nl + 1);
-          if (line.trim()) applyEvent(JSON.parse(line) as ChatEvent);
-        }
-        if (done) {
-          if (buf.trim()) applyEvent(JSON.parse(buf) as ChatEvent);
-          break;
-        }
-      }
-    } catch (err) {
-      applyEvent({ type: "error", error: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setBusy(false);
-      inputRef.current?.focus();
-    }
+    await sendChatMessage(sessionId, raw);
+    inputRef.current?.focus();
   }
 
   function pickCommand(name: string, args?: string) {
@@ -198,7 +115,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
       <TopBar
         title="Chat"
         actions={
-          <button type="button" onClick={newConversation} disabled={busy} className={buttonClass("secondary", "sm")}>
+          <button type="button" onClick={newConversation} className={buttonClass("secondary", "sm")}>
             <Plus size={16} strokeWidth={2} aria-hidden />
             New chat
           </button>
@@ -258,9 +175,14 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                 </span>
                 <div className={styles.assistantText}>
                   <span className="visually-hidden">Sage:</span>
-                  {m.blocks.length ? (
-                    <MessageBlocks blocks={m.blocks} />
-                  ) : busy && i === messages.length - 1 ? (
+                  {m.blocks.length > 0 && <MessageBlocks blocks={m.blocks} />}
+                  {m.pending && !busy && (
+                    // Saved mid-answer, then the page was closed or reloaded before it finished.
+                    <span className={styles.interrupted}>
+                      This answer was interrupted before it finished. Ask again to get a complete answer.
+                    </span>
+                  )}
+                  {!m.blocks.length && busy && i === messages.length - 1 ? (
                     <span className={styles.thinking}>
                       <span className={styles.dots} aria-hidden>
                         <span />

@@ -574,3 +574,30 @@
     padding: var(--space-4) var(--space-4) var(--space-6);
   }
 }
+
+/* A session whose reply is still streaming (lib/chat-runs.ts). */
+.historyRunning {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+}
+
+.historyPulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text);
+  animation: historyPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes historyPulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .historyPulse {
+    animation: none;
+  }
+}
