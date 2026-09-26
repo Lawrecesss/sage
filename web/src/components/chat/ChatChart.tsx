@@ -1,8 +1,12 @@
+"use client";
+
 // Renders a chat/report ChartSpec (line/area/bar/pie) — the agent's ```chart fences, parsed
 // by chart-blocks.ts. Same inline-SVG, CSS-variable approach as components/charts/*, just
 // generalized to N series and a category axis instead of one fixed metric shape.
 
-import { legendStyle, Swatch } from "@/components/charts/BarChart";
+import { useWidth } from "@/components/charts/BarChart";
+import { legendStyle, Swatch } from "@/components/charts/legend";
+import { formatAxis } from "@/lib/format";
 import type { ChartSpec, DataRow } from "@/lib/types";
 
 // Fixed hue order, slots 1–8 — the validated default categorical palette (see the dataviz
@@ -24,17 +28,11 @@ function seriesColor(i: number): string {
 }
 
 const compact = new Intl.NumberFormat("en-SG", { notation: "compact", maximumFractionDigits: 1 });
-const sgdCompact = new Intl.NumberFormat("en-SG", {
-  style: "currency",
-  currency: "SGD",
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
 
 /** ChartSpec.unit is a free label (e.g. "SGD", "pct", "days") set by the agent, not the
  * app's MetricUnit enum — lib/format.ts's formatters don't apply here. */
 function formatChartValue(v: number, unit?: string): string {
-  if (unit === "SGD") return sgdCompact.format(v);
+  if (unit === "SGD") return formatAxis(v, "SGD");
   if (unit === "pct" || unit === "percent") return `${compact.format(v)}%`;
   if (unit === "days") return `${compact.format(v)}d`;
   return unit ? `${compact.format(v)} ${unit}` : compact.format(v);
@@ -57,9 +55,9 @@ function tickIndices(n: number, max: number): number[] {
   return Array.from({ length: count }, (_, i) => Math.round(i * step));
 }
 
-const W = 520;
+const DEFAULT_W = 560;
 const H = 230;
-const M = { top: 14, right: 14, bottom: 30, left: 56 };
+const M = { top: 14, right: 14, bottom: 30, left: 64 };
 const R = 4; // rounded bar data-end, per the mark spec
 
 function barPath(x: number, y: number, w: number, h: number): string {
@@ -113,6 +111,7 @@ export function ChatChart({ chart, title }: { chart: ChartSpec; title: string })
 }
 
 function CartesianChart({ chart, title }: { chart: ChartSpec; title: string }) {
+  const [ref, W] = useWidth<HTMLDivElement>(DEFAULT_W);
   const { data, series, xKey, unit, yLabel } = chart;
   const n = data.length;
   if (!n || !series.length) return null;
@@ -126,7 +125,8 @@ function CartesianChart({ chart, title }: { chart: ChartSpec; title: string }) {
 
   const iw = W - M.left - M.right;
   const ih = H - M.top - M.bottom;
-  const x = (i: number) => M.left + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const x = (i: number) =>
+    chart.kind === "bar" ? M.left + (iw / n) * (i + 0.5) : M.left + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
   const y = (v: number) => M.top + (1 - (v - min) / (max - min)) * ih;
   const base = y(Math.max(min, Math.min(0, max)));
 
@@ -139,7 +139,8 @@ function CartesianChart({ chart, title }: { chart: ChartSpec; title: string }) {
 
   return (
     <figure style={{ margin: 0 }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={title} style={{ display: "block", overflow: "visible" }}>
+      <div ref={ref} style={{ width: "100%" }}>
+      <svg width={W} height={H} role="img" aria-label={title} style={{ display: "block", overflow: "visible" }}>
         {yTicks.map((t) => (
           <g key={t}>
             <line x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} stroke="var(--grid)" />
@@ -148,9 +149,9 @@ function CartesianChart({ chart, title }: { chart: ChartSpec; title: string }) {
               y={y(t)}
               dy="0.32em"
               textAnchor="end"
-              fontSize={10}
-              fontFamily="var(--font-mono)"
-              fill="var(--text-faint)"
+              fontSize={12}
+              fontFamily="var(--font-sans)"
+              fill="var(--text-muted)"
             >
               {formatChartValue(t, unit)}
             </text>
@@ -161,10 +162,10 @@ function CartesianChart({ chart, title }: { chart: ChartSpec; title: string }) {
             key={i}
             x={x(i)}
             y={H - 8}
-            textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
-            fontSize={10}
-            fontFamily="var(--font-mono)"
-            fill="var(--text-faint)"
+            textAnchor={chart.kind === "bar" ? "middle" : i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
+            fontSize={12}
+            fontFamily="var(--font-sans)"
+            fill="var(--text-muted)"
           >
             {String(data[i][xKey] ?? "")}
           </text>
@@ -212,14 +213,15 @@ function CartesianChart({ chart, title }: { chart: ChartSpec; title: string }) {
             y={12}
             transform="rotate(-90)"
             textAnchor="middle"
-            fontSize={10}
-            fontFamily="var(--font-mono)"
-            fill="var(--text-faint)"
+            fontSize={12}
+            fontFamily="var(--font-sans)"
+            fill="var(--text-muted)"
           >
             {yLabel}
           </text>
         )}
       </svg>
+      </div>
       {series.length > 1 && (
         <figcaption style={legendStyle}>
           {series.map((s, i) => (

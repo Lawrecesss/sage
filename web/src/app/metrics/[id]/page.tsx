@@ -31,9 +31,9 @@ export default async function MetricPage({ params }: Props) {
     <>
       <TopBar
         title={metric.label}
-        subtitle={
+        eyebrow={
           <>
-            <Link href="/metrics">Metrics</Link> / <code>{metric.id}</code>
+            <Link href="/metrics">Metrics</Link> / <span className="mono">{metric.id}</span>
           </>
         }
         actions={
@@ -73,7 +73,7 @@ export default async function MetricPage({ params }: Props) {
         </Card>
 
         {related.length > 0 && (
-          <Card title="Signals on this metric">
+          <Card flush title="Signals on this metric">
             <SignalTable signals={related} metrics={new Map([[metric.id, metric]])} />
           </Card>
         )}

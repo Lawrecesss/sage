@@ -1,43 +1,34 @@
-// Horizontal ranked bars — the stand-in for a pie/donut. One measure, so one hue:
-// every row is the same categorical slot, with the value labelled on each row.
+// Horizontal ranked bars — the stand-in for a pie/donut. One measure, so one hue: every row
+// is the same categorical slot, with the value right-aligned in tabular numerals.
+
+import styles from "./charts.module.css";
 
 export function BarList({
   rows,
   format,
+  share,
 }: {
   rows: { label: string; value: number }[];
   format: (v: number) => string;
+  /** Also show each row's share of the total (for absolute amounts). */
+  share?: boolean;
 }) {
   const max = Math.max(...rows.map((r) => r.value)) || 1;
+  const total = rows.reduce((s, r) => s + r.value, 0) || 1;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+    <ul className={styles.barList}>
       {rows.map((r) => (
-        <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "2px 12px" }} title={`${r.label}: ${format(r.value)}`}>
-          <span style={{ fontSize: 12 }}>{r.label}</span>
-          <span className="num" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            {format(r.value)}
+        <li key={r.label} className={styles.barRow} title={`${r.label}: ${format(r.value)}`}>
+          <span className={styles.barLabel}>{r.label}</span>
+          <span className={styles.barValue}>
+            {share && <span className={styles.barShare}>{Math.round((r.value / total) * 100)}%</span>}
+            <span className="num">{format(r.value)}</span>
           </span>
-          <span
-            style={{
-              gridColumn: "1 / -1",
-              height: 6,
-              background: "var(--surface-muted)",
-              borderRadius: 1,
-              overflow: "hidden",
-            }}
-          >
-            <span
-              style={{
-                display: "block",
-                height: "100%",
-                width: `${(r.value / max) * 100}%`,
-                background: "var(--series-1)",
-                borderRadius: "0 2px 2px 0",
-              }}
-            />
+          <span className={styles.barTrack} aria-hidden>
+            <span className={styles.barFill} style={{ width: `${(r.value / max) * 100}%` }} />
           </span>
-        </div>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

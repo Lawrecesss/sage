@@ -1,3 +1,4 @@
+import { SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import { TopBar } from "@/components/shell/TopBar";
 import shell from "@/components/shell/shell.module.css";
@@ -27,14 +28,16 @@ export default async function SignalsPage({
 
   return (
     <>
-      <TopBar title="Signals" subtitle="Detector output, highest score first" />
+      <TopBar title="Signals" subtitle="Detector output, highest score first. Select a row to see why it fired." />
       <div className={shell.page}>
         <SignalFilters current={{ status, domain }} />
-        <Card>
+        <Card flush>
           {signals.length ? (
             <SignalTable signals={signals} metrics={byId} />
           ) : (
-            <EmptyState title="No signals match">Try clearing a filter.</EmptyState>
+            <EmptyState title="No signals match" icon={SearchX}>
+              Try clearing a filter.
+            </EmptyState>
           )}
         </Card>
       </div>

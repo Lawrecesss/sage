@@ -39,9 +39,8 @@ services:
     environment:
       MCP_URL: http://retail-mcp:9100/mcp
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_TOKEN:-sage-dev-token}
-      LLM_GATEWAY_URL: ${LLM_GATEWAY_URL:-}
-      LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-sonnet4.5}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-sonnet-4.5}
       # Langfuse Cloud tracing. Unset keys => render-otel.mjs leaves tracing off.
       LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}

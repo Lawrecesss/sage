@@ -70,7 +70,7 @@ browser ──> web  POST /api/chat ──> openclaw  POST /v1/chat/completions 
 - `retail-mcp` validates `tenant_id` against `shared.tenants`/`shared.tenant_modules` on every
   tool call before touching that tenant's Postgres schema — it doesn't just trust the value
   the model passed.
-- LLM: any OpenAI-compatible endpoint via `LLM_GATEWAY_URL` / `LLM_GATEWAY_API_KEY` / `LLM_MODEL` in `.env`.
+- LLM: OpenRouter via `OPENROUTER_API_KEY` / `OPENROUTER_MODEL` in `.env`.
 
 ### Tracing
 

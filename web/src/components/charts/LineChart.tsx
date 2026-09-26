@@ -2,7 +2,7 @@
 // we need zoom, brushing or many series.
 
 import { formatMetricValue } from "@/lib/format";
-import { legendStyle, Swatch } from "./BarChart";
+import { legendStyle, Swatch } from "./legend";
 import type { MetricUnit, SeriesPoint } from "@/lib/types";
 
 const W = 720;
@@ -35,7 +35,7 @@ export function LineChart({ points, unit, label }: { points: SeriesPoint[]; unit
         {ticks.map((t) => (
           <g key={t}>
             <line x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} stroke="var(--grid)" />
-            <text x={M.left - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={10} fontFamily="var(--font-mono)" fill="var(--text-faint)">
+            <text x={M.left - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={12} fontFamily="var(--font-sans)" fill="var(--text-muted)">
               {formatMetricValue(t, unit)}
             </text>
           </g>
@@ -46,9 +46,9 @@ export function LineChart({ points, unit, label }: { points: SeriesPoint[]; unit
             x={x(i)}
             y={H - 6}
             textAnchor={i ? "end" : "start"}
-            fontSize={10}
-            fontFamily="var(--font-mono)"
-            fill="var(--text-faint)"
+            fontSize={12}
+            fontFamily="var(--font-sans)"
+            fill="var(--text-muted)"
           >
             {points[i].period}
           </text>

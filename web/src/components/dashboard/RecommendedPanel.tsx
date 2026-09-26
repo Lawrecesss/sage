@@ -1,13 +1,18 @@
-// Recommended lives inside the dashboard, collapsed to a one-line preview.
-// <details> keeps the expand working without client JavaScript.
+// Recommended lives inside the dashboard. Collapsed, it is a horizontally scrollable row of
+// compact metric cards; expanding reveals pinned and suggested tiles, why each is suggested,
+// and the six-week question-frequency chart. The expand is a <details> element, so it works
+// without client JavaScript; `/dashboard?rec=open` deep-links to the expanded state.
 
+import { ChevronDown, Pin, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { legendStyle, Swatch } from "@/components/charts/BarChart";
+import { legendStyle, Swatch } from "@/components/charts/legend";
 import { Sparkline } from "@/components/charts/Sparkline";
-import { Delta, DomainMark } from "@/components/ui";
+import { DeltaPill, DomainMark } from "@/components/ui";
 import { changeTone, formatChange, formatDateTime, formatMetricValue } from "@/lib/format";
 import type { RecommendedMetric } from "@/lib/types";
 import styles from "./dashboard.module.css";
+
+const directionOf = (m: RecommendedMetric) => (m.value > m.previous ? "up" : m.value < m.previous ? "down" : "flat");
 
 export function RecommendedPanel({
   metrics,
@@ -24,64 +29,80 @@ export function RecommendedPanel({
   const suggested = metrics.filter((m) => !m.pinned);
 
   return (
-    <details className={styles.recommended} open={defaultOpen}>
-      <summary className={styles.recSummary}>
-        <svg className={styles.chevron} width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-          <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
-        <span className={styles.recTitle}>Recommended for you</span>
-        <span className={styles.recMeta}>{metrics.length} metrics</span>
-
-        {/* Preview: names and current values only. The detail is behind the expand. */}
-        <span className={styles.preview}>
-          {metrics.slice(0, 5).map((m) => (
-            <span key={m.metric_id} className={styles.previewChip}>
-              <DomainMark domain={m.domain} />
-              {m.label}
-              <span className={`${styles.previewValue} num`}>{formatMetricValue(m.value, m.unit)}</span>
-            </span>
-          ))}
+    <section className={styles.recommended} aria-labelledby="rec-title">
+      <div className={styles.recHead}>
+        <span className={styles.recIcon} aria-hidden>
+          <Sparkles size={16} strokeWidth={1.75} />
         </span>
-
-        <span className={styles.expandHint}>
-          <span className={styles.whenClosed}>Expand</span>
-          <span className={styles.whenOpen}>Collapse</span>
-        </span>
-      </summary>
-
-      <div className={styles.recBody}>
-        <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
-          Ranked by how often you ask about them. Affinity model updated {formatDateTime(updatedAt)}.
-        </p>
-
-        {pinned.length > 0 && (
-          <div>
-            <h3 className={styles.subhead}>Pinned · {pinned.length}</h3>
-            <div className={styles.recGrid}>
-              {pinned.map((m) => (
-                <Tile key={m.metric_id} metric={m} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {suggested.length > 0 && (
-          <div>
-            <h3 className={styles.subhead}>Suggested · {suggested.length}</h3>
-            <div className={styles.recGrid}>
-              {suggested.map((m) => (
-                <Tile key={m.metric_id} metric={m} />
-              ))}
-            </div>
-          </div>
-        )}
-
         <div>
-          <h3 className={styles.subhead}>Questions asked · last 6 weeks</h3>
-          <QueryFrequency frequency={frequency} metrics={metrics} />
+          <h2 id="rec-title" className={styles.recTitle}>
+            Recommended for you
+          </h2>
+          <p className={styles.recMeta}>{metrics.length} metrics, ranked by how often you ask about them</p>
         </div>
       </div>
-    </details>
+
+      {/* Collapsed view: compact cards, one scrollable row. */}
+      <ul className={styles.strip}>
+        {metrics.map((m) => {
+          const tone = changeTone(m.value, m.previous, m.direction);
+          return (
+            <li key={m.metric_id}>
+              <Link href={`/metrics/${m.metric_id}`} className={styles.stripCard}>
+                <span className={styles.stripLabel}>
+                  <DomainMark domain={m.domain} size={14} />
+                  <span>{m.label}</span>
+                  {m.pinned && <Pin size={12} strokeWidth={2} aria-label="Pinned" className={styles.pinIcon} />}
+                </span>
+                <span className={`${styles.stripValue} num`}>{formatMetricValue(m.value, m.unit)}</span>
+                <DeltaPill tone={tone} direction={directionOf(m)}>
+                  {formatChange(m.value, m.previous, m.unit)}
+                </DeltaPill>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      <details className={styles.recDetails} open={defaultOpen}>
+        <summary className={styles.recSummary}>
+          <ChevronDown className={styles.chevron} size={16} strokeWidth={2} aria-hidden />
+          <span className={styles.whenClosed}>Show details and why they&apos;re suggested</span>
+          <span className={styles.whenOpen}>Hide details</span>
+        </summary>
+
+        <div className={styles.recBody}>
+          <p className={styles.recNote}>Affinity model updated {formatDateTime(updatedAt)}.</p>
+
+          {pinned.length > 0 && (
+            <div>
+              <h3 className={styles.subhead}>Pinned · {pinned.length}</h3>
+              <div className={styles.recGrid}>
+                {pinned.map((m) => (
+                  <Tile key={m.metric_id} metric={m} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {suggested.length > 0 && (
+            <div>
+              <h3 className={styles.subhead}>Suggested · {suggested.length}</h3>
+              <div className={styles.recGrid}>
+                {suggested.map((m) => (
+                  <Tile key={m.metric_id} metric={m} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <h3 className={styles.subhead}>Questions asked · last 6 weeks</h3>
+            <QueryFrequency frequency={frequency} metrics={metrics} />
+          </div>
+        </div>
+      </details>
+    </section>
   );
 }
 
@@ -96,16 +117,13 @@ function Tile({ metric: m }: { metric: RecommendedMetric }) {
         <span className={styles.queryCount}>{m.query_count} asks</span>
       </div>
       <div className={styles.tileTop}>
-        <span>
-          <div className={`${styles.tileValue} num`}>{formatMetricValue(m.value, m.unit)}</div>
-          <Delta tone={tone}>
-            {tone === "neutral" ? "" : m.value > m.previous ? "▲" : "▼"}
+        <span className={styles.tileNumbers}>
+          <span className={`${styles.tileValue} num`}>{formatMetricValue(m.value, m.unit)}</span>
+          <DeltaPill tone={tone} direction={directionOf(m)}>
             {formatChange(m.value, m.previous, m.unit)}
-          </Delta>
+          </DeltaPill>
         </span>
-        <span style={{ color: "var(--text-muted)" }}>
-          <Sparkline values={m.spark} width={88} height={28} />
-        </span>
+        <Sparkline values={m.spark} width={96} height={32} tone={tone} />
       </div>
       <p className={styles.tileReason}>{m.reason}</p>
       <div className={styles.tags}>
@@ -131,26 +149,15 @@ function QueryFrequency({
   const labelFor = (id: string) => metrics.find((m) => m.metric_id === id)?.label ?? id;
   const totals = frequency.map((f) => ids.reduce((sum, id) => sum + (f.counts[id] ?? 0), 0));
   const max = Math.max(...totals) || 1;
-  const colors = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
+  const colors = ["var(--series-1)", "var(--series-3)", "var(--series-4)"];
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 120 }}>
+      <div className={styles.freq}>
         {frequency.map((f, i) => (
-          <div key={f.week} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-            <span className="num" style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              {totals[i]}
-            </span>
-            <div
-              style={{
-                width: "100%",
-                maxWidth: 46,
-                height: `${(totals[i] / max) * 78}px`,
-                display: "flex",
-                flexDirection: "column-reverse",
-                gap: 2, // surface gap between stacked segments
-              }}
-            >
+          <div key={f.week} className={styles.freqCol}>
+            <span className={`${styles.freqTotal} num`}>{totals[i]}</span>
+            <div className={styles.freqBar} style={{ height: `${(totals[i] / max) * 96}px` }}>
               {ids.map((id, j) => (
                 <div
                   key={id}
@@ -158,14 +165,12 @@ function QueryFrequency({
                   style={{
                     height: `${((f.counts[id] ?? 0) / totals[i]) * 100}%`,
                     background: colors[j % colors.length],
-                    borderRadius: j === ids.length - 1 ? "2px 2px 0 0" : 0,
+                    borderRadius: j === ids.length - 1 ? "4px 4px 0 0" : 0,
                   }}
                 />
               ))}
             </div>
-            <span className="label" style={{ fontSize: 9 }}>
-              {f.week}
-            </span>
+            <span className={styles.freqWeek}>{f.week}</span>
           </div>
         ))}
       </div>

@@ -5,7 +5,7 @@ import { LineChart } from "@/components/charts/LineChart";
 import { TopBar } from "@/components/shell/TopBar";
 import shell from "@/components/shell/shell.module.css";
 import styles from "@/components/signals/signals.module.css";
-import { ButtonLink, Card, DomainTag, StatusBadge } from "@/components/ui";
+import { ButtonLink, Card, DomainTag, MetricKey, StatusBadge } from "@/components/ui";
 import { getMetric, getMetricSeries, getSignal } from "@/lib/data";
 import {
   formatDateTime,
@@ -40,11 +40,12 @@ export default async function SignalPage({ params }: Props) {
     <>
       <TopBar
         title={label}
-        subtitle={
+        eyebrow={
           <>
-            <Link href="/signals">Signals</Link> / {signal.signal_id} · {formatDimensions(signal.dimensions)}
+            <Link href="/signals">Signals</Link> / <span className="mono">{signal.signal_id}</span>
           </>
         }
+        subtitle={formatDimensions(signal.dimensions)}
         actions={
           <ButtonLink href={`/?q=${encodeURIComponent(`/explain ${signal.signal_id}`)}`}>Ask Sage why</ButtonLink>
         }
@@ -66,7 +67,7 @@ export default async function SignalPage({ params }: Props) {
           </Card>
           <Card>
             <div className={styles.statLabel}>Est. impact</div>
-            <div className={`${styles.statValue} num`}>
+            <div className={`${styles.statValue} num`} style={{ color: signal.dollar_impact_est < 0 ? "var(--negative)" : "var(--positive)" }}>
               {formatImpact(signal.dollar_impact_est)}
             </div>
           </Card>
@@ -88,7 +89,7 @@ export default async function SignalPage({ params }: Props) {
             </dd>
             <dt>Metric</dt>
             <dd>
-              <Link href={`/metrics/${signal.metric_id}`}>{signal.metric_id}</Link>
+              <MetricKey id={signal.metric_id} />
             </dd>
             <dt>Detector</dt>
             <dd>{humanize(signal.detector)}</dd>

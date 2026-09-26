@@ -1,0 +1,152 @@
+.figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.legend {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.plot {
+  position: relative;
+  width: 100%;
+}
+
+.axis,
+.axisActive {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--text-muted);
+}
+
+.axisActive {
+  fill: var(--text);
+  font-weight: 600;
+}
+
+.slot {
+  cursor: default;
+  outline: none;
+}
+
+.slot path {
+  transition: opacity var(--dur) var(--ease);
+}
+
+.slot:focus-visible rect {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  min-width: 160px;
+  padding: 10px var(--space-3);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-xs);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.tooltipTitle {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.tooltipRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  line-height: 1.7;
+}
+
+.tooltipRow .num {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tooltipLabel {
+  color: var(--text-muted);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* ── Bar list ────────────────────────────────────────────────────────── */
+
+.barList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px var(--space-3);
+  padding: 6px var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  border-radius: var(--radius-sm);
+  transition: background-color var(--dur) var(--ease);
+}
+
+.barRow:hover {
+  background: var(--surface-hover);
+}
+
+.barLabel {
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barValue {
+  display: inline-flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: right;
+}
+
+.barShare {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 3ch;
+}
+
+.barTrack {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--series-1);
+}
