@@ -5,7 +5,7 @@ import { OpenClawError, streamAgentReply } from "@/lib/openclaw";
 import { type ReportFileMeta, buildReportFile } from "@/lib/report-file";
 import { saveReport } from "@/lib/report-store";
 import { type ResolvedTenant, UnknownTenantError, resolveTenant } from "@/lib/tenant";
-import type { ApiError, ChatEvent, ChatRequest, ContentBlock, ReportKind, ReportRequest } from "@/lib/types";
+import type { Anomaly, ApiError, ChatEvent, ChatRequest, ContentBlock, ReportKind, ReportRequest } from "@/lib/types";
 
 const SESSION_ID = /^[A-Za-z0-9-]{8,64}$/;
 const MAX_MESSAGE_CHARS = 4000;
@@ -132,7 +132,14 @@ async function collectBlocks(text: ReadableStream<string>): Promise<ContentBlock
   }
 }
 
-export type ReportMeta = { kind: ReportKind; title: string; periodStart: Date; periodEnd: Date; partial: boolean };
+export type ReportMeta = {
+  kind: ReportKind;
+  title: string;
+  periodStart: Date;
+  periodEnd: Date;
+  partial: boolean;
+  anomalies?: Anomaly[];
+};
 
 /** Persists the report once its stream finishes, independent of how (or whether) the client
  * read it — same FileRef a `ChatEvent`-mode client would get, via the same buildReportFile. */
@@ -151,6 +158,20 @@ async function recordReport(
   } catch (err) {
     console.error(`[${path}] report persistence failed`, err);
   }
+}
+
+/** Runs one report turn with nobody reading it and saves the result — the scheduler's path
+ * (auto-reports.ts). Resolves once the report is saved, or once saving has failed and been logged. */
+export async function generateReport(
+  tenant: ResolvedTenant,
+  message: string,
+  sessionId: string,
+  meta: ReportMeta,
+  fileMeta?: ReportFileMeta,
+): Promise<void> {
+  const path = `auto-report:${meta.kind}`;
+  const text = await streamAgentReply(message, sessionId, tenant.tenantId, tenant.modules);
+  await recordReport(path, tenant.tenantId, sessionId, meta, text, fileMeta);
 }
 
 /**

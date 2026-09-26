@@ -1,10 +1,12 @@
-import { ArrowLeft, LayoutDashboard, MessageSquare, Search, SearchX, Sparkles } from "lucide-react";
+import { ArrowLeft, FileDown, LayoutDashboard, MessageSquare, Search, SearchX, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
+import { AnomalyList } from "@/components/reports/AnomalyList";
+import { DeleteReportButton } from "@/components/reports/DeleteReportButton";
 import styles from "@/components/reports/reports.module.css";
 import { TopBar } from "@/components/shell/TopBar";
-import { ButtonLink, ChipLink, EmptyState } from "@/components/ui";
+import { ButtonLink, ChipLink, EmptyState, buttonClass } from "@/components/ui";
 import { getReport, listReports } from "@/lib/data";
 import { formatDateTime } from "@/lib/format";
 import { resolveTenantForPage } from "@/lib/tenant";
@@ -19,6 +21,7 @@ const KIND_LABEL: Record<ReportKind, string> = {
   "evening-report": "Evening",
   "daily-report": "Daily",
   "weekly-report": "Weekly",
+  "six-hour-report": "6-hourly",
 };
 const KINDS = Object.keys(KIND_LABEL) as ReportKind[];
 
@@ -157,12 +160,24 @@ export default async function ReportsPage({
                     >
                       Discuss in chat
                     </ButtonLink>
+                    {/* A plain <a>: it's a file download from an API route, not a page to navigate to. */}
+                    <a
+                      href={`/api/reports/saved/${encodeURIComponent(selected.id)}/pdf`}
+                      className={buttonClass("secondary", "sm")}
+                      download
+                    >
+                      <FileDown size={16} strokeWidth={2} aria-hidden />
+                      Export PDF
+                    </a>
                     <ButtonLink href="/dashboard" variant="ghost" icon={LayoutDashboard} size="sm">
                       Open dashboard
                     </ButtonLink>
+                    <DeleteReportButton id={selected.id} title={selected.headline ?? selected.title} />
                   </div>
                 </div>
               </header>
+
+              <AnomalyList anomalies={selected.anomalies} />
 
               <div className={styles.body}>
                 <MessageBlocks blocks={selected.blocks} />
