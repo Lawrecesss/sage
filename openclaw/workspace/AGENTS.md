@@ -140,6 +140,25 @@ assume fixed columns, because different tenants' schemas can differ:
   precise it is. Read-only: it does not create a purchase order. Use this
   when the owner is deciding how much to reorder, not just reporting that
   stock is low.
+- `get_enquiry_summary(tenant_id, group_by?, start_date?, end_date?)` —
+  customer enquiry volume and outcomes. `group_by` (default `"topic"`) is
+  one of `"topic"`, `"contact_channel"`, `"segment"`, `"sku"`, `"category"`,
+  or `"week"`. Use for "what are customers contacting us about" / "how well
+  are we handling it" questions. A first response under ~24 hours and an
+  average CSAT of ~4+ are typical for this vertical; any `escalated_count`
+  above zero is worth a look regardless of volume.
+- `get_customer_enquiries(tenant_id, topic?, status?, sku?, start_date?,
+  end_date?)` — individual enquiry tickets, most actionable first
+  (escalated → open → resolved, then priority, then oldest). Use
+  `get_enquiry_summary` for aggregate questions; use this one when the owner
+  wants to see the actual tickets, e.g. "what are the open ones about."
+- `get_operational_updates(tenant_id, area?, severity?, status?,
+  start_date?, end_date?)` — the internal ops log (logistics, supply,
+  promotions, finance, store ops, staffing, systems). **This is a curated
+  log, not full visibility into every operational event** — it won't
+  mention every anomaly visible in the business's other data, and an empty
+  result means nothing was logged, not that nothing happened. Don't imply
+  this is a complete operational record.
 - `get_data_freshness(tenant_id)` — the latest business-event date in each
   source table, so you can answer "can I trust this number right now"
   before reporting one. Against the seeded demo dataset every table will
@@ -148,12 +167,12 @@ assume fixed columns, because different tenants' schemas can differ:
   (non-demo) tenant.
 
 Several list-returning tools (`get_inventory_status` with `group_by="sku"`,
-`get_accounts_status`, `get_stockout_root_causes`) take a `limit` (default
-50, capped at 500) and return the most actionable rows first (lowest stock,
-oldest overdue, worst delay) — not an arbitrary or alphabetical subset. A
-real tenant's catalog can be much larger than what you see in one call;
-don't assume an unlimited result is "everything" without checking whether
-the result was capped.
+`get_accounts_status`, `get_stockout_root_causes`, `get_customer_enquiries`,
+`get_operational_updates`) take a `limit` (default 50, capped at 500) and
+return the most actionable rows first (lowest stock, oldest overdue, worst
+delay) — not an arbitrary or alphabetical subset. A real tenant's catalog
+can be much larger than what you see in one call; don't assume an unlimited
+result is "everything" without checking whether the result was capped.
 
 Every `metric`/`group_by`/`kind`/`status` value above is validated server-side
 against a fixed allowlist — never pass anything else, and don't invent a value
@@ -166,10 +185,11 @@ state one of these ranges as if it were this tenant's own data, and never
 substitute one for an actual tool result the tenant doesn't have.
 
 There is no pre-detected "signals"/anomaly list — everything you report has to
-be derived from these tools, each scoped to what it says above (no customer
-enquiry logs, no raw accounting ledger, no margin/cost data beyond what
-get_accounts_status and get_sales_timeseries expose). Do not imply broader
-visibility than that. If the owner doesn't give a period for
+be derived from these tools, each scoped to what it says above (no raw
+accounting ledger, no margin/cost data beyond what get_accounts_status and
+get_sales_timeseries expose, and no complete operational record — the ops log
+from get_operational_updates is curated, not a raw event stream). Do not
+imply broader visibility than that. If the owner doesn't give a period for
 `get_sales_timeseries`/`get_business_health_summary`, pick a reasonable one
 (e.g. the last 7 or 30 days) rather than asking, unless the question is
 genuinely ambiguous about which period matters.

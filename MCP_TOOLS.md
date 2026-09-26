@@ -23,7 +23,9 @@ join two or more domains in a single call rather than living in one.
 | Inventory | `get_inventory_status` | `fact_stock_movement` |
 | Suppliers | `get_supplier_performance`, `get_expected_deliveries` | `fact_purchase_order` |
 | Accounts | `get_accounts_status` | `fact_invoice` (receivable), `fact_bill` (payable) |
-| Composite (cross-domain) | `get_business_health_summary` (sales+inventory+suppliers+accounts), `get_stockout_root_causes` (inventory+suppliers), `compare_periods` (sales), `get_attention_items` (sales+inventory+suppliers+accounts), `get_benchmark_gap_analysis` (sales+accounts), `get_cash_flow_forecast` (sales+accounts), `simulate_reorder_impact` (inventory+suppliers) | multiple |
+| Customer | `get_enquiry_summary`, `get_customer_enquiries` | `fact_customer_enquiry` |
+| Operations | `get_operational_updates` | `fact_operational_update` |
+| Composite (cross-domain) | `get_business_health_summary` (sales+inventory+suppliers+accounts+customer+operations), `get_stockout_root_causes` (inventory+suppliers), `compare_periods` (sales), `get_attention_items` (sales+inventory+suppliers+accounts+customer+operations), `get_benchmark_gap_analysis` (sales+accounts), `get_cash_flow_forecast` (sales+accounts), `simulate_reorder_impact` (inventory+suppliers) | multiple |
 | Meta / infrastructure | `ping`, `describe_schema`, `get_data_freshness` | none / all tables (introspection) |
 
 ---
@@ -94,8 +96,8 @@ generally a cash-flow risk.
 
 ## `get_business_health_summary(tenant_id, start_date=None, end_date=None)`
 
-Composite tool — one call across all four domains instead of chaining the
-tools above. Returns a single dict:
+Composite tool — one call across every domain instead of chaining the tools
+above. Returns a single dict:
 
 | Field | Source |
 |---|---|
@@ -103,9 +105,13 @@ tools above. Returns a single dict:
 | `total_on_hand`, `skus_out_of_stock` | Inventory, current state (not period-scoped) |
 | `worst_supplier_id`, `worst_supplier_delay_days` | Current state; **null means no PO history exists**, not zero delay |
 | `receivables_open`, `payables_open` | Current open balances |
+| `enquiry_count`, `avg_csat` | Customer enquiries opened in the given period; `avg_csat` is `null` if none of them are resolved yet |
+| `open_enquiries` | Current count of open + escalated enquiries (not period-scoped) |
+| `open_critical_ops_updates` | Current count of unresolved critical operational updates (not period-scoped) |
 
-`start_date`/`end_date` only scope the sales figures — inventory/supplier/
-accounts are always current-state.
+`start_date`/`end_date` scope the sales and enquiry figures — inventory/
+supplier/accounts/open-enquiry/open-ops-update counts are always
+current-state.
 
 ## `get_stockout_root_causes(tenant_id, limit=50)`
 
@@ -137,6 +143,10 @@ call, returned as a ranked list of concrete issues:
 | Any SKU at zero/negative stock | > 0 | `inventory` |
 | Supplier average delivery delay | > 5 days | `suppliers` |
 | Open receivable/payable past due | > 60 days | `accounts` |
+| Enquiry volume (trailing 7-day daily rate vs. the prior 28 days) | > 1.5x | `customer` |
+| Enquiry average first-response time (trailing 30 days) | > 24 hours | `customer` |
+| Any escalated enquiry still open | > 0 | `customer` |
+| Any unresolved critical operational update | > 0 | `operations` |
 
 Each item: `domain`, `issue`, `value`, `threshold`, `dollar_impact_est`
 (null when not computable), `supplier_id` (null unless supplier-related).
@@ -146,6 +156,13 @@ Sorted by `dollar_impact_est` descending where known.
 baseline.** A pattern that's genuinely unusual for one specific business but
 stays under these numbers won't appear here. An empty result means "nothing
 crossed a generic threshold," not "everything is fine."
+
+**The critical-operational-update check is real, handled code but
+structurally unreachable against the seeded `demo` dataset** — the generator
+(`data/simulator/src/sage_simulator/simulate/operations.py`) never plants a
+"critical"-severity update, only `info`/`warning` — the same kind of gap
+`get_expected_deliveries` documents for `"not_yet_received"`. It will only
+ever fire against a live tenant's own data.
 
 ## `get_benchmark_gap_analysis(tenant_id, start_date=None, end_date=None)`
 
@@ -304,6 +321,73 @@ time, leaves under 14 days of supply), `"low"` (comfortable), or
 estimate from — every other field except the identity ones is null in
 this case).
 
+## `get_enquiry_summary(tenant_id, group_by="topic", start_date=None, end_date=None)`
+
+Customer enquiry volume and outcomes, grouped by a dimension — the
+enquiry-side equivalent of `get_sales_timeseries`.
+
+- `group_by` — `"topic"` (default), `"contact_channel"`, `"segment"`,
+  `"sku"`, `"category"` (joins `dim_sku`, so an enquiry with no `sku` is
+  excluded from this breakdown rather than grouped under a null category),
+  or `"week"` (calendar week starting Monday, via `DATE_TRUNC`, labeled by
+  that week's start date — not `dim_date.week`, an ISO week number that
+  resets every January and would collide across the two years a 15-month
+  dataset can span).
+- `start_date`/`end_date` — optional inclusive bounds on the enquiry's
+  opened date. Omit for all-time.
+
+Returns one row per group: the group column, `enquiry_count`, `open_count`,
+`escalated_count`, `avg_first_response_hours`, `avg_resolution_days`
+(resolved enquiries only, `null` if none resolved), `avg_csat` (resolved
+only, `null` if none resolved). Sorted by `enquiry_count` descending, except
+`group_by="week"` which sorts chronologically.
+
+Judgement context: a first response under ~24 hours and an average CSAT of
+~4 or higher are typical for this vertical; any `escalated_count` above zero
+is worth a look regardless of volume.
+
+## `get_customer_enquiries(tenant_id, topic=None, status=None, sku=None, start_date=None, end_date=None, limit=50)`
+
+Individual customer enquiries, most actionable first — the enquiry-side
+equivalent of `get_accounts_status`. Use `get_enquiry_summary` for aggregate
+questions; use this tool to see the actual tickets.
+
+- `topic` — optional, one of `"order_status"`, `"return_refund"`,
+  `"stock_availability"`, `"billing"`, `"product_question"`, `"complaint"`.
+- `status` — optional, `"open"`, `"resolved"`, or `"escalated"`.
+- `sku` — optional, restrict to one SKU.
+- `start_date`/`end_date` — optional inclusive bounds on the opened date.
+- `limit` — default 50, capped at 500.
+
+Returns one row per enquiry: `enquiry_id`, `date`, `contact_channel`,
+`segment`, `topic`, `order_id` (null if not tied to an order), `sku` (null
+if not product-specific), `priority`, `status`, `first_response_hours`,
+`resolved_date` (null if not yet resolved), `csat_score` (null unless
+resolved). Sorted escalated → open → resolved, then high priority first,
+then oldest first within each group.
+
+## `get_operational_updates(tenant_id, area=None, severity=None, status=None, start_date=None, end_date=None, limit=50)`
+
+The internal operations log — notices staff logged about supply, logistics,
+promotions, finance, store operations, staffing, and systems. **This is a
+curated log, not full visibility into every operational event**: it will not
+mention every anomaly visible in the business's other data (see
+`data/simulator/src/sage_simulator/simulate/operations.py` — incident types
+meant to stay hidden from the agent are deliberately never logged here), and
+an empty result doesn't mean nothing happened, only that nothing was logged.
+
+- `area` — optional, one of `"logistics"`, `"supply"`, `"promotions"`,
+  `"finance"`, `"store_ops"`, `"staffing"`, `"systems"`.
+- `severity` — optional, `"info"`, `"warning"`, or `"critical"`.
+- `status` — optional, `"open"` or `"resolved"`.
+- `start_date`/`end_date` — optional inclusive bounds on the update's date.
+- `limit` — default 50, capped at 500.
+
+Returns one row per update: `update_id`, `date`, `area`, `severity`,
+`title`, `detail`, `supplier_id` (null unless supplier-related), `channel`
+(null unless channel-related), `category` (null unless category-related),
+`status`, `resolved_date` (null if still open). Sorted newest first.
+
 ## `get_data_freshness(tenant_id)`
 
 Meta tool — "can I trust this number right now." No table in this schema
@@ -312,9 +396,9 @@ carries an ingest/load timestamp, so this reports the latest
 PO activity, or invoice/bill date) as the closest honest freshness proxy.
 
 Returns one row per table in `fact_order_line`, `fact_stock_movement`,
-`fact_purchase_order`, `fact_invoice`, `fact_bill`: `table`,
-`last_business_date`, `days_since` (`CURRENT_DATE - last_business_date`),
-`row_count`. Sorted stalest first.
+`fact_purchase_order`, `fact_invoice`, `fact_bill`, `fact_customer_enquiry`,
+`fact_operational_update`: `table`, `last_business_date`, `days_since`
+(`CURRENT_DATE - last_business_date`), `row_count`. Sorted stalest first.
 
 **Demo-data caveat**: against the seeded `demo` tenant (fixed calendar
 2025-09-01 to 2026-02-28), every table reports a large, fixed `days_since`

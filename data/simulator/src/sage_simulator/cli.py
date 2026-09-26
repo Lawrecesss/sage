@@ -12,8 +12,10 @@ from .facts import Dataset
 from .incidents import apply_posthoc, build_default_incidents, build_modifiers
 from .simulate import (
     build_bills,
+    build_customer_enquiries,
     build_dates,
     build_invoices,
+    build_operational_updates,
     build_order_lines,
     simulate_inventory,
 )
@@ -66,6 +68,13 @@ def generate(
 
     typer.echo(f"Applying {len(incidents)} incidents...")
     apply_posthoc(incidents, dataset, entities.sku_by_id, config)
+
+    typer.echo("Building customer enquiries and operational updates...")
+    dataset.customer_enquiries = build_customer_enquiries(config, entities, dataset, incidents)
+    dataset.operational_updates = build_operational_updates(config, entities, incidents)
+    typer.echo(
+        f"  {len(dataset.customer_enquiries)} enquiries, {len(dataset.operational_updates)} ops updates"
+    )
 
     typer.echo(f"Seeding Postgres (tenant={tenant})...")
     engine = create_engine(database_url)

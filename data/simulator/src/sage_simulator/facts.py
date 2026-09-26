@@ -87,6 +87,37 @@ class Bill:
 
 
 @dataclass
+class CustomerEnquiry:
+    enquiry_id: str
+    date: date  # opened
+    contact_channel: str  # email | live_chat | phone | in_store | marketplace_chat
+    segment: str
+    topic: str  # order_status | return_refund | stock_availability | billing | product_question | complaint
+    order_id: str | None
+    sku: str | None
+    priority: str  # low | normal | high
+    status: str  # open | resolved | escalated
+    first_response_hours: float
+    resolved_date: date | None
+    csat_score: int | None  # 1-5, resolved only
+
+
+@dataclass
+class OperationalUpdate:
+    update_id: str
+    date: date
+    area: str  # logistics | supply | promotions | finance | store_ops | staffing | systems
+    severity: str  # info | warning | critical
+    title: str
+    detail: str
+    supplier_id: str | None
+    channel: str | None
+    category: str | None
+    status: str  # open | resolved
+    resolved_date: date | None
+
+
+@dataclass
 class Dataset:
     """Everything one `generate` run produces, ready to seed into Postgres."""
 
@@ -96,3 +127,5 @@ class Dataset:
     purchase_orders: list[PurchaseOrder] = field(default_factory=list)
     invoices: list[Invoice] = field(default_factory=list)
     bills: list[Bill] = field(default_factory=list)
+    customer_enquiries: list[CustomerEnquiry] = field(default_factory=list)
+    operational_updates: list[OperationalUpdate] = field(default_factory=list)

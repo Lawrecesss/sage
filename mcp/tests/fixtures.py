@@ -333,6 +333,122 @@ BILLS = [
 ]
 
 # ---------------------------------------------------------------------------
+# fact_customer_enquiry — 2025-dated rows cover every topic/channel/segment for
+# get_enquiry_summary/get_customer_enquiries; a second, TODAY-relative batch
+# drives get_attention_items' enquiry-side checks off the real clock, the same
+# split ATTENTION_RETURN_RATE_LINES uses for sales above.
+# ---------------------------------------------------------------------------
+
+
+def _enquiry(
+    enquiry_id, d, contact_channel, segment, topic, *,
+    order_id=None, sku=None, priority="normal", status="resolved",
+    first_response_hours=12.0, resolved_after_days=1, csat_score=4,
+):
+    resolved_date = None if status != "resolved" else d + timedelta(days=resolved_after_days)
+    return {
+        "enquiry_id": enquiry_id,
+        "date": d,
+        "contact_channel": contact_channel,
+        "segment": segment,
+        "topic": topic,
+        "order_id": order_id,
+        "sku": sku,
+        "priority": priority,
+        "status": status,
+        "first_response_hours": float(first_response_hours),
+        "resolved_date": resolved_date,
+        "csat_score": csat_score if status == "resolved" else None,
+    }
+
+
+# One row per topic, dated inside FULL_RANGE (2025-01-01..2025-07-15, see
+# test_derived.py) with a known channel/segment/sku/csat so get_enquiry_summary's
+# per-group aggregates can be computed independently in plain Python.
+ENQUIRIES = [
+    _enquiry("ENQ-1", date(2025, 6, 10), "email", "retail", "order_status",
+             order_id="O-C1-CURR", sku="SKU-CHAIR-1", first_response_hours=10.0, csat_score=5),
+    _enquiry("ENQ-2", date(2025, 6, 11), "email", "retail", "return_refund",
+             order_id="O-C1-REFUND", sku="SKU-CHAIR-1", first_response_hours=20.0,
+             resolved_after_days=4, csat_score=3),
+    _enquiry("ENQ-3", date(2025, 6, 12), "phone", "wholesale", "stock_availability",
+             sku="SKU-CHAIR-2", first_response_hours=15.0, status="open", resolved_after_days=0),
+    _enquiry("ENQ-4", date(2025, 6, 13), "email", "wholesale", "billing",
+             order_id="O-T1-CURR", priority="high", first_response_hours=5.0, status="escalated"),
+    _enquiry("ENQ-5", date(2025, 6, 14), "live_chat", "retail", "product_question",
+             sku="SKU-TABLE-1", priority="low", first_response_hours=8.0, csat_score=4),
+    _enquiry("ENQ-6", date(2025, 6, 16), "in_store", "retail", "complaint",
+             order_id="O-C2-CURR", sku="SKU-CHAIR-2", priority="high", first_response_hours=3.0,
+             resolved_after_days=6, csat_score=2),
+    _enquiry("ENQ-7", date(2025, 6, 17), "marketplace_chat", "wholesale", "order_status",
+             sku="SKU-TABLE-2", first_response_hours=12.0, csat_score=5),
+]
+
+# TODAY-relative rows, isolated to get_attention_items' enquiry-side branches
+# (real CURRENT_DATE-anchored windows), the same pattern ATTENTION_RETURN_RATE_LINES
+# uses for the sales return-rate check. Kept off every FULL_RANGE-scoped test above,
+# and deliberately non-overlapping between the three windows below (7d / 30d / 35d)
+# so each check's expected value can be computed from exactly one group of rows.
+#
+# enquiry_volume_spike: 6 enquiries in the trailing 7 real days (~0.86/day) vs.
+# 2 enquiries at days 31/33 (inside the 8..35-day-ago "prior" window, but
+# outside the 30-day window slow_first_response reads) — comfortably over the
+# tool's 1.5x rate-jump threshold.
+ATTENTION_ENQUIRY_SURGE_RECENT = [
+    _enquiry(f"ENQ-SURGE-{i}", TODAY - timedelta(days=i), "email", "retail", "order_status",
+             sku="SKU-CHAIR-1", first_response_hours=30.0, status="open", resolved_after_days=0)
+    for i in range(6)
+]
+ATTENTION_ENQUIRY_SURGE_PRIOR = [
+    _enquiry("ENQ-PRIOR-1", TODAY - timedelta(days=31), "email", "retail", "order_status",
+             sku="SKU-CHAIR-1", first_response_hours=10.0, csat_score=5),
+    _enquiry("ENQ-PRIOR-2", TODAY - timedelta(days=33), "email", "retail", "order_status",
+             sku="SKU-CHAIR-1", first_response_hours=10.0, csat_score=5),
+]
+# slow_first_response: the 6 surge rows above are the ONLY fact_customer_enquiry
+# rows inside the trailing 30 real days, all at 30h response -> avg exactly 30h,
+# past the tool's 24h threshold.
+# escalations_open: dated well outside every windowed check above (that check
+# has no date filter at all) so it can't perturb their expected values.
+ATTENTION_ENQUIRY_ESCALATED = [
+    _enquiry("ENQ-ESCALATED-1", TODAY - timedelta(days=40), "phone", "wholesale", "billing",
+             priority="high", first_response_hours=4.0, status="escalated"),
+]
+
+ALL_ENQUIRIES = (
+    ENQUIRIES + ATTENTION_ENQUIRY_SURGE_RECENT + ATTENTION_ENQUIRY_SURGE_PRIOR + ATTENTION_ENQUIRY_ESCALATED
+)
+
+# ---------------------------------------------------------------------------
+# fact_operational_update — a handful of rows covering every area/severity/
+# status combination the tools filter on, plus one open+critical row (TODAY-
+# relative) to drive get_attention_items' critical_ops_update_open check,
+# which is otherwise unreachable against the seeded demo dataset.
+# ---------------------------------------------------------------------------
+
+OPERATIONAL_UPDATES = [
+    {"update_id": "OPS-1", "date": date(2025, 6, 1), "area": "logistics", "severity": "warning",
+     "title": "Shipment delays reported from Slow Supplier",
+     "detail": "Slow Supplier flagged longer lead times.", "supplier_id": "SUP-SLOW",
+     "channel": None, "category": None, "status": "resolved", "resolved_date": date(2025, 6, 20)},
+    {"update_id": "OPS-2", "date": date(2025, 6, 5), "area": "promotions", "severity": "info",
+     "title": "Mid-Year Sale campaign live", "detail": "Seasonal promotion running storefront-wide.",
+     "supplier_id": None, "channel": "online", "category": None,
+     "status": "resolved", "resolved_date": date(2025, 6, 10)},
+    {"update_id": "OPS-3", "date": date(2025, 6, 8), "area": "store_ops", "severity": "info",
+     "title": "Monthly stocktake completed", "detail": "Routine stock count, no discrepancies.",
+     "supplier_id": None, "channel": None, "category": None,
+     "status": "resolved", "resolved_date": date(2025, 6, 8)},
+    # Open, real-clock-relative, and "critical" -- the one branch of
+    # get_attention_items that's structurally unreachable against the seeded
+    # demo dataset (see MCP_TOOLS.md), so it needs its own fixture row here.
+    {"update_id": "OPS-CRITICAL", "date": TODAY - timedelta(days=2), "area": "systems",
+     "severity": "critical", "title": "Payment gateway outage",
+     "detail": "Checkout is failing for all online orders.", "supplier_id": None,
+     "channel": "online", "category": None, "status": "open", "resolved_date": None},
+]
+
+# ---------------------------------------------------------------------------
 # Aggregation helpers mirroring server.py's _METRICS exactly (see the module
 # docstring above for why revenue/units/margin sum every row, refunds included).
 # ---------------------------------------------------------------------------
@@ -340,6 +456,11 @@ BILLS = [
 
 def in_range(rows: list[dict], start: date | None, end: date | None) -> list[dict]:
     return [r for r in rows if (start is None or r["date"] >= start) and (end is None or r["date"] <= end)]
+
+
+def week_start(d: date) -> date:
+    """Monday-starting week bucket, matching server.py's DATE_TRUNC('week', ...)."""
+    return d - timedelta(days=d.weekday())
 
 
 def metric_total(rows: list[dict], metric: str) -> float | None:

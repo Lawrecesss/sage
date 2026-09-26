@@ -21,6 +21,8 @@ EXPECTED_TABLES = {
     "fact_purchase_order",
     "fact_invoice",
     "fact_bill",
+    "fact_customer_enquiry",
+    "fact_operational_update",
 }
 
 

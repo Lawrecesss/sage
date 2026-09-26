@@ -49,6 +49,30 @@ _INVENTORY_GROUP_BY = {"sku", "category"}
 _ACCOUNTS_TABLES = {"receivable": "fact_invoice", "payable": "fact_bill"}
 _ACCOUNTS_STATUSES = {"paid", "open"}
 
+_ENQUIRY_TOPICS = {
+    "order_status",
+    "return_refund",
+    "stock_availability",
+    "billing",
+    "product_question",
+    "complaint",
+}
+_ENQUIRY_STATUSES = {"open", "resolved", "escalated"}
+# "week" buckets by calendar-week start (DATE_TRUNC), not dim_date.week — that
+# column is an ISO week number that resets every January and would collide
+# across the two years a 15-month dataset can span.
+_ENQUIRY_GROUP_BY = {
+    "topic": "e.topic",
+    "contact_channel": "e.contact_channel",
+    "segment": "e.segment",
+    "sku": "e.sku",
+    "category": "s.category",
+    "week": "DATE_TRUNC('week', e.date)::date",
+}
+_OPS_AREAS = {"logistics", "supply", "promotions", "finance", "store_ops", "staffing", "systems"}
+_OPS_SEVERITIES = {"info", "warning", "critical"}
+_OPS_STATUSES = {"open", "resolved"}
+
 # Caps on any tool that can return one row per SKU/bill/etc — a real SME
 # catalog can be thousands of rows; nothing here should dump an unbounded
 # result into the model's context by default.
@@ -60,6 +84,8 @@ _MAX_LIMIT = 500
 _RETURN_RATE_THRESHOLD = 0.08
 _SUPPLIER_DELAY_THRESHOLD_DAYS = 5
 _OVERDUE_DAYS_THRESHOLD = 60
+_ENQUIRY_SURGE_MULTIPLIER = 1.5
+_SLOW_FIRST_RESPONSE_HOURS = 24.0
 
 # Industry-typical (low, high) ranges for get_benchmark_gap_analysis — same
 # judgement-context figures quoted in get_sales_timeseries'/get_accounts_status's
@@ -111,6 +137,8 @@ _FRESHNESS_TABLES = {
     "fact_purchase_order": "GREATEST(ordered_date, expected_date, received_date)",
     "fact_invoice": "COALESCE(paid_date, date)",
     "fact_bill": "COALESCE(paid_date, date)",
+    "fact_customer_enquiry": "GREATEST(date, resolved_date)",  # GREATEST ignores NULLs
+    "fact_operational_update": "GREATEST(date, resolved_date)",
 }
 
 
@@ -380,28 +408,34 @@ def get_business_health_summary(
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> dict:
-    """One-call consolidated view across sales, inventory, suppliers, and
-    accounts for a period — the answer to "how are we doing" without
-    chaining four separate tool calls. Each figure here is still exactly
-    what get_sales_timeseries/get_inventory_status/get_supplier_performance/
-    get_accounts_status would return individually; this just runs all four
-    domains together and returns one row.
+    """One-call consolidated view across sales, inventory, suppliers,
+    accounts, and customer enquiries for a period — the answer to "how are we
+    doing" without chaining several separate tool calls. Each figure here is
+    still exactly what get_sales_timeseries/get_inventory_status/
+    get_supplier_performance/get_accounts_status/get_enquiry_summary would
+    return individually; this just runs all five domains together and
+    returns one row.
 
     Args:
         tenant_id: The tenant to query. Pass it exactly as given in the
             system message for this conversation.
         start_date: Optional inclusive start date, "YYYY-MM-DD", for the
-            sales figures only (inventory/supplier/accounts are always
-            current-state, not period-scoped). Omit for all-time sales.
+            sales and enquiry figures only (inventory/supplier/accounts/
+            open-enquiry/open-ops-update counts are always current-state,
+            not period-scoped). Omit for all-time sales and enquiries.
         end_date: Optional inclusive end date, "YYYY-MM-DD".
 
     Returns one dict: revenue, refunds (sales, for the given period);
     total_on_hand, skus_out_of_stock (inventory, current state);
     worst_supplier_id, worst_supplier_delay_days (current state, null if no
     purchase orders exist yet); receivables_open, payables_open (current
-    open balances). worst_supplier_delay_days null doesn't mean "no delay",
-    it means no purchase order data exists to compute one — say so if asked,
-    don't read it as zero.
+    open balances); enquiry_count, avg_csat (enquiries opened in the period,
+    avg_csat null if none of them are resolved yet); open_enquiries (current
+    count of open + escalated enquiries, not period-scoped);
+    open_critical_ops_updates (current count of unresolved critical
+    operational updates). worst_supplier_delay_days null doesn't mean "no
+    delay," it means no purchase order data exists to compute one — say so if
+    asked, don't read it as zero.
     """
     for label, value in (("start_date", start_date), ("end_date", end_date)):
         if value is not None:
@@ -451,6 +485,21 @@ def get_business_health_summary(
             ),
             payables AS (
                 SELECT COALESCE(SUM(amount_sgd), 0) AS open_amount FROM fact_bill WHERE status != 'paid'
+            ),
+            enquiries AS (
+                SELECT
+                    COUNT(*) AS enquiry_count,
+                    AVG(csat_score) FILTER (WHERE status = 'resolved') AS avg_csat
+                FROM fact_customer_enquiry
+                WHERE (CAST(:start_date AS date) IS NULL OR date >= CAST(:start_date AS date))
+                  AND (CAST(:end_date AS date) IS NULL OR date <= CAST(:end_date AS date))
+            ),
+            open_enquiries AS (
+                SELECT COUNT(*) AS n FROM fact_customer_enquiry WHERE status IN ('open', 'escalated')
+            ),
+            open_critical_ops AS (
+                SELECT COUNT(*) AS n FROM fact_operational_update
+                WHERE status = 'open' AND severity = 'critical'
             )
             SELECT
                 sales.revenue,
@@ -460,12 +509,19 @@ def get_business_health_summary(
                 worst_supplier.supplier_id AS worst_supplier_id,
                 worst_supplier.avg_delay_days AS worst_supplier_delay_days,
                 receivables.open_amount AS receivables_open,
-                payables.open_amount AS payables_open
+                payables.open_amount AS payables_open,
+                enquiries.enquiry_count,
+                enquiries.avg_csat,
+                open_enquiries.n AS open_enquiries,
+                open_critical_ops.n AS open_critical_ops_updates
             FROM sales
             CROSS JOIN inventory
             LEFT JOIN worst_supplier ON true
             CROSS JOIN receivables
             CROSS JOIN payables
+            CROSS JOIN enquiries
+            CROSS JOIN open_enquiries
+            CROSS JOIN open_critical_ops
         """
         row = conn.execute(text(sql), {"start_date": start_date, "end_date": end_date}).mappings().one()
         return dict(row)
@@ -613,6 +669,18 @@ def get_attention_items(tenant_id: str) -> list[dict]:
     still form your own judgement from the other tools when asked a broad
     question.
 
+    Checks: sales return rate (trailing 30 days) > 8% of revenue; any SKU at
+    zero/negative stock; supplier average delivery delay > 5 days; an open
+    receivable/payable more than 60 days past due; customer enquiry volume
+    (trailing 7-day daily rate vs. the prior 28 days) more than 1.5x; average
+    enquiry first-response time (trailing 30 days) over 24 hours; any
+    escalated enquiry still open; any unresolved critical operational
+    update. The last check is real, handled code, but structurally
+    unreachable against the current seeded dataset — the generator never
+    plants a "critical"-severity update (see data/simulator/src/
+    sage_simulator/simulate/operations.py) — so it will only ever fire
+    against a live tenant's own data.
+
     Args:
         tenant_id: The tenant to check. Pass it exactly as given in the
             system message for this conversation.
@@ -724,6 +792,92 @@ def get_attention_items(tenant_id: str) -> list[dict]:
                         "supplier_id": None,
                     }
                 )
+
+        row = conn.execute(
+            text(
+                """
+                WITH recent AS (
+                    SELECT COUNT(*) AS n FROM fact_customer_enquiry
+                    WHERE date >= CURRENT_DATE - INTERVAL '7 days'
+                ),
+                prior AS (
+                    SELECT COUNT(*) AS n FROM fact_customer_enquiry
+                    WHERE date >= CURRENT_DATE - INTERVAL '35 days'
+                      AND date < CURRENT_DATE - INTERVAL '7 days'
+                )
+                SELECT recent.n AS recent_n, prior.n AS prior_n FROM recent CROSS JOIN prior
+                """
+            )
+        ).mappings().one()
+        prior_daily_rate = row["prior_n"] / 28
+        recent_daily_rate = row["recent_n"] / 7
+        if prior_daily_rate > 0 and recent_daily_rate > prior_daily_rate * _ENQUIRY_SURGE_MULTIPLIER:
+            items.append(
+                {
+                    "domain": "customer",
+                    "issue": "enquiry_volume_spike",
+                    "value": round(recent_daily_rate, 2),
+                    "threshold": round(prior_daily_rate * _ENQUIRY_SURGE_MULTIPLIER, 2),
+                    "dollar_impact_est": None,
+                    "supplier_id": None,
+                }
+            )
+
+        row = conn.execute(
+            text(
+                """
+                SELECT AVG(first_response_hours) AS avg_hours
+                FROM fact_customer_enquiry
+                WHERE date >= CURRENT_DATE - INTERVAL '30 days'
+                """
+            )
+        ).mappings().one()
+        if row["avg_hours"] is not None and row["avg_hours"] > _SLOW_FIRST_RESPONSE_HOURS:
+            items.append(
+                {
+                    "domain": "customer",
+                    "issue": "slow_first_response",
+                    "value": round(float(row["avg_hours"]), 1),
+                    "threshold": _SLOW_FIRST_RESPONSE_HOURS,
+                    "dollar_impact_est": None,
+                    "supplier_id": None,
+                }
+            )
+
+        row = conn.execute(
+            text("SELECT COUNT(*) AS n FROM fact_customer_enquiry WHERE status = 'escalated'")
+        ).mappings().one()
+        if row["n"] > 0:
+            items.append(
+                {
+                    "domain": "customer",
+                    "issue": "escalations_open",
+                    "value": row["n"],
+                    "threshold": 0,
+                    "dollar_impact_est": None,
+                    "supplier_id": None,
+                }
+            )
+
+        critical_ops_rows = conn.execute(
+            text(
+                """
+                SELECT supplier_id FROM fact_operational_update
+                WHERE status = 'open' AND severity = 'critical'
+                """
+            )
+        ).mappings().all()
+        for r in critical_ops_rows:
+            items.append(
+                {
+                    "domain": "operations",
+                    "issue": "critical_ops_update_open",
+                    "value": 1,
+                    "threshold": 0,
+                    "dollar_impact_est": None,
+                    "supplier_id": r["supplier_id"],
+                }
+            )
 
     items.sort(key=lambda i: (i["dollar_impact_est"] is None, -(i["dollar_impact_est"] or 0)))
     return items
@@ -1567,6 +1721,243 @@ def simulate_reorder_impact(
             }
         )
         return result
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_enquiry_summary(
+    tenant_id: str,
+    group_by: str = "topic",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[dict]:
+    """Customer enquiry volume and outcomes, grouped by a dimension — the
+    enquiry-side equivalent of get_sales_timeseries. Answers "what are
+    customers contacting us about" and "how well are we handling it," not
+    just a raw ticket count.
+
+    Args:
+        tenant_id: The tenant to query. Pass it exactly as given in the
+            system message for this conversation.
+        group_by: One of "topic" (default), "contact_channel", "segment",
+            "sku", "category" (joins dim_sku), or "week" (calendar week
+            starting Monday, labeled by that week's start date).
+        start_date: Optional inclusive start date on the enquiry's opened
+            date, "YYYY-MM-DD". Omit for all-time.
+        end_date: Optional inclusive end date, "YYYY-MM-DD".
+
+    Returns one row per group: the group column (named after group_by),
+    enquiry_count, open_count, escalated_count, avg_first_response_hours,
+    avg_resolution_days (resolved enquiries only, null if none resolved),
+    avg_csat (resolved only, null if none resolved). Sorted by enquiry_count
+    descending, except group_by="week" which sorts chronologically.
+
+    Judgement context, not a target or a sourced figure: a first response
+    under ~24 hours and an average CSAT of ~4 or higher are typical for this
+    vertical; any escalated_count above zero is worth a look regardless of
+    volume.
+    """
+    if group_by not in _ENQUIRY_GROUP_BY:
+        raise ValueError(f"unknown group_by {group_by!r}: expected one of {sorted(_ENQUIRY_GROUP_BY)}")
+    for label, value in (("start_date", start_date), ("end_date", end_date)):
+        if value is not None:
+            try:
+                date.fromisoformat(value)
+            except ValueError as exc:
+                raise ValueError(f"{label} must be YYYY-MM-DD, got {value!r}") from exc
+
+    group_expr = _ENQUIRY_GROUP_BY[group_by]
+    needs_sku_join = group_by == "category"
+    order_expr = "grp" if group_by == "week" else "enquiry_count DESC"
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        assert_tenant_active(conn, tenant_id)
+        conn.execute(text(f'SET search_path TO "{tenant_id}"'))
+
+        sql = f"""
+            SELECT
+                {group_expr} AS grp,
+                COUNT(*) AS enquiry_count,
+                COUNT(*) FILTER (WHERE e.status = 'open') AS open_count,
+                COUNT(*) FILTER (WHERE e.status = 'escalated') AS escalated_count,
+                AVG(e.first_response_hours) AS avg_first_response_hours,
+                AVG(e.resolved_date - e.date) FILTER (WHERE e.status = 'resolved') AS avg_resolution_days,
+                AVG(e.csat_score) FILTER (WHERE e.status = 'resolved') AS avg_csat
+            FROM fact_customer_enquiry e
+            {"JOIN dim_sku s ON s.sku = e.sku" if needs_sku_join else ""}
+            WHERE (CAST(:start_date AS date) IS NULL OR e.date >= CAST(:start_date AS date))
+              AND (CAST(:end_date AS date) IS NULL OR e.date <= CAST(:end_date AS date))
+            GROUP BY {group_expr}
+            ORDER BY {order_expr}
+        """
+        rows = conn.execute(text(sql), {"start_date": start_date, "end_date": end_date}).mappings()
+        return [
+            {group_by: row["grp"], **{k: v for k, v in dict(row).items() if k != "grp"}} for row in rows
+        ]
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_customer_enquiries(
+    tenant_id: str,
+    topic: str | None = None,
+    status: str | None = None,
+    sku: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = _DEFAULT_LIMIT,
+) -> list[dict]:
+    """Individual customer enquiries, most actionable first — the enquiry-side
+    equivalent of get_accounts_status. Use get_enquiry_summary for aggregate
+    volume/outcome questions; use this tool when the owner wants to see the
+    actual tickets (e.g. "what are the open ones about").
+
+    Args:
+        tenant_id: The tenant to query. Pass it exactly as given in the
+            system message for this conversation.
+        topic: Optional filter — one of "order_status", "return_refund",
+            "stock_availability", "billing", "product_question", "complaint".
+            Omit for every topic.
+        status: Optional filter — "open", "resolved", or "escalated". Omit
+            for all statuses.
+        sku: Optional filter to one SKU.
+        start_date: Optional inclusive start date on the enquiry's opened
+            date, "YYYY-MM-DD". Omit for all-time.
+        end_date: Optional inclusive end date, "YYYY-MM-DD".
+        limit: Max rows returned. Default 50, capped at 500.
+
+    Returns one row per enquiry: enquiry_id, date, contact_channel, segment,
+    topic, order_id (null if not tied to an order), sku (null if not
+    product-specific), priority, status, first_response_hours, resolved_date
+    (null if not yet resolved), csat_score (null unless resolved). Sorted
+    escalated -> open -> resolved, then high priority first, then oldest
+    first within each group.
+    """
+    if topic is not None and topic not in _ENQUIRY_TOPICS:
+        raise ValueError(f"unknown topic {topic!r}: expected one of {sorted(_ENQUIRY_TOPICS)}")
+    if status is not None and status not in _ENQUIRY_STATUSES:
+        raise ValueError(f"unknown status {status!r}: expected one of {sorted(_ENQUIRY_STATUSES)}")
+    for label, value in (("start_date", start_date), ("end_date", end_date)):
+        if value is not None:
+            try:
+                date.fromisoformat(value)
+            except ValueError as exc:
+                raise ValueError(f"{label} must be YYYY-MM-DD, got {value!r}") from exc
+    limit = _clamp_limit(limit)
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        assert_tenant_active(conn, tenant_id)
+        conn.execute(text(f'SET search_path TO "{tenant_id}"'))
+
+        sql = """
+            SELECT
+                enquiry_id, date, contact_channel, segment, topic, order_id, sku,
+                priority, status, first_response_hours, resolved_date, csat_score
+            FROM fact_customer_enquiry
+            WHERE (CAST(:topic AS text) IS NULL OR topic = :topic)
+              AND (CAST(:status AS text) IS NULL OR status = :status)
+              AND (CAST(:sku AS text) IS NULL OR sku = :sku)
+              AND (CAST(:start_date AS date) IS NULL OR date >= CAST(:start_date AS date))
+              AND (CAST(:end_date AS date) IS NULL OR date <= CAST(:end_date AS date))
+            ORDER BY
+                CASE status WHEN 'escalated' THEN 0 WHEN 'open' THEN 1 ELSE 2 END,
+                CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
+                date
+            LIMIT :limit
+        """
+        rows = conn.execute(
+            text(sql),
+            {
+                "topic": topic,
+                "status": status,
+                "sku": sku,
+                "start_date": start_date,
+                "end_date": end_date,
+                "limit": limit,
+            },
+        ).mappings()
+        return [dict(row) for row in rows]
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_operational_updates(
+    tenant_id: str,
+    area: str | None = None,
+    severity: str | None = None,
+    status: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = _DEFAULT_LIMIT,
+) -> list[dict]:
+    """The internal operations log — notices staff logged about supply,
+    logistics, promotions, finance, store operations, staffing, and systems.
+    This is a curated log, not full visibility into every operational event:
+    it will not mention every anomaly visible in the business's other data,
+    and an empty result doesn't mean nothing happened — only that nothing was
+    logged.
+
+    Args:
+        tenant_id: The tenant to query. Pass it exactly as given in the
+            system message for this conversation.
+        area: Optional filter — one of "logistics", "supply", "promotions",
+            "finance", "store_ops", "staffing", "systems". Omit for every area.
+        severity: Optional filter — "info", "warning", or "critical". Omit
+            for all severities.
+        status: Optional filter — "open" or "resolved". Omit for both.
+        start_date: Optional inclusive start date, "YYYY-MM-DD". Omit for
+            all-time.
+        end_date: Optional inclusive end date, "YYYY-MM-DD".
+        limit: Max rows returned, newest first. Default 50, capped at 500.
+
+    Returns one row per update: update_id, date, area, severity, title,
+    detail, supplier_id (null unless supplier-related), channel (null unless
+    channel-related), category (null unless category-related), status,
+    resolved_date (null if still open).
+    """
+    if area is not None and area not in _OPS_AREAS:
+        raise ValueError(f"unknown area {area!r}: expected one of {sorted(_OPS_AREAS)}")
+    if severity is not None and severity not in _OPS_SEVERITIES:
+        raise ValueError(f"unknown severity {severity!r}: expected one of {sorted(_OPS_SEVERITIES)}")
+    if status is not None and status not in _OPS_STATUSES:
+        raise ValueError(f"unknown status {status!r}: expected one of {sorted(_OPS_STATUSES)}")
+    for label, value in (("start_date", start_date), ("end_date", end_date)):
+        if value is not None:
+            try:
+                date.fromisoformat(value)
+            except ValueError as exc:
+                raise ValueError(f"{label} must be YYYY-MM-DD, got {value!r}") from exc
+    limit = _clamp_limit(limit)
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        assert_tenant_active(conn, tenant_id)
+        conn.execute(text(f'SET search_path TO "{tenant_id}"'))
+
+        sql = """
+            SELECT
+                update_id, date, area, severity, title, detail,
+                supplier_id, channel, category, status, resolved_date
+            FROM fact_operational_update
+            WHERE (CAST(:area AS text) IS NULL OR area = :area)
+              AND (CAST(:severity AS text) IS NULL OR severity = :severity)
+              AND (CAST(:status AS text) IS NULL OR status = :status)
+              AND (CAST(:start_date AS date) IS NULL OR date >= CAST(:start_date AS date))
+              AND (CAST(:end_date AS date) IS NULL OR date <= CAST(:end_date AS date))
+            ORDER BY date DESC
+            LIMIT :limit
+        """
+        rows = conn.execute(
+            text(sql),
+            {
+                "area": area,
+                "severity": severity,
+                "status": status,
+                "start_date": start_date,
+                "end_date": end_date,
+                "limit": limit,
+            },
+        ).mappings()
+        return [dict(row) for row in rows]
 
 
 @mcp.tool(annotations={"readOnlyHint": True})

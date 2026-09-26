@@ -166,3 +166,40 @@ fact_bill = Table(
     Column("status", String, nullable=False),
 )
 Index("ix_bill_status_due_date", fact_bill.c.status, fact_bill.c.due_date)
+
+fact_customer_enquiry = Table(
+    "fact_customer_enquiry",
+    metadata,
+    Column("enquiry_id", String, primary_key=True),
+    Column("date", Date, ForeignKey("dim_date.date"), nullable=False),
+    Column("contact_channel", String, nullable=False),
+    Column("segment", String, ForeignKey("dim_customer_segment.segment"), nullable=False),
+    Column("topic", String, nullable=False),
+    Column("order_id", String, nullable=True),  # no FK -- same as fact_invoice.order_id
+    Column("sku", String, ForeignKey("dim_sku.sku"), nullable=True),
+    Column("priority", String, nullable=False),
+    Column("status", String, nullable=False),  # "open" | "resolved" | "escalated"
+    Column("first_response_hours", Float, nullable=False),
+    Column("resolved_date", Date, nullable=True),
+    Column("csat_score", Integer, nullable=True),
+)
+# get_customer_enquiries/get_enquiry_summary filter/group by topic within a date range.
+Index("ix_customer_enquiry_date", fact_customer_enquiry.c.date)
+Index("ix_customer_enquiry_topic_date", fact_customer_enquiry.c.topic, fact_customer_enquiry.c.date)
+
+fact_operational_update = Table(
+    "fact_operational_update",
+    metadata,
+    Column("update_id", String, primary_key=True),
+    Column("date", Date, ForeignKey("dim_date.date"), nullable=False),
+    Column("area", String, nullable=False),
+    Column("severity", String, nullable=False),  # "info" | "warning" | "critical"
+    Column("title", String, nullable=False),
+    Column("detail", String, nullable=False),
+    Column("supplier_id", String, ForeignKey("dim_supplier.supplier_id"), nullable=True),
+    Column("channel", String, ForeignKey("dim_channel.channel"), nullable=True),
+    Column("category", String, nullable=True),
+    Column("status", String, nullable=False),  # "open" | "resolved"
+    Column("resolved_date", Date, nullable=True),
+)
+Index("ix_operational_update_date", fact_operational_update.c.date)

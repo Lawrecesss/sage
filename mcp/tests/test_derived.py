@@ -14,8 +14,11 @@ from datetime import date
 
 import pytest
 from fixtures import (
+    ATTENTION_ENQUIRY_SURGE_PRIOR,
+    ATTENTION_ENQUIRY_SURGE_RECENT,
     BILLS,
     CURRENT_ON_HAND,
+    ENQUIRIES,
     INVOICES,
     ORDER_LINES,
     REF_DATE,
@@ -30,6 +33,7 @@ from retail_mcp.server import (
     get_attention_items,
     get_benchmark_gap_analysis,
     get_business_health_summary,
+    get_customer_enquiries,
     get_data_freshness,
     get_inventory_status,
     get_sales_timeseries,
@@ -83,6 +87,19 @@ def test_business_health_summary_matches_the_individual_tools():
     assert round(summary["receivables_open"], 2) == round(sum(r["amount_sgd"] for r in open_receivables), 2)
     assert round(summary["payables_open"], 2) == round(sum(b["amount_sgd"] for b in open_payables), 2)
 
+    # ENQUIRIES are the only fact_customer_enquiry rows dated inside FULL_RANGE
+    # (every other fixture batch is TODAY-relative, outside 2025 entirely).
+    assert summary["enquiry_count"] == len(ENQUIRIES)
+    resolved = [e for e in ENQUIRIES if e["status"] == "resolved"]
+    assert round(float(summary["avg_csat"]), 4) == round(sum(e["csat_score"] for e in resolved) / len(resolved), 4)
+
+    all_enquiries = get_customer_enquiries(TENANT_ID, limit=500)
+    expected_open = sum(1 for e in all_enquiries if e["status"] in ("open", "escalated"))
+    assert summary["open_enquiries"] == expected_open
+
+    # OPS-CRITICAL is the only open+critical fact_operational_update row.
+    assert summary["open_critical_ops_updates"] == 1
+
 
 # --- get_attention_items ---------------------------------------------------
 
@@ -91,12 +108,21 @@ def test_attention_items_every_branch_fires():
     items = get_attention_items(TENANT_ID)
     by_issue = {i["issue"]: i for i in items}
 
+    # critical_ops_update_open is real, handled code but structurally
+    # unreachable against the demo generator (it never plants "critical"
+    # severity, see MCP_TOOLS.md) -- OPS-CRITICAL below is what makes it
+    # reachable in this fixture; there's exactly one such row, so it's safe
+    # to fold into the same by-issue dict as everything else.
     assert set(by_issue) == {
         "return_rate_high",
         "skus_out_of_stock",
         "delivery_delay_high",
         "receivable_overdue",
         "payable_overdue",
+        "enquiry_volume_spike",
+        "slow_first_response",
+        "escalations_open",
+        "critical_ops_update_open",
     }
 
     # return_rate_high: refunds($200) / revenue in the last real 30 days.
@@ -137,6 +163,32 @@ def test_attention_items_every_branch_fires():
     payable = by_issue["payable_overdue"]
     assert payable["domain"] == "accounts"
     assert round(payable["dollar_impact_est"], 2) == expected_payable_overdue
+
+    # enquiry_volume_spike / slow_first_response: ATTENTION_ENQUIRY_SURGE_RECENT
+    # (6 rows, trailing 7 real days) vs. ATTENTION_ENQUIRY_SURGE_PRIOR (2 rows,
+    # days 31/33 ago) are the only fact_customer_enquiry rows inside those two
+    # windows respectively -- see fixtures.py's comment for why they don't overlap.
+    recent_daily_rate = len(ATTENTION_ENQUIRY_SURGE_RECENT) / 7
+    prior_daily_rate = len(ATTENTION_ENQUIRY_SURGE_PRIOR) / 28
+    spike = by_issue["enquiry_volume_spike"]
+    assert spike["domain"] == "customer"
+    assert round(spike["value"], 2) == round(recent_daily_rate, 2)
+    assert round(spike["threshold"], 2) == round(prior_daily_rate * 1.5, 2)
+
+    # All 6 surge rows respond in exactly 30h and are the only enquiries inside
+    # the trailing 30 real days -> avg is exactly 30.0.
+    slow = by_issue["slow_first_response"]
+    assert slow["domain"] == "customer"
+    assert slow["value"] == 30.0
+
+    escalations = by_issue["escalations_open"]
+    assert escalations["domain"] == "customer"
+    # ENQUIRIES has one escalated row (ENQ-4) + ATTENTION_ENQUIRY_ESCALATED has one more.
+    assert escalations["value"] == 2
+
+    critical = by_issue["critical_ops_update_open"]
+    assert critical["domain"] == "operations"
+    assert critical["supplier_id"] is None  # OPS-CRITICAL has no supplier_id
 
     # Sorted: known dollar_impact_est descending, then the null-impact items.
     known = [i for i in items if i["dollar_impact_est"] is not None]
@@ -303,6 +355,8 @@ def test_data_freshness_shape_and_sort_order():
         "fact_purchase_order",
         "fact_invoice",
         "fact_bill",
+        "fact_customer_enquiry",
+        "fact_operational_update",
     }
     for r in rows:
         assert r["row_count"] > 0

@@ -73,7 +73,7 @@ mcp: {
 },
 ```
 
-When the LLM decides it needs data, OpenClaw's runtime calls one of 19 tools
+When the LLM decides it needs data, OpenClaw's runtime calls one of 22 tools
 exposed by `mcp/src/retail_mcp/server.py` — every parameter (`metric`,
 `group_by`, `kind`, `status`, `breakdown`) is validated against a fixed
 allowlist before any SQL is built, never passed through as-is. Full
@@ -85,7 +85,7 @@ Short version:
 - `get_inventory_status` — current stock on hand
 - `get_supplier_performance` — lead time and delivery delay per supplier
 - `get_accounts_status` — outstanding receivables/payables
-- `get_business_health_summary` — sales+inventory+supplier+accounts, one call
+- `get_business_health_summary` — sales+inventory+supplier+accounts+customer+operations, one call
 - `get_stockout_root_causes` — stockouts cross-referenced to supplier delay
 - `compare_periods` — percent-change between two explicit date ranges
 - `get_attention_items` — fixed-threshold checks across every domain, ranked
@@ -98,9 +98,9 @@ Short version:
 - `get_cash_flow_forecast` — naive short-horizon cash projection
 - `simulate_reorder_impact` — what-if: proposed PO qty/date vs. resulting stockout risk
 - `get_data_freshness` — latest business-event date per source table
-
-No tool covers customer enquiries or general "operational updates" — there's
-no backing table for either anywhere in `data/simulator/src/sage_simulator/db/schema.py`.
+- `get_enquiry_summary` — customer enquiry volume/outcomes grouped by topic, channel, segment, SKU, category, or week
+- `get_customer_enquiries` — individual enquiry tickets, most actionable first
+- `get_operational_updates` — the curated internal ops log (supply, logistics, promotions, finance, store ops, staffing, systems)
 
 Every call carries `tenant_id`, sourced from the system message OpenClaw was
 given in hop 2 above — this is how tenant identity survives across the hop
@@ -206,6 +206,9 @@ BFF, not just that *some* tool does. Full tool reference: `MCP_TOOLS.md`.
 | `get_stockout_root_causes` | `"Why are we out of stock on some items right now? Is it our suppliers?"` |
 | `compare_periods` | `"How did revenue in February 2026 compare to January 2026, broken down by channel?"` |
 | `get_attention_items` | `"Give me a quick automated scan — what crosses a threshold right now?"` |
+| `get_enquiry_summary` | `"What are customers contacting us about most, and how's our first response time?"` |
+| `get_customer_enquiries` | `"Show me the escalated customer tickets that are still open."` |
+| `get_operational_updates` | `"Anything logged in the ops notes about supplier or logistics issues?"` |
 
 The model picks which tool(s) to call from the question's phrasing and
 `AGENTS.md`'s instructions — these prompts aren't magic strings that force a
