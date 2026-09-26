@@ -7,6 +7,7 @@ import shell from "@/components/shell/shell.module.css";
 import styles from "@/components/signals/signals.module.css";
 import { ButtonLink, Card, DomainTag, MetricKey, StatusBadge } from "@/components/ui";
 import { getMetric, getMetricSeries, getSignal } from "@/lib/data";
+import { resolveTenantForPage } from "@/lib/tenant";
 import {
   formatDateTime,
   formatDeviation,
@@ -26,12 +27,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SignalPage({ params }: Props) {
   const { id } = await params;
-  const signal = await getSignal(id);
+  const { tenantId } = await resolveTenantForPage();
+  const signal = await getSignal(tenantId, id);
   if (!signal) notFound();
 
   const [metric, series] = await Promise.all([
     getMetric(signal.metric_id),
-    getMetricSeries(signal.metric_id, signal.dimensions),
+    getMetricSeries(tenantId, signal.metric_id, signal.dimensions),
   ]);
   const unit = metric?.unit ?? "units";
   const label = metric?.label ?? signal.metric_id;

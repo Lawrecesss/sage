@@ -16,12 +16,16 @@
 import { DASHBOARD, QUERY_FREQUENCY, RECOMMENDED } from "@/mocks/dashboard";
 import { MOCK_BRIEF_HISTORY, MOCK_SIGNALS, mockSeries } from "@/mocks/fixtures";
 import metricsCatalog from "@/mocks/metrics.json";
+import { liveDomainDashboard, liveMetricSeries, liveSignal, liveSignals } from "./live";
+import { getReport as getStoredReport, listReports as listStoredReports } from "./report-store";
 import type {
   Brief,
   Domain,
   DomainDashboard,
   Metric,
   MetricSeries,
+  Report,
+  ReportSummary,
   RecommendedMetric,
   Signal,
   SignalStatus,
@@ -30,28 +34,28 @@ import type {
 const SOURCE = process.env.SAGE_DATA_SOURCE ?? "mock";
 const METRICS = metricsCatalog as Metric[];
 
-function live(): never {
-  // TODO(live): query the caller's tenant schema (signals, briefings) via getPool(),
-  // or call the retail-mcp tools; thread tenantId through from resolveTenant().
-  throw new Error("SAGE_DATA_SOURCE=live is not implemented yet");
-}
-
-// ── Briefs ───────────────────────────────────────────────────────────────
+// ── Brief (legacy /api/brief only) ──────────────────────────────────────
+// Always mock, even in live mode: a real Brief needs causal_chain/severity output
+// from a Correlator that doesn't exist yet (see lib/live.ts's header comment).
+// /history no longer uses this — see Reports below — but /api/brief still does,
+// so it degrades to illustrative data instead of throwing and breaking that route.
 
 export async function getLatestBrief(): Promise<Brief | null> {
-  if (SOURCE === "live") live();
   return MOCK_BRIEF_HISTORY[0] ?? null;
 }
 
+// ── Reports ──────────────────────────────────────────────────────────────
+// Real, always: these read the `reports` table saved by every POST /api/reports/[name]
+// call (lib/report-store.ts) — no mock, no SAGE_DATA_SOURCE toggle. The History page's
+// list and detail view.
+
 /** Newest first — the History page's list. */
-export async function listBriefs(): Promise<Brief[]> {
-  if (SOURCE === "live") live();
-  return MOCK_BRIEF_HISTORY;
+export async function listReports(tenantId: string, limit?: number): Promise<ReportSummary[]> {
+  return listStoredReports(tenantId, limit);
 }
 
-export async function getBrief(briefId: string): Promise<Brief | null> {
-  if (SOURCE === "live") live();
-  return MOCK_BRIEF_HISTORY.find((b) => b.brief_id === briefId) ?? null;
+export async function getReport(tenantId: string, reportId: string): Promise<Report | null> {
+  return getStoredReport(tenantId, reportId);
 }
 
 // ── Signals ──────────────────────────────────────────────────────────────
@@ -62,8 +66,8 @@ export interface SignalFilter {
   limit?: number;
 }
 
-export async function listSignals(filter: SignalFilter = {}): Promise<Signal[]> {
-  if (SOURCE === "live") live();
+export async function listSignals(tenantId: string, filter: SignalFilter = {}): Promise<Signal[]> {
+  if (SOURCE === "live") return liveSignals(tenantId, filter);
   return MOCK_SIGNALS.filter(
     (s) =>
       (!filter.status || s.status === filter.status) &&
@@ -73,12 +77,14 @@ export async function listSignals(filter: SignalFilter = {}): Promise<Signal[]> 
     .slice(0, filter.limit ?? 100);
 }
 
-export async function getSignal(signalId: string): Promise<Signal | null> {
-  if (SOURCE === "live") live();
+export async function getSignal(tenantId: string, signalId: string): Promise<Signal | null> {
+  if (SOURCE === "live") return liveSignal(tenantId, signalId);
   return MOCK_SIGNALS.find((s) => s.signal_id === signalId) ?? null;
 }
 
 // ── Metrics ──────────────────────────────────────────────────────────────
+// The catalog itself (id/label/unit/description/...) is governed metadata, not
+// per-tenant data — it's served from metrics.json in both mock and live mode.
 
 export async function listMetrics(): Promise<Metric[]> {
   return METRICS;
@@ -89,10 +95,11 @@ export async function getMetric(metricId: string): Promise<Metric | null> {
 }
 
 export async function getMetricSeries(
+  tenantId: string,
   metricId: string,
   dimensions: Record<string, string> = {},
 ): Promise<MetricSeries> {
-  if (SOURCE === "live") live();
+  if (SOURCE === "live") return liveMetricSeries(tenantId, metricId, dimensions);
   return mockSeries(metricId, dimensions, METRICS.find((m) => m.id === metricId)?.unit);
 }
 
@@ -103,18 +110,22 @@ export function metricDomain(metricId: string): Domain | undefined {
 
 // ── Dashboard ────────────────────────────────────────────────────────────
 
-export async function getDomainDashboard(domain: Domain): Promise<DomainDashboard> {
-  if (SOURCE === "live") live();
+export async function getDomainDashboard(tenantId: string, domain: Domain): Promise<DomainDashboard> {
+  if (SOURCE === "live") return liveDomainDashboard(tenantId, domain);
   return DASHBOARD[domain];
 }
 
-/** Metrics the affinity model suggests, most-queried first. */
+/**
+ * Metrics the affinity model suggests, most-queried first. Always mock, even in live
+ * mode: it needs a query-frequency affinity model that doesn't exist yet, and this is
+ * called unconditionally by the dashboard page, so it degrades to illustrative data
+ * instead of breaking the page the way `live()` throwing would.
+ */
 export async function getRecommended(): Promise<{
   metrics: RecommendedMetric[];
   frequency: typeof QUERY_FREQUENCY;
   updated_at: string;
 }> {
-  if (SOURCE === "live") live();
   return {
     metrics: [...RECOMMENDED].sort((a, b) => b.query_count - a.query_count),
     frequency: QUERY_FREQUENCY,

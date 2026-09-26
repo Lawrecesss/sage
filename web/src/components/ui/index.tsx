@@ -9,6 +9,21 @@ import styles from "./ui.module.css";
 
 const cx = (...c: (string | false | undefined | null)[]) => c.filter(Boolean).join(" ");
 
+export function Spinner({ label }: { label?: string }) {
+  return <span className={styles.spinner} role="status" aria-label={label ?? "Loading"} />;
+}
+
+/** Full-section loading state — used by route loading.tsx files and while a
+ * client component is mid-transition. */
+export function PageSpinner({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div className={styles.spinnerPage} role="status">
+      <Spinner />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 export function Card({
   title,
   description,
@@ -185,8 +200,16 @@ export function ButtonLink({
 }
 
 export function ChipLink({ href, active, children }: { href: string; active?: boolean; children: React.ReactNode }) {
+  // prefetch={false}: these chips switch a searchParam on a fully dynamic page (e.g. the
+  // dashboard's domain tabs) — every click needs a fresh server render, and Link's default
+  // prefetch can otherwise serve a stale client Router Cache entry for the same pathname.
   return (
-    <Link href={href} className={active ? styles.chipActive : styles.chip} aria-current={active ? "true" : undefined}>
+    <Link
+      href={href}
+      prefetch={false}
+      className={active ? styles.chipActive : styles.chip}
+      aria-current={active ? "true" : undefined}
+    >
       {children}
     </Link>
   );
@@ -216,6 +239,37 @@ export function SegmentedLinks({
         </Link>
       ))}
     </nav>
+  );
+}
+
+/** SegmentedLinks' look for client-side state (no navigation). Render from a client component. */
+export function SegmentedButtons<T extends string>({
+  items,
+  value,
+  onChange,
+  label,
+  stretch,
+}: {
+  items: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  label: string;
+  stretch?: boolean;
+}) {
+  return (
+    <div className={cx(styles.segmented, stretch && styles.segmentedStretch)} role="group" aria-label={label}>
+      {items.map((it) => (
+        <button
+          key={it.value}
+          type="button"
+          className={cx(styles.segmentButton, it.value === value ? styles.segmentActive : styles.segment)}
+          aria-pressed={it.value === value}
+          onClick={() => onChange(it.value)}
+        >
+          {it.label}
+        </button>
+      ))}
+    </div>
   );
 }
 

@@ -9,6 +9,7 @@ import styles from "@/components/signals/signals.module.css";
 import { ButtonLink, Card, DomainTag } from "@/components/ui";
 import { getMetric, getMetricSeries, listSignals } from "@/lib/data";
 import { humanize } from "@/lib/format";
+import { resolveTenantForPage } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,8 @@ export default async function MetricPage({ params }: Props) {
   const metric = await getMetric(id);
   if (!metric) notFound();
 
-  const [series, signals] = await Promise.all([getMetricSeries(metric.id), listSignals()]);
+  const { tenantId } = await resolveTenantForPage();
+  const [series, signals] = await Promise.all([getMetricSeries(tenantId, metric.id), listSignals(tenantId)]);
   const related = signals.filter((s) => s.metric_id === metric.id);
 
   return (

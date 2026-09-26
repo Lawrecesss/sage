@@ -28,6 +28,12 @@
   border-bottom: 1px solid var(--hairline);
 }
 
+.filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
 .search {
   position: relative;
   display: flex;
@@ -123,15 +129,11 @@
   font-weight: 600;
 }
 
-.rowImpact {
-  font-size: var(--text-md);
-  font-weight: 650;
-  letter-spacing: -0.01em;
+.rowTag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
   white-space: nowrap;
-}
-
-.rowImpact[data-loss] {
-  color: var(--negative);
 }
 
 .rowHeadline {
@@ -154,11 +156,6 @@
   gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--text-muted);
-}
-
-.marks {
-  display: inline-flex;
-  gap: 4px;
 }
 
 /* ── Detail pane ─────────────────────────────────────────────────────── */
@@ -225,37 +222,8 @@
   flex-wrap: wrap;
 }
 
-.issuesHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin: var(--space-6) 0 var(--space-3);
-}
-
-.issuesTitle {
-  font-size: var(--text-md);
-  font-weight: 600;
-}
-
-.issuesTotal {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.issuesTotal .num {
-  color: var(--negative);
-  font-weight: 650;
-  margin-left: 4px;
-}
-
-.issues {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+.body {
+  margin-top: var(--space-6);
 }
 
 /* ── Loading skeleton helpers ────────────────────────────────────────── */

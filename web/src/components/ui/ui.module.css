@@ -1,3 +1,38 @@
+/* ── Spinner: monochrome, spins via border rather than colour ──────────── */
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinnerPage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 80px 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.spinnerPage .spinner {
+  width: 22px;
+  height: 22px;
+  border-width: 2.5px;
+}
+
 /* ── Card: elevation instead of borders ──────────────────────────────── */
 
 .card {
@@ -290,6 +325,13 @@
 
 .segmentedStretch > * {
   flex: 1;
+}
+
+/* Native <button> segments (client-side tabs): strip UA chrome; .segmentActive re-adds its fill. */
+.segmentButton {
+  border: 0;
+  background: none;
+  cursor: pointer;
 }
 
 .segment,
