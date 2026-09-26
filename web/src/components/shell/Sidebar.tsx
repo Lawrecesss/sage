@@ -1,32 +1,49 @@
 "use client";
 
-import { History, LayoutDashboard, MessageSquare, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import {
+  ChevronRight,
+  FileText,
+  LayoutDashboard,
+  type LucideIcon,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { NewChatLink } from "@/components/chat/NewChatLink";
+import { ChatHistory } from "./ChatHistory";
 import { ThemeToggle } from "./ThemeToggle";
 import styles from "./shell.module.css";
 
-const NAV = [
-  { href: "/", label: "Chat", icon: MessageSquare, exact: true },
-  { href: "/history", label: "History", icon: History },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+// `match` is the path prefix that marks an item active; Chat's href `/` redirects to a
+// fresh `/chat/<sessionId>`, so it is active anywhere under `/chat`.
+const NAV: { href: string; match: string; label: string; icon: LucideIcon; history?: boolean }[] = [
+  { href: "/", match: "/chat", label: "Chat", icon: MessageSquare, history: true },
+  { href: "/reports", match: "/reports", label: "Reports", icon: FileText },
+  { href: "/dashboard", match: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 ];
 
 const COLLAPSE_KEY = "sage.sidebar";
+const HISTORY_OPEN_KEY = "sage.chatHistoryOpen";
 
 /**
  * Three layouts from one component: full sidebar (≥1024px, user-collapsible), icon rail
- * (768–1023px, always) and a bottom tab bar on phones. The rail and tab bar are pure CSS.
+ * (768–1023px, always) and a bottom tab bar on phones. The rail and tab bar are pure CSS;
+ * the chat history only shows in the full sidebar.
  */
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true);
   const pathname = usePathname();
-  const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href));
+  const isActive = (match: string) => pathname === match || pathname.startsWith(`${match}/`);
 
+  // Read after mount: localStorage is client-only.
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+      if (localStorage.getItem(HISTORY_OPEN_KEY) === "false") setHistoryOpen(false);
     } catch {}
   }, []);
 
@@ -39,28 +56,59 @@ export function Sidebar() {
     });
   }
 
+  function toggleHistory() {
+    setHistoryOpen((open) => {
+      try {
+        localStorage.setItem(HISTORY_OPEN_KEY, String(!open));
+      } catch {}
+      return !open;
+    });
+  }
+
   return (
     <>
       <aside className={styles.sidebar} data-collapsed={collapsed || undefined}>
-        <Link href="/" className={styles.brand} aria-label="Sage home">
+        <NewChatLink className={styles.brand} title="Sage · new chat">
           <Logo />
           <span className={styles.brandName}>Sage</span>
-        </Link>
+        </NewChatLink>
 
         <nav className={styles.nav} aria-label="Main">
-          {NAV.map(({ href, label, icon: Icon, exact }) => {
-            const active = isActive(href, exact);
-            return (
-              <Link
-                key={href}
-                href={href}
-                title={label}
-                className={active ? styles.navActive : styles.navLink}
-                aria-current={active ? "page" : undefined}
-              >
+          {NAV.map(({ href, match, label, icon: Icon, history }) => {
+            const active = isActive(match);
+            const className = active ? styles.navActive : styles.navLink;
+            const content = (
+              <>
                 <Icon size={18} strokeWidth={1.75} aria-hidden />
                 <span className={styles.navLabel}>{label}</span>
-              </Link>
+              </>
+            );
+            return (
+              <div key={href} className={styles.navRow}>
+                {href === "/" ? (
+                  // Chat starts a new session; see NewChatLink for why this isn't a <Link href="/">.
+                  <NewChatLink title={label} className={className}>
+                    {content}
+                  </NewChatLink>
+                ) : (
+                  <Link href={href} title={label} className={className} aria-current={active ? "page" : undefined}>
+                    {content}
+                  </Link>
+                )}
+                {history && (
+                  <button
+                    type="button"
+                    className={styles.navToggle}
+                    onClick={toggleHistory}
+                    aria-expanded={historyOpen}
+                    aria-label={historyOpen ? "Hide chat history" : "Show chat history"}
+                    title={historyOpen ? "Hide chat history" : "Show chat history"}
+                  >
+                    <ChevronRight size={14} strokeWidth={2} aria-hidden />
+                  </button>
+                )}
+                {history && historyOpen && !collapsed && <ChatHistory />}
+              </div>
             );
           })}
         </nav>
@@ -96,17 +144,22 @@ export function Sidebar() {
       </aside>
 
       <nav className={styles.bottomNav} aria-label="Main">
-        {NAV.map(({ href, label, icon: Icon, exact }) => {
-          const active = isActive(href, exact);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={active ? styles.tabActive : styles.tab}
-              aria-current={active ? "page" : undefined}
-            >
+        {NAV.map(({ href, match, label, icon: Icon }) => {
+          const active = isActive(match);
+          const className = active ? styles.tabActive : styles.tab;
+          const content = (
+            <>
               <Icon size={20} strokeWidth={1.75} aria-hidden />
               <span>{label}</span>
+            </>
+          );
+          return href === "/" ? (
+            <NewChatLink key={href} className={className}>
+              {content}
+            </NewChatLink>
+          ) : (
+            <Link key={href} href={href} className={className} aria-current={active ? "page" : undefined}>
+              {content}
             </Link>
           );
         })}

@@ -11,6 +11,10 @@ const nextConfig = {
     // can silently reuse a stale cached render (see DomainTabs.tsx).
     staleTimes: { dynamic: 0 },
   },
+  // History was renamed to Reports; keep old links and bookmarks working.
+  async redirects() {
+    return [{ source: "/history", destination: "/reports", permanent: true }];
+  },
 };
 
 export default nextConfig;

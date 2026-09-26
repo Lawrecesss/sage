@@ -7,7 +7,7 @@
 // output (severity, causal chains, dollar impact) needs the future detector/mcp-write-path
 // service data/simulator's schema.py already reserves `briefings` for, which this is not.
 // This module only makes the *agent's actual report replies* durable and re-readable; wiring
-// `/history` to read real reports instead of fixtures is future work once that reply shape is
+// `/reports` to read real reports instead of fixtures is future work once that reply shape is
 // as rich as `Brief`'s.
 //
 // Reports are per-tenant business data (ARCHITECTURE.md §3.2), so each tenant's rows live in
@@ -124,7 +124,7 @@ function toSummary(row: ReportRow): ReportSummary {
   };
 }
 
-/** Newest first — for a future `/history` or `GET /api/reports` reading real reports. */
+/** Newest first — for a future `/reports` or `GET /api/reports` reading real reports. */
 export async function listReports(tenantId: string, limit = 50): Promise<ReportSummary[]> {
   assertValidSchema(tenantId);
   const exists = await getPool().query(

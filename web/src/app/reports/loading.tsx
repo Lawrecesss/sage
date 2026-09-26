@@ -1,11 +1,11 @@
-import styles from "@/components/history/history.module.css";
+import styles from "@/components/reports/reports.module.css";
 import shell from "@/components/shell/shell.module.css";
 import { Skeleton } from "@/components/ui";
 
-/** Mirrors the History layout — header, list pane, brief detail — so nothing jumps on load. */
+/** Mirrors the Reports layout — header, list pane, brief detail — so nothing jumps on load. */
 export default function Loading() {
   return (
-    <div aria-busy="true" aria-label="Loading history" style={{ display: "contents" }}>
+    <div aria-busy="true" aria-label="Loading reports" style={{ display: "contents" }}>
       <div className={shell.topbar}>
         <div className={shell.topbarTitle}>
           <Skeleton width={96} height={24} />

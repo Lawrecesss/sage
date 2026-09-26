@@ -262,7 +262,7 @@ export function seededSeries(seed: string, n: number, base: number, noise: numbe
 
 // ── Brief history ────────────────────────────────────────────────────────
 // Past morning briefs, newest first. MOCK_BRIEF is today's; the rest are the
-// archive the History page lists.
+// archive the Reports page lists.
 
 const OLDER_BRIEFS: Brief[] = [
   {

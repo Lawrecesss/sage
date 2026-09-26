@@ -63,6 +63,175 @@
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  /* The chat history can grow long; it scrolls inside the nav, the footer stays put. */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Nav row: an item, its optional toggle, and (for Chat) its history ── */
+
+.navRow {
+  position: relative;
+}
+
+.navRow:has(.navToggle) > a {
+  padding-right: 40px;
+}
+
+.navToggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.navToggle svg {
+  transition: transform var(--dur) var(--ease);
+}
+
+.navToggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.navToggle:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+/* ── Chat history ────────────────────────────────────────────────────── */
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 var(--space-3) 20px;
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--hairline);
+}
+
+.historyNew {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--text-muted);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.historyNew:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+
+.historyEmpty {
+  margin: 0;
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
+.historyLabel {
+  padding: 0 var(--space-2) var(--space-1);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.historyList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.historyItem,
+.historyItemActive {
+  position: relative;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--dur) var(--ease);
+}
+
+.historyItem:hover,
+.historyItemActive {
+  background: var(--surface-muted);
+}
+
+.historyLink {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 28px 6px var(--space-2);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.historyTitle {
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyItem:hover .historyTitle,
+.historyItemActive .historyTitle {
+  color: var(--text);
+}
+
+.historyItemActive .historyTitle {
+  font-weight: 600;
+}
+
+.historyTime {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.historyDelete {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.historyItem:hover .historyDelete,
+.historyItemActive:hover .historyDelete,
+.historyDelete:focus-visible {
+  opacity: 1;
+}
+
+.historyDelete:hover {
+  background: var(--border);
+  color: var(--text);
 }
 
 .navLink,
@@ -202,7 +371,9 @@
 
 .sidebar[data-collapsed] .brandName,
 .sidebar[data-collapsed] .navLabel,
-.sidebar[data-collapsed] .orgMeta {
+.sidebar[data-collapsed] .orgMeta,
+.sidebar[data-collapsed] .navToggle,
+.sidebar[data-collapsed] .history {
   display: none;
 }
 
@@ -235,6 +406,8 @@
   .sidebar .brandName,
   .sidebar .navLabel,
   .sidebar .orgMeta,
+  .sidebar .navToggle,
+  .sidebar .history,
   .collapseBtn {
     display: none;
   }
@@ -251,7 +424,8 @@
   }
 
   .sidebar .navLink,
-  .sidebar .navActive {
+  .sidebar .navActive,
+  .sidebar .navRow > a {
     justify-content: center;
     padding: 0;
   }

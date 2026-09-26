@@ -1,17 +1,19 @@
 "use client";
 
 import { ArrowUp, FileText, Lock, type LucideIcon, Plus, Search, Sunrise } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
 import { TopBar } from "@/components/shell/TopBar";
 import { buttonClass } from "@/components/ui";
+import { loadTranscript, saveTranscript } from "@/lib/chat-history";
+import { chatPath, newSessionId } from "@/lib/session-id";
 import { parseInput, SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
 import type { ChatEvent, ContentBlock } from "@/lib/types";
 import styles from "./chat.module.css";
 
 type Message = { role: "user"; content: string } | { role: "assistant"; blocks: ContentBlock[] };
 
-const SESSION_KEY = "sage.sessionId";
 const NDJSON = "application/x-ndjson";
 const MAX_INPUT_HEIGHT = 220;
 
@@ -22,32 +24,12 @@ const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
   explain: { title: "Explain a signal", icon: Search },
 };
 
-// crypto.randomUUID() only exists in secure contexts (https, or http://localhost).
-// getRandomValues has no such restriction, so fall back to it when serving over plain http.
-function newId(): string {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
-function loadSessionId(): string {
-  try {
-    const existing = localStorage.getItem(SESSION_KEY);
-    if (existing) return existing;
-    const id = newId();
-    localStorage.setItem(SESSION_KEY, id);
-    return id;
-  } catch {
-    return newId();
-  }
-}
-
-export function Chat({ initialInput = "" }: { initialInput?: string }) {
-  const [sessionId, setSessionId] = useState("");
+export function Chat({ sessionId, initialInput = "" }: { sessionId: string; initialInput?: string }) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
+  // Set by send(), cleared once the finished turn is saved — so only a completed turn
+  // updates the history (merely opening an old chat must not bump it to "Today").
+  const turnPending = useRef(false);
   const [input, setInput] = useState(initialInput);
   const [busy, setBusy] = useState(false);
   const [active, setActive] = useState(0);
@@ -63,10 +45,17 @@ export function Chat({ initialInput = "" }: { initialInput?: string }) {
 
   // Effects use block bodies: anything returned is treated as a cleanup function,
   // and newer Chrome returns a Promise from scrollIntoView().
+  // Restore after mount (localStorage is client-only), then persist each completed turn —
+  // which also updates the sidebar's chat history (lib/chat-history.ts).
   useEffect(() => {
-    setSessionId(loadSessionId());
+    setMessages(loadTranscript(sessionId));
     inputRef.current?.focus();
-  }, []);
+  }, [sessionId]);
+  useEffect(() => {
+    if (busy || !turnPending.current) return;
+    turnPending.current = false;
+    saveTranscript(sessionId, messages);
+  }, [busy, messages, sessionId]);
   useEffect(() => {
     if (messages.length) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
@@ -85,9 +74,10 @@ export function Chat({ initialInput = "" }: { initialInput?: string }) {
 
   async function send(raw: string) {
     const { display, prompt, reportName } = parseInput(raw);
-    if (!prompt || busy || !sessionId) return;
+    if (!prompt || busy) return;
 
     setInput("");
+    turnPending.current = true;
     setBusy(true);
     setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [] }]);
 
@@ -195,13 +185,7 @@ export function Chat({ initialInput = "" }: { initialInput?: string }) {
   }
 
   function newConversation() {
-    const id = newId();
-    try {
-      localStorage.setItem(SESSION_KEY, id);
-    } catch {}
-    setSessionId(id);
-    setMessages([]);
-    inputRef.current?.focus();
+    router.push(chatPath(newSessionId()));
   }
 
   const canSend = !busy && input.trim().length > 0;

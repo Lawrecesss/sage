@@ -2,7 +2,7 @@ import { ArrowLeft, LayoutDashboard, MessageSquare, Search, SearchX, Sparkles } 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
-import styles from "@/components/history/history.module.css";
+import styles from "@/components/reports/reports.module.css";
 import { TopBar } from "@/components/shell/TopBar";
 import { ButtonLink, ChipLink, EmptyState } from "@/components/ui";
 import { getReport, listReports } from "@/lib/data";
@@ -10,7 +10,7 @@ import { formatDateTime } from "@/lib/format";
 import { resolveTenantForPage } from "@/lib/tenant";
 import type { ReportKind } from "@/lib/types";
 
-export const metadata: Metadata = { title: "History" };
+export const metadata: Metadata = { title: "Reports" };
 export const dynamic = "force-dynamic";
 
 const KIND_LABEL: Record<ReportKind, string> = {
@@ -22,7 +22,7 @@ const KIND_LABEL: Record<ReportKind, string> = {
 };
 const KINDS = Object.keys(KIND_LABEL) as ReportKind[];
 
-export default async function HistoryPage({
+export default async function ReportsPage({
   searchParams,
 }: {
   searchParams: Promise<{ report?: string; kind?: string; q?: string }>;
@@ -47,13 +47,13 @@ export default async function HistoryPage({
     const k = next.kind === null ? undefined : (next.kind ?? kind);
     if (k) qs.set("kind", k);
     if (next.report) qs.set("report", next.report);
-    return `/history${qs.size ? `?${qs}` : ""}`;
+    return `/reports${qs.size ? `?${qs}` : ""}`;
   };
 
   return (
     <>
       <TopBar
-        title="History"
+        title="Reports"
         subtitle={`${all.length} report${all.length === 1 ? "" : "s"}, newest first`}
         actions={
           <ButtonLink href="/?q=%2Fmorning-brief" icon={Sparkles}>
@@ -119,7 +119,7 @@ export default async function HistoryPage({
               icon={SearchX}
               action={
                 all.length > 0 && (
-                  <ButtonLink href="/history" variant="secondary" size="sm">
+                  <ButtonLink href="/reports" variant="secondary" size="sm">
                     Clear filters
                   </ButtonLink>
                 )
