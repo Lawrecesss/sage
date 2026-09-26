@@ -2,7 +2,7 @@
 // parsing and the streamed response (see the models in types.ts).
 import { ChartSplitter, type Part, chartToMarkdown } from "@/lib/chart-blocks";
 import { OpenClawError, streamAgentReply } from "@/lib/openclaw";
-import { type ReportFileMeta, buildReportFile } from "@/lib/report-file";
+import { type ReportFileMeta, buildReportFiles } from "@/lib/report-file";
 import { saveReport } from "@/lib/report-store";
 import { type ResolvedTenant, UnknownTenantError, resolveTenant } from "@/lib/tenant";
 import type { ApiError, ChatEvent, ChatRequest, ContentBlock, ReportKind, ReportRequest } from "@/lib/types";
@@ -71,7 +71,10 @@ function toEventStream(text: ReadableStream<string>, path: string, file?: Report
           const events = toEvents(done ? splitter.end() : splitter.push(value));
           for (const event of events) controller.enqueue(line(event));
           if (done) {
-            if (file) controller.enqueue(line({ type: "block", block: { type: "file", file: buildReportFile(file, blocks) } }));
+            if (file) {
+              const files = await buildReportFiles(file, blocks);
+              for (const f of files) controller.enqueue(line({ type: "block", block: { type: "file", file: f } }));
+            }
             controller.enqueue(line({ type: "done" }));
             controller.close();
             return;
@@ -135,7 +138,7 @@ async function collectBlocks(text: ReadableStream<string>): Promise<ContentBlock
 export type ReportMeta = { kind: ReportKind; title: string; periodStart: Date; periodEnd: Date; partial: boolean };
 
 /** Persists the report once its stream finishes, independent of how (or whether) the client
- * read it — same FileRef a `ChatEvent`-mode client would get, via the same buildReportFile. */
+ * read it — same FileRefs a `ChatEvent`-mode client would get, via the same buildReportFiles. */
 async function recordReport(
   path: string,
   tenantId: string,
@@ -146,8 +149,8 @@ async function recordReport(
 ): Promise<void> {
   try {
     const blocks = await collectBlocks(text);
-    const file = fileMeta ? buildReportFile(fileMeta, blocks) : undefined;
-    await saveReport(tenantId, { ...meta, sessionId, generatedAt: new Date(), blocks, file });
+    const files = fileMeta ? await buildReportFiles(fileMeta, blocks) : undefined;
+    await saveReport(tenantId, { ...meta, sessionId, generatedAt: new Date(), blocks, files });
   } catch (err) {
     console.error(`[${path}] report persistence failed`, err);
   }

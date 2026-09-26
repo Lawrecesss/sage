@@ -1,7 +1,7 @@
 import { ArrowLeft, LayoutDashboard, MessageSquare, Search, SearchX, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MessageBlocks } from "@/components/chat/MessageBlocks";
+import { ReportInsights } from "@/components/reports/ReportInsights";
 import styles from "@/components/reports/reports.module.css";
 import { TopBar } from "@/components/shell/TopBar";
 import { ButtonLink, ChipLink, EmptyState } from "@/components/ui";
@@ -165,7 +165,7 @@ export default async function ReportsPage({
               </header>
 
               <div className={styles.body}>
-                <MessageBlocks blocks={selected.blocks} />
+                <ReportInsights title={selected.title} blocks={selected.blocks} />
               </div>
             </article>
           ) : (

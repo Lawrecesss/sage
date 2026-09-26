@@ -30,6 +30,11 @@ const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
 export function Chat({ sessionId, initialInput = "" }: { sessionId: string; initialInput?: string }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
+  // True once the mount effect has checked localStorage for this session, so a saved
+  // transcript that just hasn't loaded yet is never mistaken for "genuinely a new chat" (see
+  // `empty` below) — without this, a slow first paint briefly shows the "New chat" welcome
+  // screen and command cards over an existing conversation instead of a neutral loading state.
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   // Set by send(), cleared once the finished turn is saved — so only a completed turn
   // updates the history (merely opening an old chat must not bump it to "Today").
   const turnPending = useRef(false);
@@ -65,7 +70,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
   // A fully typed argument-less command ("/morning-brief") is ready to send, not to complete.
   const complete = suggestions.length === 1 && input === `/${suggestions[0].name}`;
   const menuOpen = suggestions.length > 0 && !complete && !dismissed;
-  const empty = messages.length === 0;
+  const empty = historyLoaded && messages.length === 0;
 
   // Effects use block bodies: anything returned is treated as a cleanup function,
   // and newer Chrome returns a Promise from scrollIntoView().
@@ -73,6 +78,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
   // which also updates the sidebar's chat history (lib/chat-history.ts).
   useEffect(() => {
     setMessages(loadTranscript(sessionId));
+    setHistoryLoaded(true);
     inputRef.current?.focus();
   }, [sessionId]);
   useEffect(() => {

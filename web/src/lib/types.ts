@@ -53,8 +53,9 @@ export type ApiError = { error: string };
 // The model for the agent chat and the Reports page: `ChatEvent` is what the routes stream
 // (see ChatResponse). Free-form chat and the prebuilt report buttons share these shapes — a
 // report is just a reply that was saved. Today the routes emit `text`, chart `block`s (parsed
-// from the agent's ```chart fences — see chart-blocks.ts), a file `block` at the end of a
-// report, and `done` / `error`. `done.report` and table blocks arrive with report storage.
+// from the agent's ```chart fences — see chart-blocks.ts), a file `block` per export (PDF,
+// Excel) at the end of a report, and `done` / `error`. `done.report` and table blocks arrive
+// with report storage.
 
 /** Flat rows so a chart library and a sheet-style table can both consume the same data. */
 export type DataRow = Record<string, string | number | null>;
@@ -78,7 +79,7 @@ export type ChartSpec = {
  * A portable file attached to a reply. Whether to download it is the user's call — the UI
  * just offers the link. Reports attach their markdown export as the last block of the reply.
  */
-export type FileFormat = "md" | "pdf" | "csv" | "png";
+export type FileFormat = "pdf" | "xlsx";
 
 export type FileRef = {
   id: string;
@@ -126,7 +127,7 @@ export type ReportSummary = {
   partial: boolean;
   /** One-line takeaway, shown in the list. */
   headline?: string;
-  /** Exports of this report (md, pdf, ...). */
+  /** Exports of this report (PDF, Excel). */
   files: FileRef[];
 };
 

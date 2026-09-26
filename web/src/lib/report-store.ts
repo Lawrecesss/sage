@@ -19,6 +19,7 @@
 // connection can never leak one tenant's search_path into another request.
 
 import { getPool } from "@/lib/db";
+import { parseMarkdownLite, plainText, splitLeadAndBody } from "@/lib/report-export/markdown-lite";
 import type { ContentBlock, FileRef, Report, ReportKind, ReportSummary } from "@/lib/types";
 
 // Same shape provision.py enforces for tenant_id (it's used as a Postgres schema/identifier).
@@ -62,20 +63,25 @@ export type NewReport = {
   periodEnd: Date;
   partial: boolean;
   blocks: ContentBlock[];
-  file?: FileRef;
+  files?: FileRef[];
 };
 
-/** First line of the reply's markdown, if any — good enough for a list view's one-liner. */
-function headlineOf(blocks: ContentBlock[]): string | undefined {
-  const first = blocks.find((b) => b.type === "markdown");
-  const line = first?.type === "markdown" ? first.text.trim().split("\n")[0] : undefined;
-  return line?.replace(/^#+\s*/, "") || undefined;
+/** The reply's own executive-summary sentence, if any — same lead the PDF/Excel exports and
+ * the Reports page's detail view (ReportInsights) callout use, so the list row's one-liner
+ * never disagrees with what opening the report shows. Falls back to the raw first line for a
+ * reply with no real prose (e.g. only a chart/table). */
+function headlineOf(blocks: ContentBlock[], title: string): string | undefined {
+  const first = blocks.find((b): b is Extract<ContentBlock, { type: "markdown" }> => b.type === "markdown" && b.text.trim() !== "");
+  if (!first) return undefined;
+  const { lead } = splitLeadAndBody(parseMarkdownLite(first.text), title);
+  if (lead?.length) return plainText(lead);
+  return first.text.trim().split("\n")[0]?.replace(/^#+\s*/, "") || undefined;
 }
 
 export async function saveReport(tenantId: string, report: NewReport): Promise<string> {
   await ensureTable(tenantId);
   const id = crypto.randomUUID();
-  const files: FileRef[] = report.file ? [report.file] : [];
+  const files: FileRef[] = report.files ?? [];
   await getPool().query(
     `INSERT INTO "${tenantId}".reports
        (id, kind, title, session_id, generated_at, period_start, period_end, partial, headline, blocks, files)
@@ -89,7 +95,7 @@ export async function saveReport(tenantId: string, report: NewReport): Promise<s
       report.periodStart.toISOString(),
       report.periodEnd.toISOString(),
       report.partial,
-      headlineOf(report.blocks) ?? null,
+      headlineOf(report.blocks, report.title) ?? null,
       JSON.stringify(report.blocks),
       JSON.stringify(files),
     ],

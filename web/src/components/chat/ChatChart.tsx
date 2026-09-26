@@ -44,13 +44,15 @@ function numAt(row: DataRow, key: string): number | null {
 }
 
 /** Evenly-spaced tick indices, capped at `max` — avoids overlapping labels on up to 500 rows.
- * Also caps the count itself so small `n` never forces two adjacent indices together (e.g. 6
- * picks out of 8 rounds two pairs to neighbors) — keeps at least one skipped point of gap. */
+ * Every point gets a label whenever they'd all fit under `max` (a 4-category bar chart should
+ * never drop to 2 labels just because a denser chart elsewhere needs thinning). Only once `n`
+ * exceeds `max` do we thin, and even then cap the count below `max` so rounding never leaves
+ * two chosen indices adjacent (e.g. 6 picks out of 8 rounding to two pairs of neighbors) —
+ * keeps at least one skipped point of gap. */
 function tickIndices(n: number, max: number): number[] {
-  if (n <= 2) return Array.from({ length: n }, (_, i) => i);
+  if (n <= max) return Array.from({ length: n }, (_, i) => i);
   const spaced = Math.floor((n - 1) / 2) + 1;
   const count = Math.max(2, Math.min(max, spaced));
-  if (n <= count) return Array.from({ length: n }, (_, i) => i);
   const step = (n - 1) / (count - 1);
   return Array.from({ length: count }, (_, i) => Math.round(i * step));
 }
@@ -175,11 +177,19 @@ function CartesianChart({ chart, title }: { chart: ChartSpec; title: string }) {
           const vals = data.map((row) => numAt(row, s.key));
           if (chart.kind === "bar") {
             const groupX0 = (i: number) => x(i) - groupWidth / 2 + si * (barW + 2);
+            // A single-series bar chart is a categorical comparison (SKUs, channels, days), not
+            // a legend of series — color each bar by its own category, like the pie chart does,
+            // instead of every bar sharing one flat color.
+            const perCategory = series.length === 1;
             return (
               <g key={s.key}>
                 {vals.map((v, i) =>
                   v == null ? null : (
-                    <path key={i} d={barPath(groupX0(i), Math.min(y(v), base), barW, Math.abs(base - y(v)))} fill={color}>
+                    <path
+                      key={i}
+                      d={barPath(groupX0(i), Math.min(y(v), base), barW, Math.abs(base - y(v)))}
+                      fill={perCategory ? seriesColor(i) : color}
+                    >
                       <title>{`${data[i][xKey]} · ${s.label}: ${formatChartValue(v, unit)}`}</title>
                     </path>
                   ),
