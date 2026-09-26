@@ -1,7 +1,17 @@
 // Server-only client for the OpenClaw gateway's OpenAI-compatible endpoint.
 // The gateway token grants operator access — never import this from client code.
 
+import { Agent, fetch } from "undici";
+
 const OPENCLAW_URL = process.env.OPENCLAW_URL ?? "http://127.0.0.1:18789";
+
+// OpenClaw sends nothing on the response body until the agent's turn is over — every tool
+// call happens first. Node's fetch drops a connection whose body is silent for 300s (undici's
+// bodyTimeout), so any turn longer than that (a full report is) died as "agent unavailable"
+// even though the agent was still working. This connection waits up to 15 minutes instead.
+// undici's own fetch is used with it: its Agent and Node's built-in fetch can differ in version.
+const MAX_TURN_MS = 15 * 60_000;
+const dispatcher = new Agent({ headersTimeout: 60_000, bodyTimeout: MAX_TURN_MS });
 
 export class OpenClawError extends Error {
   constructor(
@@ -51,12 +61,15 @@ export async function streamAgentReply(
       ],
     }),
     signal,
+    dispatcher,
   });
   if (!res.ok || !res.body) {
     throw new OpenClawError(`OpenClaw responded ${res.status}: ${await res.text()}`, 502);
   }
 
-  return res.body.pipeThrough(new TextDecoderStream()).pipeThrough(sseContentDeltas());
+  // undici types its body as node:stream/web's ReadableStream; at runtime it's the same Web Stream.
+  const body = res.body as unknown as ReadableStream<BufferSource>;
+  return body.pipeThrough(new TextDecoderStream()).pipeThrough(sseContentDeltas());
 }
 
 /**
@@ -86,9 +99,10 @@ export async function completeAgentReply(
       ],
     }),
     signal,
+    dispatcher,
   });
   if (!res.ok) throw new OpenClawError(`OpenClaw responded ${res.status}: ${await res.text()}`, 502);
-  const body = await res.json();
+  const body = (await res.json()) as { choices?: { message?: { content?: unknown } }[] };
   return typeof body.choices?.[0]?.message?.content === "string" ? body.choices[0].message.content : "";
 }
 
