@@ -171,6 +171,23 @@ export type ReportSummary = {
 };
 
 /**
+ * One entry in the top-bar notification bell (lib/notifications.ts): an anomaly a saved report's
+ * scan flagged. `critical` is a high-severity one; the rest are plain anomalies. `id` is stable
+ * for the life of the report, so the browser can remember which ones have been seen.
+ */
+export type AnomalyNotification = {
+  id: string;
+  critical: boolean;
+  severity: Severity;
+  kind: Anomaly["kind"];
+  summary: string;
+  reportId: string;
+  reportTitle: string;
+  /** ISO timestamp of the report run the anomaly came from. */
+  generatedAt: string;
+};
+
+/**
  * A saved report, opened from the Reports page. Now actually persisted (lib/report-store.ts)
  * for every /api/reports/[name] call — see the note on `Brief` below for how this relates to
  * it.
