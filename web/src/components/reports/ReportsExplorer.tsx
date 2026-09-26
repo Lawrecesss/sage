@@ -19,6 +19,7 @@ import { AnomalyList } from "@/components/reports/AnomalyList";
 import { DeleteReportButton } from "@/components/reports/DeleteReportButton";
 import { ReportInsights } from "@/components/reports/ReportInsights";
 import styles from "@/components/reports/reports.module.css";
+import { OPEN_REPORT_EVENT } from "@/components/shell/NotificationBell";
 import { TopBar } from "@/components/shell/TopBar";
 import { Button, ButtonLink, ChipButton, EmptyState, PageSpinner, buttonClass } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
@@ -126,6 +127,26 @@ export function ReportsExplorer({
     setQuery("");
     syncUrl({ report: selectedId });
   };
+  // A notification clicked while this page is open (NotificationBell): switch to its report in
+  // place, clearing filters so it's visible. A report newer than this page's list needs the
+  // server's list, so that one is a full load.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (!all.some((r) => r.id === id)) {
+        window.location.assign(`/reports?report=${encodeURIComponent(id)}`);
+        return;
+      }
+      setKind(undefined);
+      setQuery("");
+      setSelectedId(id);
+      setPickedOnMobile(true);
+      syncUrl({ report: id });
+    };
+    window.addEventListener(OPEN_REPORT_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_REPORT_EVENT, onOpen);
+  }, [all]);
+
   const backToList = () => {
     setPickedOnMobile(false);
   };

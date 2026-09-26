@@ -574,3 +574,189 @@
     padding: var(--space-4) var(--space-4) var(--space-6);
   }
 }
+
+/* ── Notification bell (NotificationBell.tsx) ────────────────────────── */
+
+.bell {
+  position: relative;
+}
+
+.bell > .iconBtn {
+  position: relative;
+}
+
+.bellBadge,
+.bellBadgeCritical {
+  position: absolute;
+  top: 1px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--bg);
+  pointer-events: none;
+}
+
+.bellBadgeCritical {
+  background: var(--negative);
+}
+
+.bellPanel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 30;
+  width: min(380px, calc(100vw - 2 * var(--space-4)));
+  max-height: min(520px, calc(100vh - 120px));
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.bellHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.bellTitle {
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.bellMarkAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.bellMarkAll:hover {
+  background: var(--accent-soft);
+}
+
+.bellEmpty {
+  margin: 0;
+  padding: var(--space-5) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.bellList {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+}
+
+.bellItem,
+.bellItemUnseen {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.bellItemUnseen {
+  background: var(--surface-inset);
+}
+
+.bellItem:hover,
+.bellItemUnseen:hover {
+  background: var(--surface-muted);
+}
+
+.bellIcon,
+.bellIconCritical {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.bellIconCritical {
+  background: var(--negative-soft);
+  color: var(--negative);
+}
+
+.bellBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bellItemTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bellTag,
+.bellTagCritical {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.bellTagCritical {
+  color: var(--negative);
+}
+
+.bellSummary {
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.bellMeta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.bellUnseenDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
