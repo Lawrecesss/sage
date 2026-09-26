@@ -16,6 +16,9 @@ type Message = { role: "user"; content: string } | { role: "assistant"; blocks: 
 
 const NDJSON = "application/x-ndjson";
 const MAX_INPUT_HEIGHT = 220;
+// How long a stream can go quiet (e.g. a tool call between blocks) before the thinking
+// indicator reappears — long enough that normal token-by-token streaming never flickers it.
+const THINKING_DELAY_MS = 500;
 
 /** Presentation for the suggestion cards; the commands themselves live in slash-commands.ts. */
 const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
@@ -32,10 +35,31 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
   const turnPending = useRef(false);
   const [input, setInput] = useState(initialInput);
   const [busy, setBusy] = useState(false);
+  // Shown whenever the stream has gone quiet for a beat — the initial wait for the first
+  // token, and any later pause between blocks (a tool call, a chart being computed, etc).
+  const [showThinking, setShowThinking] = useState(false);
+  const thinkingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // `immediate` skips the delay for the turn's very first wait, so the indicator appears at
+  // once instead of leaving a blank bubble for THINKING_DELAY_MS.
+  function armThinking(immediate = false) {
+    if (thinkingTimer.current) clearTimeout(thinkingTimer.current);
+    if (immediate) {
+      setShowThinking(true);
+      return;
+    }
+    setShowThinking(false);
+    thinkingTimer.current = setTimeout(() => setShowThinking(true), THINKING_DELAY_MS);
+  }
+  function disarmThinking() {
+    if (thinkingTimer.current) clearTimeout(thinkingTimer.current);
+    thinkingTimer.current = null;
+    setShowThinking(false);
+  }
 
   const suggestions = suggestCommands(input);
   // A fully typed argument-less command ("/morning-brief") is ready to send, not to complete.
@@ -65,6 +89,11 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
     setActive(0);
     setDismissed(false);
   }, [input]);
+  useEffect(() => {
+    return () => {
+      if (thinkingTimer.current) clearTimeout(thinkingTimer.current);
+    };
+  }, []);
 
   // Auto-grow the composer with its content, up to a cap.
   useLayoutEffect(() => {
@@ -82,11 +111,14 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
     turnPending.current = true;
     setBusy(true);
     setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [] }]);
+    armThinking(true);
 
     // Mirrors the server's own event -> block reducer (agent-response.ts's toEvents): a text
     // delta appends to the trailing markdown block, a block event ends it and adds a complete
     // chart / table / file after it.
-    const applyEvent = (event: ChatEvent) =>
+    const applyEvent = (event: ChatEvent) => {
+      if (event.type === "done" || event.type === "error") disarmThinking();
+      else armThinking();
       setMessages((m) => {
         const last = m[m.length - 1];
         if (last.role !== "assistant") return m;
@@ -106,6 +138,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
         }
         return m; // "done": nothing left to apply
       });
+    };
 
     try {
       // Report commands (/morning-brief, /daily-report) run the real, window-aware report
@@ -143,6 +176,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
     } catch (err) {
       applyEvent({ type: "error", error: err instanceof Error ? err.message : String(err) });
     } finally {
+      disarmThinking();
       setBusy(false);
       inputRef.current?.focus();
     }
@@ -258,9 +292,8 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                 </span>
                 <div className={styles.assistantText}>
                   <span className="visually-hidden">Sage:</span>
-                  {m.blocks.length ? (
-                    <MessageBlocks blocks={m.blocks} />
-                  ) : busy && i === messages.length - 1 ? (
+                  {m.blocks.length > 0 && <MessageBlocks blocks={m.blocks} />}
+                  {busy && i === messages.length - 1 && showThinking && (
                     <span className={styles.thinking}>
                       <span className={styles.dots} aria-hidden>
                         <span />
@@ -269,7 +302,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                       </span>
                       Analysing your data…
                     </span>
-                  ) : null}
+                  )}
                 </div>
               </div>
             ),
