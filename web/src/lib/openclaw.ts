@@ -59,6 +59,39 @@ export async function streamAgentReply(
   return res.body.pipeThrough(new TextDecoderStream()).pipeThrough(sseContentDeltas());
 }
 
+/**
+ * One non-streaming turn for small side tasks (e.g. titling a chat). `conversationKey` is the
+ * OpenClaw history key — keep it separate from the user's own conversation so side tasks never
+ * show up in (or read from) that history.
+ */
+export async function completeAgentReply(
+  system: string,
+  message: string,
+  conversationKey: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const token = process.env.OPENCLAW_TOKEN;
+  if (!token) throw new OpenClawError("OPENCLAW_TOKEN is not set", 500);
+
+  const res = await fetch(`${OPENCLAW_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "openclaw/default",
+      user: conversationKey,
+      stream: false,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: message },
+      ],
+    }),
+    signal,
+  });
+  if (!res.ok) throw new OpenClawError(`OpenClaw responded ${res.status}: ${await res.text()}`, 502);
+  const body = await res.json();
+  return typeof body.choices?.[0]?.message?.content === "string" ? body.choices[0].message.content : "";
+}
+
 /** Turns an OpenAI chat-completions SSE stream into its `delta.content` strings. */
 function sseContentDeltas(): TransformStream<string, string> {
   let buffer = "";

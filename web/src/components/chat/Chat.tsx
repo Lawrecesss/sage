@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
 import { TopBar } from "@/components/shell/TopBar";
 import { buttonClass } from "@/components/ui";
-import { loadTranscript, saveTranscript } from "@/lib/chat-history";
+import { loadTranscript, refreshChatTitle, saveTranscript, shouldRetitle } from "@/lib/chat-history";
 import { chatPath, newSessionId } from "@/lib/session-id";
 import { parseInput, SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
 import type { ChatEvent, ContentBlock } from "@/lib/types";
@@ -55,6 +55,8 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
     if (busy || !turnPending.current) return;
     turnPending.current = false;
     saveTranscript(sessionId, messages);
+    // Swap the sidebar title (first question) for a summary of the conversation.
+    if (shouldRetitle(messages)) void refreshChatTitle(sessionId, messages);
   }, [busy, messages, sessionId]);
   useEffect(() => {
     if (messages.length) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
