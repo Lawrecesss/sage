@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, FileText, Lock, type LucideIcon, Plus, Search, Sunrise } from "lucide-react";
+import { ArrowUp, CalendarRange, FileText, Lock, type LucideIcon, Plus, Search, Sun, Sunrise, Sunset } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
@@ -23,7 +23,10 @@ const THINKING_DELAY_MS = 500;
 /** Presentation for the suggestion cards; the commands themselves live in slash-commands.ts. */
 const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
   "morning-brief": { title: "Morning brief", icon: Sunrise },
+  "afternoon-report": { title: "Afternoon report", icon: Sun },
+  "evening-report": { title: "Evening report", icon: Sunset },
   "daily-report": { title: "Daily report", icon: FileText },
+  "weekly-report": { title: "Weekly report", icon: CalendarRange },
   explain: { title: "Explain a signal", icon: Search },
 };
 
