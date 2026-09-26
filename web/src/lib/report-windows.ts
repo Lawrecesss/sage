@@ -9,7 +9,8 @@ export const BUSINESS_TZ = process.env.SAGE_TIMEZONE ?? "Asia/Singapore";
 
 export type WindowSpec =
   | { kind: "day"; startHour: number; endHour: number } // wall-clock hours; endHour 24 = midnight
-  | { kind: "week" }; // Monday 00:00 -> next Monday 00:00
+  | { kind: "week" } // Monday 00:00 -> next Monday 00:00
+  | { kind: "rolling"; hours: number }; // trailing duration ending now, e.g. the cron cadence
 
 export type ReportWindow = {
   start: Date;
@@ -60,6 +61,22 @@ function addDays({ y, m, d }: Ymd, n: number): Ymd {
 }
 
 export function computeWindow(spec: WindowSpec, asOf: Date, tz = BUSINESS_TZ): ReportWindow {
+  if (spec.kind === "rolling") {
+    // A plain trailing duration, not a wall-clock bucket — always "complete" up to now, since
+    // there's no future portion of it still running to call partial.
+    const spanMs = spec.hours * 60 * 60 * 1000;
+    const start = new Date(asOf.getTime() - spanMs);
+    const baselineStart = new Date(start.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return {
+      start,
+      end: asOf,
+      through: asOf,
+      partial: false,
+      baselineStart,
+      baselineThrough: new Date(baselineStart.getTime() + spanMs),
+    };
+  }
+
   const now = zoneParts(asOf, tz);
   const today: Ymd = { y: now.y, m: now.m, d: now.d };
 

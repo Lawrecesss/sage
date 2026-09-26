@@ -111,7 +111,8 @@ export type ReportKind =
   | "afternoon-report"
   | "evening-report"
   | "daily-report"
-  | "weekly-report";
+  | "weekly-report"
+  | "anomaly-report";
 
 /** One row of the Reports page (the sheet view): enough to list, sort and open without the body. */
 export type ReportSummary = {

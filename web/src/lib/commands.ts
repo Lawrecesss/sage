@@ -71,6 +71,20 @@ export const COMMANDS: ReportCommand[] = [
       "Risks and the top 3 priorities for next week.",
     ],
   },
+  {
+    name: "anomaly-report",
+    aliases: ["anomaly-check", "monitor-report"],
+    title: "anomaly monitor (automated, every 6h)",
+    window: { kind: "rolling", hours: 6 },
+    focus: [
+      "This reply is the finished report only, not a transcript of your investigation: do every check, cross-check and false-positive verification silently via tool calls first, then write the report once. Never think out loud in the reply, and never lead with what you're about to do.",
+      "The very first line of the reply must be the headline verdict and nothing else — e.g. '2 anomalies: SKU stockouts up sharply, receivables overdue' or plainly 'No anomalies detected'. This exact line becomes the report's list-view headline, so it must stand alone as the answer, not a preamble.",
+      "First pass: get_attention_items and get_benchmark_gap_analysis across every domain (sales, inventory, suppliers, accounts).",
+      "Confirm anything borderline before reporting it: compare_periods (last 7 days vs the prior 7, and today so far vs the same weekday last week), get_stockout_root_causes, get_supplier_performance, get_accounts_status. A generic threshold crossing isn't automatically abnormal for this tenant — check it against their own recent baseline. Discard anything that doesn't hold up; don't mention the false alarm in the reply.",
+      "For each real anomaly: which metric, observed value vs baseline/expected, severity, estimated dollar impact, likely domain/cause, and one recommended action.",
+      "Rank findings by dollar impact, worst first. This report runs unattended on a fixed schedule — never fabricate a finding to have something to say.",
+    ],
+  },
 ];
 
 export function findCommand(name: string): ReportCommand | undefined {

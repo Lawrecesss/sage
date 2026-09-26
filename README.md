@@ -17,11 +17,14 @@ compose) that `data/simulator` depends on via a local path dependency, and that
 - `data/simulator/` — synthetic dataset seeding + planted incident library
 - `data/schemas/` — generated JSON Schema (`sage-models-export`), never hand-edited
 - `platform/notifier/` — pushes the morning brief to Telegram
+- `platform/cron-monitor/` — runs the anomaly-monitor report on a fixed schedule (default
+  every 6h) for every active tenant
 - `web/` — Next.js frontend
 
 Most services are still skeletons (entity/schema models only, business logic not
-yet implemented) — `data/simulator` is the exception: it fully seeds a synthetic
-dataset (orders, stock, invoices/bills, planted incidents) into Postgres.
+yet implemented) — `data/simulator` and `platform/cron-monitor` are the exceptions:
+the former fully seeds a synthetic dataset (orders, stock, invoices/bills, planted
+incidents) into Postgres, the latter runs the scheduled anomaly monitor described below.
 
 ## Running
 
@@ -71,6 +74,26 @@ browser ──> web  POST /api/chat ──> openclaw  POST /v1/chat/completions 
   tool call before touching that tenant's Postgres schema — it doesn't just trust the value
   the model passed.
 - LLM: OpenRouter via `OPENROUTER_API_KEY` / `OPENROUTER_MODEL` in `.env`.
+
+### Scheduled monitoring
+
+```
+cron-monitor  (every CRON_INTERVAL_HOURS, default 6h)
+  └─> for each active tenant with `retail` enabled (shared.tenants/shared.tenant_modules)
+        └─> POST web /api/reports/anomaly-report  (x-tenant-id: <tenant>)
+              — the same agent turn + tenant scoping + storage as any other report
+```
+
+`platform/cron-monitor` is a small always-on service (no UI, no MCP tools of its own) that
+wakes on a fixed schedule and calls web's existing report endpoint once per active tenant —
+the same one the Reports page's "Generate now" button and the `/morning-brief` slash command
+use. The agent does the actual detection with the retail tools it already has
+(`get_attention_items`, `get_benchmark_gap_analysis`, `compare_periods`, …); the report kind
+is `anomaly-report`, filterable on `/reports` under the "Cron monitor" chip. See
+`web/src/lib/commands.ts` for the prompt and `platform/cron-monitor/src/sage_cron_monitor/`
+for the schedule.
+
+Run it once on demand instead of waiting for the schedule: `make monitor-now`.
 
 ### Tracing
 

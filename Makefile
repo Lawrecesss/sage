@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := help
-.PHONY: help up down restart build ps logs seed reseed jobs notify psql reset
+.PHONY: help up down restart build ps logs seed reseed jobs notify monitor-now psql reset
 
-## Core services (db, retail-mcp, openclaw, web) — the always-on stack
+## Core services (db, retail-mcp, openclaw, web, cron-monitor) — the always-on stack
 up: ## Start the core services in the background
-	docker compose up -d db retail-mcp openclaw web
+	docker compose up -d db retail-mcp openclaw web cron-monitor
 
 down: ## Stop all services
 	docker compose down
@@ -33,6 +33,10 @@ jobs: ## Run every one-off job container (simulator, notifier, ...)
 
 notify: ## Run just the notifier job
 	docker compose --profile jobs up notifier
+
+## Cron monitor
+monitor-now: ## Run the anomaly-monitor report once, for every active tenant, right now
+	docker compose run --rm -e CRON_RUN_ONCE=true cron-monitor
 
 ## Misc
 psql: ## Open a psql shell into the db service

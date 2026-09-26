@@ -93,6 +93,19 @@ services:
     build: ./platform/notifier
     profiles: ["jobs"]
 
+  cron-monitor:
+    build: ./platform/cron-monitor
+    environment:
+      WEB_URL: http://web:3000
+      DATABASE_URL: postgresql+psycopg://sage:${POSTGRES_PASSWORD:-sage}@db:5432/sage
+      CRON_INTERVAL_HOURS: ${CRON_INTERVAL_HOURS:-6}
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   sage_pgdata:
   openclaw_state:

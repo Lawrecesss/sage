@@ -19,6 +19,7 @@ const KIND_LABEL: Record<ReportKind, string> = {
   "evening-report": "Evening",
   "daily-report": "Daily",
   "weekly-report": "Weekly",
+  "anomaly-report": "Cron monitor",
 };
 const KINDS = Object.keys(KIND_LABEL) as ReportKind[];
 
