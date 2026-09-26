@@ -22,7 +22,7 @@ export const DASHBOARD: Record<"sales" | "inventory" | "accounting", DomainDashb
     kpis: [
       kpi("gross_revenue", "Gross Revenue", "SGD", 1_842_000, 1_731_000, "higher_is_better", "Month to date"),
       kpi("net_revenue", "Net Revenue", "SGD", 1_704_000, 1_618_000, "higher_is_better", "After returns"),
-      kpi("average_order_value", "Average Order Value", "SGD", 186, 201, "context_dependent", "vs SGD 200 typical"),
+      kpi("average_order_value", "Average Order Value", "SGD", 186, 201, "context_dependent", "vs S$200 typical"),
       kpi("units_sold", "Units Sold", "units", 9_162, 9_480, "higher_is_better", "Month to date"),
       kpi("return_rate", "Return Rate", "percent", 0.061, 0.048, "lower_is_better", "vs 5% norm"),
       kpi("delivery_attach_rate", "Delivery Attach Rate", "percent", 0.38, 0.41, "higher_is_better", "Paid delivery"),
@@ -255,7 +255,7 @@ export const RECOMMENDED: RecommendedMetric[] = [
     tags: ["aov", "basket", "mix"],
     pinned: false,
     spark: [204, 201, 199, 196, 192, 189, 186],
-    reason: "Drifting below the SGD 200 baseline for your basket mix.",
+    reason: "Drifting below the S$200 baseline for your basket mix.",
   },
 ];
 

@@ -18,7 +18,7 @@
   },
   agents: {
     defaults: {
-      model: { primary: "llm-gateway/${LLM_MODEL}" },
+      model: { primary: "openrouter/${OPENROUTER_MODEL}" },
       // AGENTS.md / SOUL.md / IDENTITY.md are baked into the image (openclaw/workspace).
       workspace: "/opt/sage/workspace",
       skipBootstrap: true,
@@ -37,16 +37,16 @@
   models: {
     mode: "merge",
     providers: {
-      // Self-hosted OpenAI-compatible proxy in front of Bedrock Claude.
-      "llm-gateway": {
-        baseUrl: "${LLM_GATEWAY_URL}/v1",
-        apiKey: "${LLM_GATEWAY_API_KEY}",
+      // OpenRouter's OpenAI-compatible endpoint.
+      openrouter: {
+        baseUrl: "https://openrouter.ai/api/v1",
+        apiKey: "${OPENROUTER_API_KEY}",
         api: "openai-completions",
         timeoutSeconds: 300,
         models: [
           {
-            id: "${LLM_MODEL}",
-            name: "Sonnet (self-hosted)",
+            id: "${OPENROUTER_MODEL}",
+            name: "OpenRouter model",
             reasoning: false,
             input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

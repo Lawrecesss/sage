@@ -17,6 +17,15 @@ export type ChatRequest = {
   sessionId: string;
 };
 
+/**
+ * Request body for POST /api/chat/title -> `{ title: string }`. The browser holds the
+ * transcript (lib/chat-history.ts), so it sends a condensed copy: plain text per turn.
+ */
+export type ChatTitleRequest = {
+  sessionId: string;
+  transcript: { role: "user" | "assistant"; text: string }[];
+};
+
 /** Request body for POST /api/reports/[name]. The prompt is built server-side; tenant as in ChatRequest. */
 export type ReportRequest = {
   sessionId: string;
@@ -243,7 +252,7 @@ export interface Kpi {
  * persisted for real (lib/report-store.ts) but only carry freeform `ContentBlock`s — the
  * agent's actual reply, not the structured severity/causal_chain/dollar_impact_est fields
  * below. Those need real detector output (data/simulator's schema.py reserves `briefings` for
- * it, unbuilt), so `/history` stays on this mock until that exists; don't merge the two types
+ * it, unbuilt), so `/reports` stays on this mock until that exists; don't merge the two types
  * until it does, or this shape's structure silently disappears.
  */
 export interface Brief {

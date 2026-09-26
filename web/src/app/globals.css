@@ -1,82 +1,149 @@
-/* Design tokens — strictly monochrome. Two themes, light and dark.
-   Hierarchy comes from weight, size, border and fill, never from hue.
-   Components reference these variables only; no raw colours in CSS modules. */
+/* Design tokens. Two first-class themes, light and dark.
+   Hierarchy comes from surface elevation, size and weight first; colour carries meaning
+   (one accent for interaction, semantic tones for good / bad / warning). Components
+   reference these variables only — no raw colours in CSS modules. */
 
 :root,
 [data-theme="light"] {
   color-scheme: light;
 
-  --bg: #ffffff;
+  /* Surfaces: canvas → card → raised → overlay */
+  --bg: #f6f6f3;
   --surface: #ffffff;
-  --surface-muted: #f5f5f4;
-  --surface-inset: #fafaf9;
-  --border: #e4e4e1;
-  --border-strong: #c8c8c4;
+  --surface-raised: #ffffff;
+  --surface-muted: #efefeb;
+  --surface-hover: #f3f3ef;
+  --surface-inset: #f8f8f5;
+  --border: #e6e5e0;
+  --border-strong: #d2d1ca;
+  --hairline: rgba(20, 20, 15, 0.06);
 
-  --text: #0a0a0a;
-  --text-muted: #6b6b68;
-  --text-faint: #9a9a96;
+  --text: #1b1b18;
+  --text-muted: #5c5b56;
+  --text-faint: #6c6b66; /* ≥4.5:1 on --surface and --bg */
 
-  --accent: #0a0a0a; /* ink */
+  --accent: #3653d4;
+  --accent-hover: #2c47bf;
+  --accent-text: #3149c2;
+  --accent-soft: #eaeefc;
   --on-accent: #ffffff;
+  --focus-ring: rgba(54, 83, 212, 0.45);
 
-  --grid: #ededea;
-  --overlay: rgba(10, 10, 10, 0.35);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.12);
+  --positive: #1d7a4b;
+  --positive-soft: #e5f3eb;
+  --negative: #c23a36;
+  --negative-soft: #fbe9e7;
+  --warning: #9a5800;
+  --warning-soft: #fcf0dc;
+  --neutral: #5c5b56;
+  --neutral-soft: #efefeb;
 
-  /* Chart series — the only colour in the product. Validated categorical slots
-     (blue, orange, aqua) from the data-viz palette; assigned in fixed order,
-     never cycled. Dark mode uses its own steps, not an automatic flip. */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
+  --grid: #ebeae5;
+  --overlay: rgba(20, 20, 15, 0.32);
+  --shadow-sm: 0 1px 2px rgba(20, 20, 15, 0.05), 0 0 0 1px rgba(20, 20, 15, 0.04);
+  --shadow-md: 0 2px 8px rgba(20, 20, 15, 0.06), 0 0 0 1px rgba(20, 20, 15, 0.05);
+  --shadow-lg: 0 12px 40px rgba(20, 20, 15, 0.14), 0 0 0 1px rgba(20, 20, 15, 0.06);
+  --skeleton: #ebeae5;
+  --skeleton-shine: #f5f5f1;
+
+  /* Chart series — validated categorical slots, fixed order, never cycled. */
+  --series-1: #3653d4;
+  --series-2: #8b9ce8;
   --series-3: #1baf7a;
   --series-4: #eda100;
   --series-5: #e87ba4;
   --series-6: #008300;
   --series-7: #4a3aa7;
   --series-8: #e34948;
-  --series-neutral: #9a9a96;
+  --series-neutral: #9a9a94;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #0a0a0a;
-  --surface: #121212;
-  --surface-muted: #1b1b1b;
-  --surface-inset: #161616;
-  --border: #282828;
-  --border-strong: #3d3d3d;
+  --bg: #131312;
+  --surface: #1b1b19;
+  --surface-raised: #232321;
+  --surface-muted: #262624;
+  --surface-hover: #242422;
+  --surface-inset: #171716;
+  --border: #2c2c29;
+  --border-strong: #3a3a36;
+  --hairline: rgba(255, 255, 245, 0.06);
 
-  --text: #fafafa;
-  --text-muted: #a1a1a0;
-  --text-faint: #6f6f6e;
+  --text: #ecebe6;
+  --text-muted: #a6a59e;
+  --text-faint: #8f8e87;
 
-  --accent: #fafafa;
-  --on-accent: #0a0a0a;
+  --accent: #5a74ee;
+  --accent-hover: #6b83f2;
+  --accent-text: #9aabff;
+  --accent-soft: rgba(106, 131, 242, 0.16);
+  --on-accent: #ffffff;
+  --focus-ring: rgba(122, 146, 255, 0.6);
 
-  --grid: #232323;
-  --overlay: rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+  --positive: #53c28c;
+  --positive-soft: rgba(83, 194, 140, 0.14);
+  --negative: #f07d74;
+  --negative-soft: rgba(240, 125, 116, 0.14);
+  --warning: #e3a84c;
+  --warning-soft: rgba(227, 168, 76, 0.14);
+  --neutral: #a6a59e;
+  --neutral-soft: rgba(255, 255, 245, 0.07);
 
-  --series-1: #3987e5;
-  --series-2: #d95926;
+  --grid: #2a2a27;
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 245, 0.04);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 245, 0.06);
+  --skeleton: #252523;
+  --skeleton-shine: #2e2e2b;
+
+  --series-1: #6f88f5;
+  --series-2: #4f63b8;
   --series-3: #199e70;
   --series-4: #c98500;
   --series-5: #d55181;
   --series-6: #008300;
   --series-7: #9085e9;
   --series-8: #e66767;
-  --series-neutral: #6f6f6e;
+  --series-neutral: #6f6f69;
 }
 
 :root {
-  --radius: 3px;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-  --sidebar-w: 216px;
-  --sidebar-w-collapsed: 56px;
-  --topbar-h: 56px;
+  /* Type scale: 12 / 14 / 16 / 20 / 28 / 40 */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+  --text-2xl: 40px;
+
+  /* 8px grid (with a 4px half-step) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 160ms;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --sidebar-w: 240px;
+  --sidebar-w-collapsed: 64px;
+  --topbar-h: 64px;
+  --bottomnav-h: 64px;
 }
 
 *,
@@ -92,9 +159,10 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: var(--text-sm);
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
 }
 
 h1,
@@ -103,7 +171,7 @@ h3,
 h4 {
   margin: 0;
   line-height: 1.25;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.011em;
 }
 
 a {
@@ -118,25 +186,42 @@ textarea {
   color: inherit;
 }
 
-/* Monospace + tabular figures for every number on screen. */
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Tabular figures for every number on screen — in the UI face, not mono. */
 .num {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "cv11";
+}
+
+/* Mono is reserved for machine identifiers: metric keys, signal IDs, slash commands. */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
   letter-spacing: -0.01em;
 }
 
-/* Small uppercase label, the sample's field-label treatment. */
+/* Field label: small, sentence case, readable contrast. */
 .label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--text-xs);
+  font-weight: 500;
   color: var(--text-muted);
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 ::selection {
-  background: var(--text);
-  color: var(--bg);
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 * {
@@ -145,8 +230,8 @@ textarea {
 }
 
 *::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-track {
@@ -155,10 +240,24 @@ textarea {
 
 *::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 3px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 :focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: 1px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

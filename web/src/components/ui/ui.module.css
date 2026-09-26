@@ -33,188 +33,443 @@
   border-width: 2.5px;
 }
 
+/* ── Card: elevation instead of borders ──────────────────────────────── */
+
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  min-width: 0;
+}
+
+.cardFlush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cardFlush > .cardHead {
+  padding: var(--space-5) var(--space-5) 0;
 }
 
 .cardHead {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.cardHeadText {
+  min-width: 0;
 }
 
 .cardTitle {
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-md);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text);
   margin: 0;
 }
 
-.cardAside {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-faint);
+.cardDesc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 2px 0 0;
 }
 
-/* ── Badges: rank by fill, not hue ───────────────────────────────────── */
+.cardAside {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── Semantic tones ──────────────────────────────────────────────────── */
+
+.toneGood {
+  --tone: var(--positive);
+  --tone-soft: var(--positive-soft);
+}
+
+.toneBad,
+.toneNegative {
+  --tone: var(--negative);
+  --tone-soft: var(--negative-soft);
+}
+
+.toneWarning {
+  --tone: var(--warning);
+  --tone-soft: var(--warning-soft);
+}
+
+.toneNeutral {
+  --tone: var(--neutral);
+  --tone-soft: var(--neutral-soft);
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────── */
 
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 7px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-strong);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  gap: 6px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--tone-soft);
+  color: var(--tone);
+  font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
-/* high / open — solid ink */
-.solid {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
+.badgeDot,
+.sevDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+  flex-shrink: 0;
 }
 
-/* medium / acknowledged — outlined */
-.outline {
-  background: transparent;
-  color: var(--text);
+.sevDot {
+  position: relative;
+  display: inline-block;
 }
 
-/* low / resolved — quiet */
-.ghost {
+.status {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
   background: var(--surface-muted);
-  border-color: var(--border);
   color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.statusOpen::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: var(--accent-text);
 }
 
 .domain {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
+  font-weight: 500;
   color: var(--text-muted);
-  text-transform: capitalize;
   white-space: nowrap;
 }
 
+/* ── Deltas ──────────────────────────────────────────────────────────── */
+
 .delta {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--tone);
+}
+
+.deltaWrap {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.deltaBad {
+.deltaPill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 var(--space-2) 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--tone-soft);
+  color: var(--tone);
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--text);
+  white-space: nowrap;
 }
 
-.deltaGood {
+.deltaContext {
+  font-size: var(--text-xs);
   color: var(--text-muted);
-}
-
-.deltaNeutral {
-  color: var(--text-faint);
+  white-space: nowrap;
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────── */
 
 .button,
+.buttonSecondary,
 .buttonGhost {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 13px;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 14px;
   border-radius: var(--radius);
   border: 1px solid transparent;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
 }
 
 .button {
   background: var(--accent);
   color: var(--on-accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .button:hover {
-  opacity: 0.85;
+  background: var(--accent-hover);
+}
+
+.buttonSecondary {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.buttonSecondary:hover {
+  background: var(--surface-hover);
 }
 
 .buttonGhost {
   background: transparent;
-  border-color: var(--border-strong);
-  color: var(--text);
+  color: var(--text-muted);
 }
 
 .buttonGhost:hover {
   background: var(--surface-muted);
+  color: var(--text);
+}
+
+.buttonSm {
+  height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
 }
 
 .button:disabled,
+.buttonSecondary:disabled,
 .buttonGhost:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: default;
 }
+
+/* ── Chips and segmented control ─────────────────────────────────────── */
 
 .chip,
 .chipActive {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 11px;
-  border-radius: var(--radius);
-  border: 1px solid transparent;
-  font-family: var(--font-mono);
-  font-size: 11px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
   font-weight: 500;
   text-decoration: none;
   text-transform: capitalize;
-  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.chip {
   color: var(--text-muted);
   background: transparent;
 }
 
 .chip:hover {
-  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text);
 }
 
 .chipActive {
-  background: var(--surface-muted);
-  border-color: var(--border-strong);
-  color: var(--text);
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
-.empty {
-  text-align: center;
-  padding: 44px 20px;
-  color: var(--text-muted);
-  border: 1px dashed var(--border);
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
   border-radius: var(--radius);
+  background: var(--surface-muted);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.empty strong {
-  display: block;
+.segmentedStretch {
+  display: flex;
+}
+
+.segmentedStretch > * {
+  flex: 1;
+}
+
+/* Native <button> segments (client-side tabs): strip UA chrome; .segmentActive re-adds its fill. */
+.segmentButton {
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.segment,
+.segmentActive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.segment {
+  color: var(--text-muted);
+}
+
+.segment:hover {
   color: var(--text);
-  margin-bottom: 4px;
+}
+
+.segmentActive {
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+
+/* ── Identifiers: the only mono in the UI ────────────────────────────── */
+
+.metricKey,
+.signalChip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: baseline;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.metricKey {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.metricKey:hover {
+  color: var(--text);
+  background: var(--border);
+}
+
+.signalChip {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.signalChip:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Empty / error ───────────────────────────────────────────────────── */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-5);
+  color: var(--text-muted);
+}
+
+.emptyIcon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.emptyError .emptyIcon {
+  background: var(--negative-soft);
+  color: var(--negative);
+}
+
+.emptyTitle {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.emptyBody {
+  max-width: 44ch;
+}
+
+.emptyBody p {
+  margin: 0;
+}
+
+.emptyAction {
+  margin-top: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ── Skeleton ────────────────────────────────────────────────────────── */
+
+.skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--skeleton) 0%, var(--skeleton-shine) 50%, var(--skeleton) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }

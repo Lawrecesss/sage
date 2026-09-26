@@ -13,7 +13,8 @@ const NDJSON = "application/x-ndjson";
 
 type Parsed<T> = { ok: true; value: T } | { ok: false; error: ApiError };
 
-function isValidSessionId(value: unknown): value is string {
+/** Shared by the API routes and the `/chat/[sessionId]` page, so a URL and a request agree. */
+export function isValidSessionId(value: unknown): value is string {
   return typeof value === "string" && SESSION_ID.test(value);
 }
 

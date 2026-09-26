@@ -1,63 +1,85 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { ArrowUp, FileText, Lock, type LucideIcon, Plus, Search, Sunrise } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
+import { TopBar } from "@/components/shell/TopBar";
+import { buttonClass } from "@/components/ui";
+import { loadTranscript, refreshChatTitle, saveTranscript, shouldRetitle } from "@/lib/chat-history";
+import { chatPath, newSessionId } from "@/lib/session-id";
 import { parseInput, SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
 import type { ChatEvent, ContentBlock } from "@/lib/types";
 import styles from "./chat.module.css";
 
 type Message = { role: "user"; content: string } | { role: "assistant"; blocks: ContentBlock[] };
 
-const SESSION_KEY = "sage.sessionId";
 const NDJSON = "application/x-ndjson";
+const MAX_INPUT_HEIGHT = 220;
 
-// crypto.randomUUID() only exists in secure contexts (https, or http://localhost).
-// getRandomValues has no such restriction, so fall back to it when serving over plain http.
-function newId(): string {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
+/** Presentation for the suggestion cards; the commands themselves live in slash-commands.ts. */
+const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
+  "morning-brief": { title: "Morning brief", icon: Sunrise },
+  "daily-report": { title: "Daily report", icon: FileText },
+  explain: { title: "Explain a signal", icon: Search },
+};
 
-function loadSessionId(): string {
-  try {
-    const existing = localStorage.getItem(SESSION_KEY);
-    if (existing) return existing;
-    const id = newId();
-    localStorage.setItem(SESSION_KEY, id);
-    return id;
-  } catch {
-    return newId();
-  }
-}
-
-export function Chat({ initialInput = "" }: { initialInput?: string }) {
-  const [sessionId, setSessionId] = useState("");
+export function Chat({ sessionId, initialInput = "" }: { sessionId: string; initialInput?: string }) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
+  // Set by send(), cleared once the finished turn is saved — so only a completed turn
+  // updates the history (merely opening an old chat must not bump it to "Today").
+  const turnPending = useRef(false);
   const [input, setInput] = useState(initialInput);
   const [busy, setBusy] = useState(false);
+  const [active, setActive] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
   const suggestions = suggestCommands(input);
+  // A fully typed argument-less command ("/morning-brief") is ready to send, not to complete.
+  const complete = suggestions.length === 1 && input === `/${suggestions[0].name}`;
+  const menuOpen = suggestions.length > 0 && !complete && !dismissed;
+  const empty = messages.length === 0;
 
   // Effects use block bodies: anything returned is treated as a cleanup function,
   // and newer Chrome returns a Promise from scrollIntoView().
+  // Restore after mount (localStorage is client-only), then persist each completed turn —
+  // which also updates the sidebar's chat history (lib/chat-history.ts).
   useEffect(() => {
-    setSessionId(loadSessionId());
+    setMessages(loadTranscript(sessionId));
     inputRef.current?.focus();
-  }, []);
+  }, [sessionId]);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (busy || !turnPending.current) return;
+    turnPending.current = false;
+    saveTranscript(sessionId, messages);
+    // Swap the sidebar title (first question) for a summary of the conversation.
+    if (shouldRetitle(messages)) void refreshChatTitle(sessionId, messages);
+  }, [busy, messages, sessionId]);
+  useEffect(() => {
+    if (messages.length) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
+  useEffect(() => {
+    setActive(0);
+    setDismissed(false);
+  }, [input]);
+
+  // Auto-grow the composer with its content, up to a cap.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_HEIGHT)}px`;
+  }, [input]);
 
   async function send(raw: string) {
     const { display, prompt, reportName } = parseInput(raw);
-    if (!prompt || busy || !sessionId) return;
+    if (!prompt || busy) return;
 
     setInput("");
+    turnPending.current = true;
     setBusy(true);
     setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [] }]);
 
@@ -131,113 +153,200 @@ export function Chat({ initialInput = "" }: { initialInput?: string }) {
     inputRef.current?.focus();
   }
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    // Tab completes the first matching slash command.
-    if (e.key === "Tab" && suggestions.length) {
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.nativeEvent.isComposing) return;
+    if (menuOpen) {
+      const n = suggestions.length;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActive((a) => (a + 1) % n);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActive((a) => (a - 1 + n) % n);
+        return;
+      }
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        const c = suggestions[Math.min(active, n - 1)];
+        pickCommand(c.name, c.args);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setDismissed(true);
+        return;
+      }
+    }
+    // Enter sends; Shift+Enter inserts a newline.
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      pickCommand(suggestions[0].name, suggestions[0].args);
+      send(input);
     }
   }
 
   function newConversation() {
-    const id = newId();
-    try {
-      localStorage.setItem(SESSION_KEY, id);
-    } catch {}
-    setSessionId(id);
-    setMessages([]);
+    router.push(chatPath(newSessionId()));
   }
 
-  return (
-    <div className={styles.chat}>
-      <section className={styles.log} aria-live="polite">
-        {messages.length === 0 && (
-          <div className={styles.intro}>
-            <h2 className={styles.introTitle}>Ask about your business</h2>
-            <p className={styles.introText}>
-              Every answer comes from your own data through Sage&apos;s read-only tools, for example “Which open signal
-              costs us the most?”
-            </p>
-            <div className={styles.commands}>
-              {SLASH_COMMANDS.map((c) => (
-                <button key={c.name} type="button" className={styles.command} onClick={() => pickCommand(c.name, c.args)}>
-                  <span className={styles.commandName}>
-                    /{c.name}
-                    {c.args ? ` ${c.args}` : ""}
-                  </span>
-                  <span className={styles.commandDesc}>{c.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+  const canSend = !busy && input.trim().length > 0;
+  const activeId = menuOpen ? `cmd-${suggestions[Math.min(active, suggestions.length - 1)].name}` : undefined;
 
-        {messages.map((m, i) =>
-          m.role === "user" ? (
-            <div key={i} className={styles.rowUser}>
-              <div className={styles.user}>{m.content}</div>
+  return (
+    <>
+      <TopBar
+        title="Chat"
+        actions={
+          <button type="button" onClick={newConversation} disabled={busy} className={buttonClass("secondary", "sm")}>
+            <Plus size={16} strokeWidth={2} aria-hidden />
+            New chat
+          </button>
+        }
+      />
+      <div className={styles.chat} data-empty={empty || undefined}>
+        <section className={styles.log} aria-live="polite" aria-label="Conversation">
+          {empty && (
+            <div className={styles.intro}>
+              <span className={styles.introMark} aria-hidden>
+                <svg width="22" height="22" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1.5c3.6 0 6.5 2.9 6.5 6.5S11.6 14.5 8 14.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  <path d="M8 14.5C4.4 14.5 1.5 11.6 1.5 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" opacity="0.55" />
+                  <circle cx="8" cy="8" r="2.25" fill="currentColor" />
+                </svg>
+              </span>
+              <h2 className={styles.introTitle}>What would you like to know?</h2>
+              <p className={styles.introText}>
+                Ask about sales, stock or cash. Every answer is drawn from your own data and cites the metrics and signals
+                behind it.
+              </p>
+              <div className={styles.commands}>
+                {SLASH_COMMANDS.map((c) => {
+                  const ui = COMMAND_UI[c.name] ?? { title: c.name, icon: FileText };
+                  const Icon = ui.icon;
+                  return (
+                    <button key={c.name} type="button" className={styles.command} onClick={() => pickCommand(c.name, c.args)}>
+                      <span className={styles.commandIcon} aria-hidden>
+                        <Icon size={18} strokeWidth={1.75} />
+                      </span>
+                      <span className={styles.commandTitle}>{ui.title}</span>
+                      <span className={styles.commandDesc}>{c.description}</span>
+                      <span className={styles.commandHint}>
+                        /{c.name}
+                        {c.args ? ` ${c.args}` : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          ) : (
-            <div key={i} className={styles.row}>
-              <div className={styles.assistant}>
+          )}
+
+          {messages.map((m, i) =>
+            m.role === "user" ? (
+              <div key={i} className={styles.rowUser}>
+                <div className={styles.user}>{m.content}</div>
+              </div>
+            ) : (
+              <div key={i} className={styles.row}>
                 <span className={styles.mark} aria-hidden>
-                  SG
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1.5c3.6 0 6.5 2.9 6.5 6.5S11.6 14.5 8 14.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path d="M8 14.5C4.4 14.5 1.5 11.6 1.5 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity="0.55" />
+                    <circle cx="8" cy="8" r="2.25" fill="currentColor" />
+                  </svg>
                 </span>
                 <div className={styles.assistantText}>
+                  <span className="visually-hidden">Sage:</span>
                   {m.blocks.length ? (
                     <MessageBlocks blocks={m.blocks} />
                   ) : busy && i === messages.length - 1 ? (
-                    <span className={styles.thinking}>Thinking…</span>
+                    <span className={styles.thinking}>
+                      <span className={styles.dots} aria-hidden>
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                      Analysing your data…
+                    </span>
                   ) : null}
                 </div>
               </div>
-            </div>
-          ),
-        )}
-        <div ref={bottomRef} />
-      </section>
-
-      <div className={styles.composer}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            send(input);
-          }}
-          className={styles.form}
-        >
-          {suggestions.length > 0 && (
-            <ul className={styles.suggest} role="listbox">
-              {suggestions.map((c) => (
-                <li key={c.name}>
-                  <button type="button" onClick={() => pickCommand(c.name, c.args)}>
-                    <span className={styles.suggestName}>
-                      /{c.name}
-                      {c.args ? ` ${c.args}` : ""}
-                    </span>
-                    <span className={styles.suggestDesc}>{c.description}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            ),
           )}
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Ask Sage, or type / for commands"
-            disabled={busy}
-            className={styles.input}
-          />
-          <button type="button" onClick={newConversation} disabled={busy} className={styles.reset}>
-            New
-          </button>
-          <button type="submit" disabled={busy || !input.trim()} className={styles.send}>
-            Send
-          </button>
-        </form>
-        <div className={styles.hint}>Tab completes a command · Sage is read-only and cannot change your data</div>
+          <div ref={bottomRef} />
+        </section>
+
+        <div className={styles.composer}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(input);
+            }}
+            className={styles.form}
+          >
+            {menuOpen && (
+              <ul className={styles.suggest} role="listbox" id="command-menu" aria-label="Commands">
+                {suggestions.map((c, idx) => {
+                  const ui = COMMAND_UI[c.name] ?? { title: c.name, icon: FileText };
+                  const Icon = ui.icon;
+                  const selected = idx === Math.min(active, suggestions.length - 1);
+                  return (
+                    <li
+                      key={c.name}
+                      id={`cmd-${c.name}`}
+                      role="option"
+                      aria-selected={selected}
+                      className={selected ? styles.suggestActive : styles.suggestItem}
+                      onMouseEnter={() => setActive(idx)}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // keep focus in the textarea
+                        pickCommand(c.name, c.args);
+                      }}
+                    >
+                      <Icon size={16} strokeWidth={1.75} aria-hidden className={styles.suggestIcon} />
+                      <span className={styles.suggestName}>
+                        /{c.name}
+                        {c.args ? ` ${c.args}` : ""}
+                      </span>
+                      <span className={styles.suggestDesc}>{c.description}</span>
+                    </li>
+                  );
+                })}
+                <li className={styles.suggestFoot} aria-hidden>
+                  <kbd>↑</kbd>
+                  <kbd>↓</kbd> to move · <kbd>Enter</kbd> to select · <kbd>Esc</kbd> to close
+                </li>
+              </ul>
+            )}
+            <div className={styles.inputShell}>
+              <textarea
+                ref={inputRef}
+                rows={1}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Ask Sage, or type / for commands"
+                disabled={busy}
+                className={styles.input}
+                aria-label="Message Sage"
+                aria-autocomplete="list"
+                aria-controls={menuOpen ? "command-menu" : undefined}
+                aria-expanded={menuOpen}
+                aria-activedescendant={activeId}
+              />
+              <button type="submit" disabled={!canSend} className={styles.send} aria-label="Send message" title="Send (Enter)">
+                {busy ? <span className={styles.spinner} aria-hidden /> : <ArrowUp size={18} strokeWidth={2.25} aria-hidden />}
+              </button>
+            </div>
+          </form>
+          <p className={styles.hint}>
+            <Lock size={12} strokeWidth={2} aria-hidden />
+            Sage is read-only and can&apos;t change your data.
+            <span className={styles.hintKeys}>Enter to send · Shift + Enter for a new line</span>
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

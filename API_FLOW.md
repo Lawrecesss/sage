@@ -140,7 +140,7 @@ end to end; use §5 below only to isolate *which* layer broke if this fails.
 ### 4.1 Prerequisites
 
 1. `.env` exists (copied from `.env.example`) and is filled in — at minimum
-   `LLM_GATEWAY_URL`/`LLM_GATEWAY_API_KEY`/`LLM_MODEL`, `OPENCLAW_TOKEN` (or
+   `OPENROUTER_API_KEY`/`OPENROUTER_MODEL`, `OPENCLAW_TOKEN` (or
    leave blank to use compose's fallback `sage-dev-token`).
 2. The stack is up: `docker compose up -d db retail-mcp openclaw web` (or
    `make up`).
@@ -233,7 +233,7 @@ testing and for checking headers/status codes.
 | `502 { "error": "tenant lookup unavailable" }` | `web` couldn't reach Postgres at all for tenant resolution | `docker compose logs web`, check `db` is healthy |
 | `502 { "error": "agent unavailable" }` | The call to OpenClaw itself failed (bad token, OpenClaw down, network) | `docker compose logs openclaw`, re-check `OPENCLAW_TOKEN` matches between `web` and `openclaw` services in `docker-compose.yml` |
 | `200`, but empty/short body | OpenClaw responded but the agent had nothing to say (e.g. genuinely empty query result) — not necessarily a bug | `docker compose logs openclaw` for the reasoning, `docker compose logs retail-mcp` for the actual SQL error if any |
-| Hangs indefinitely | Usually `retail-mcp` or the LLM gateway not responding | Check `docker compose ps` for unhealthy containers, and `LLM_GATEWAY_URL` reachability |
+| Hangs indefinitely | Usually `retail-mcp` or OpenRouter not responding | Check `docker compose ps` for unhealthy containers, and that `OPENROUTER_API_KEY` is valid |
 
 **Isolating which layer is actually broken:** if §4.3 fails but the §5.1 test
 below (same message, direct to OpenClaw, no `web` involved) succeeds, the bug

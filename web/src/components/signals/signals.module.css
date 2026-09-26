@@ -1,123 +1,316 @@
 .filters {
   display: flex;
-  gap: 18px;
+  gap: var(--space-5);
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .filterGroup {
   display: flex;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
   flex-wrap: wrap;
 }
 
+.filterGroup > :global(.label) {
+  margin-right: var(--space-2);
+}
+
+/* ── Table ───────────────────────────────────────────────────────────── */
+
 .tableWrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 560px;
 }
 
 .table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
 }
 
 .table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   text-align: left;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 500;
+  font-size: var(--text-xs);
   color: var(--text-muted);
-  padding: 8px 10px;
+  padding: var(--space-3) var(--space-3);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
+.table th:first-child,
+.table td:first-child {
+  padding-left: var(--space-5);
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: var(--space-4);
+}
+
 .table td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .table tr:last-child td {
   border-bottom: 0;
 }
 
-.right {
-  text-align: right;
+/* Whole row is the hit target: the title link stretches over it. */
+.row {
+  position: relative;
+  transition: background-color var(--dur) var(--ease);
 }
 
-.metricLink {
+.row:hover {
+  background: var(--surface-hover);
+}
+
+.row:focus-within {
+  background: var(--surface-hover);
+}
+
+.rowLink {
   font-weight: 600;
   text-decoration: none;
+  color: var(--text);
 }
 
-.metricLink:hover {
-  text-decoration: underline;
+.rowLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.rowLink:focus-visible {
+  outline: none;
+}
+
+.rowLink:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+.signalCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.signalText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .sub {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: normal;
+}
+
+.right {
+  text-align: right !important;
+}
+
+.muted {
   color: var(--text-muted);
 }
 
+.good {
+  color: var(--positive);
+  font-weight: 600;
+}
+
+.bad {
+  color: var(--negative);
+  font-weight: 600;
+}
+
+.neutral {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.impact {
+  font-weight: 650;
+  font-size: var(--text-md);
+}
+
+.score {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.scoreValue {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  min-width: 3.2ch;
+}
+
 .scoreBar {
-  width: 56px;
-  height: 5px;
-  border: 1px solid var(--border-strong);
-  border-radius: 1px;
+  width: 48px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
   overflow: hidden;
 }
 
 .scoreFill {
+  display: block;
   height: 100%;
-  background: var(--text);
+  border-radius: var(--radius-full);
+  background: var(--text-muted);
 }
+
+.statusCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chevron {
+  color: var(--text-faint);
+  transition: transform var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.row:hover .chevron {
+  color: var(--text);
+  transform: translateX(2px);
+}
+
+/* ── Cards (phones) ──────────────────────────────────────────────────── */
+
+.cards {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface-inset);
+  text-decoration: none;
+}
+
+.card:hover {
+  background: var(--surface-hover);
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.cardTitle {
+  font-weight: 600;
+}
+
+.cardImpact {
+  font-size: var(--text-md);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.cardStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cardStats dt {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.cardStats dd {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767px) {
+  .tableWrap {
+    display: none;
+  }
+
+  .cards {
+    display: flex;
+  }
+}
+
+/* ── Signal detail ───────────────────────────────────────────────────── */
 
 .detailGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: var(--space-4);
 }
 
 .statLabel {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--text-sm);
+  font-weight: 500;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 
 .statValue {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .facts {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 6px 16px;
+  gap: var(--space-3) var(--space-5);
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .facts dt {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
 .facts dd {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }

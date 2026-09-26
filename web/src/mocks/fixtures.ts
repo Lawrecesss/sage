@@ -148,7 +148,7 @@ export const MOCK_BRIEF: Brief = {
       severity: "high",
       domain: "sales",
       summary:
-        "Shopee sales fell to SGD 18.3k against 26.4k expected. The drop is concentrated in Bedding & Linen, where LIN-0012 has two days of cover left.",
+        "Shopee sales fell to S$18.3K against S$26.4K expected. The drop is concentrated in Bedding & Linen, where LIN-0012 has two days of cover left.",
       dollar_impact_est: -11350,
       signal_ids: ["sig-001", "sig-002", "sig-003"],
       causal_chain: [
@@ -177,7 +177,7 @@ export const MOCK_BRIEF: Brief = {
       dollar_impact_est: -7050,
       signal_ids: ["sig-004", "sig-005"],
       causal_chain: [
-        { domain: "accounting", claim: "Discount spend rose to SGD 6.4k vs 2.1k typical", metric_id: "discount_impact" },
+        { domain: "accounting", claim: "Discount spend rose to S$6.4K vs S$2.1K typical", metric_id: "discount_impact" },
         { domain: "sales", claim: "Units sold did not move with the markdown", metric_id: "units_sold" },
         { domain: "accounting", claim: "Lazada category margin fell 15 points", metric_id: "gross_margin_pct" },
       ],
@@ -262,7 +262,7 @@ export function seededSeries(seed: string, n: number, base: number, noise: numbe
 
 // ── Brief history ────────────────────────────────────────────────────────
 // Past morning briefs, newest first. MOCK_BRIEF is today's; the rest are the
-// archive the History page lists.
+// archive the Reports page lists.
 
 const OLDER_BRIEFS: Brief[] = [
   {
@@ -317,7 +317,7 @@ const OLDER_BRIEFS: Brief[] = [
     brief_id: "brief-2026-09-15",
     generated_at: "2026-09-16T07:00:00+08:00",
     period: "2026-09-15",
-    headline: "Trade accounts are paying later — SGD 41.2k is now more than 60 days overdue.",
+    headline: "Trade accounts are paying later — S$41.2K is now more than 60 days overdue.",
     kpis: [],
     items: [
       {
@@ -326,7 +326,7 @@ const OLDER_BRIEFS: Brief[] = [
         severity: "high",
         domain: "accounting",
         summary:
-          "Three trade accounts moved into the 60+ day bucket, taking it from SGD 18k to SGD 41.2k in four weeks.",
+          "Three trade accounts moved into the 60+ day bucket, taking it from S$18K to S$41.2K in four weeks.",
         dollar_impact_est: -23200,
         signal_ids: ["sig-007"],
         causal_chain: [
@@ -341,7 +341,7 @@ const OLDER_BRIEFS: Brief[] = [
     brief_id: "brief-2026-09-11",
     generated_at: "2026-09-12T07:00:00+08:00",
     period: "2026-09-11",
-    headline: "Outdoor & Garden stock is ageing out of season — SGD 12.8k has not moved in 90 days.",
+    headline: "Outdoor & Garden stock is ageing out of season — S$12.8K has not moved in 90 days.",
     kpis: [],
     items: [
       {

@@ -37,7 +37,7 @@ const METRICS = metricsCatalog as Metric[];
 // ── Brief (legacy /api/brief only) ──────────────────────────────────────
 // Always mock, even in live mode: a real Brief needs causal_chain/severity output
 // from a Correlator that doesn't exist yet (see lib/live.ts's header comment).
-// /history no longer uses this — see Reports below — but /api/brief still does,
+// /reports no longer uses this — see Reports below — but /api/brief still does,
 // so it degrades to illustrative data instead of throwing and breaking that route.
 
 export async function getLatestBrief(): Promise<Brief | null> {
@@ -46,10 +46,10 @@ export async function getLatestBrief(): Promise<Brief | null> {
 
 // ── Reports ──────────────────────────────────────────────────────────────
 // Real, always: these read the `reports` table saved by every POST /api/reports/[name]
-// call (lib/report-store.ts) — no mock, no SAGE_DATA_SOURCE toggle. The History page's
+// call (lib/report-store.ts) — no mock, no SAGE_DATA_SOURCE toggle. The Reports page's
 // list and detail view.
 
-/** Newest first — the History page's list. */
+/** Newest first — the Reports page's list. */
 export async function listReports(tenantId: string, limit?: number): Promise<ReportSummary[]> {
   return listStoredReports(tenantId, limit);
 }

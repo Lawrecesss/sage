@@ -8,8 +8,8 @@ Three pages in the sidebar, matching the agreed structure:
 
 | Route | What it shows | Data |
 |---|---|---|
-| `/` | **Chat** — streaming conversation with the agent, slash commands, `?q=` prefills the input | `POST /api/chat` → OpenClaw |
-| `/history` | **History** — the brief archive: list with search and domain filter on the left, the full brief on the right | `listBriefs()` |
+| `/chat/[sessionId]` | **Chat** — one conversation per URL: streaming replies, slash commands, `?q=` prefills the input. `/` redirects to a fresh session | `POST /api/chat` → OpenClaw |
+| `/reports` | **Reports** — the brief archive: list with search and domain filter on the left, the full brief on the right (`/history` redirects here) | `listBriefs()` |
 | `/dashboard` | **Dashboard** — KPI grid, charts and open signals per domain (`?domain=sales\|inventory\|accounting`), with **Recommended** inside it | `getDomainDashboard()`, `getRecommended()`, `listSignals()` |
 
 Drill-downs, reachable from those pages but not in the nav: `/signals`, `/signals/[id]`, `/metrics`, `/metrics/[id]`.
@@ -18,6 +18,24 @@ JSON endpoints: `GET /api/brief`, `/api/signals`, `/api/signals/[id]`, `/api/met
 `/api/chat`, each resolves the tenant first (`x-tenant-id` header, else `DEFAULT_TENANT_ID`) and
 404s an unknown/inactive one — so, unlike the pages above, these need Postgres with the
 control-plane tables seeded even though they still serve mock data (`lib/data.ts`).
+
+### Chat sessions
+
+Each conversation has its own URL, `/chat/<sessionId>`. The session id is the key OpenClaw
+keeps the conversation's history under, and it must pass the same check the API applies
+(8–64 chars of `[A-Za-z0-9-]`) or the page 404s. `/` (redirected in `middleware.ts`) and the
+**New** buttons start a new session.
+
+The **Chat** item in the sidebar has an arrow that expands the chat history, like Claude or
+ChatGPT: a **New chat** entry, then every past session grouped Today / Yesterday / Previous 7
+days / Previous 30 days / Older, titled by its first message. Clicking one reopens it with the
+full conversation; hovering shows a delete button. The expanded/collapsed state is remembered.
+
+OpenClaw has no API to read a conversation back, so transcripts and the history index live in
+the browser's `localStorage` (`lib/chat-history.ts`: `sage.chat.<sessionId>` and `sage.chats`).
+History is per browser: another browser starts empty, though reopening a session URL there still
+continues the same server-side conversation. A chat enters the history — and moves to the top —
+only when a turn completes, not when an old one is merely opened.
 
 ### Recommended
 
@@ -28,14 +46,14 @@ Recommended lives **inside the dashboard**, not as its own page. Collapsed, it i
 ```
 src/
   app/                 routes (server components by default)
-    page.tsx           Chat · history/ · dashboard/ · signals/ · metrics/
+    page.tsx           redirects to chat/[sessionId] · reports/ · dashboard/ · signals/ · metrics/
     api/               chat (OpenClaw proxy) + dashboard JSON routes
   components/
     shell/             Sidebar (collapsible), TopBar, ThemeToggle
     ui/                Card, badges, chips, Delta, EmptyState, ButtonLink
     charts/            Sparkline, LineChart, BarChart, BarList (all SVG)
     dashboard/         KpiGrid, RecommendedPanel
-    brief/ history/ signals/ metrics/ chat/   feature components + CSS modules
+    brief/ reports/ signals/ metrics/ chat/   feature components + CSS modules
   lib/
     types.ts           frontend contracts (Signal, Metric, Brief, Kpi, ...)
     data.ts            the only place pages get data from (mock/live switch)
@@ -64,7 +82,7 @@ pnpm install
 pnpm dev            # http://localhost:3000
 ```
 
-With `SAGE_DATA_SOURCE=mock` (the default), Dashboard, History, Signals and Metrics all work without any backend.
+With `SAGE_DATA_SOURCE=mock` (the default), Dashboard, Reports, Signals and Metrics all work without any backend.
 
 Chat needs more: `POST /api/chat` resolves the tenant before calling OpenClaw (`x-tenant-id` header, else `DEFAULT_TENANT_ID`) by reading `shared.tenants` — so it needs OpenClaw **and** Postgres with the control-plane tables seeded. Run `make up` and `make seed` from the repo root; without a database the route answers `502 tenant lookup unavailable`, and for a tenant that isn't active, `404`.
 

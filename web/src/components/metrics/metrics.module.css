@@ -6,8 +6,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--text-md);
+  font-weight: 600;
   text-transform: capitalize;
   margin: 0 0 12px;
 }
@@ -28,9 +28,12 @@
   height: 100%;
 }
 
+.cardLink > section {
+  transition: box-shadow var(--dur) var(--ease);
+}
+
 .cardLink:hover > section {
-  border-color: var(--border-strong);
-  background: var(--surface-inset);
+  box-shadow: var(--shadow-md);
 }
 
 .label {
@@ -45,7 +48,7 @@
 }
 
 .desc {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   margin: 8px 0 0;
   display: -webkit-box;
@@ -62,10 +65,9 @@
 }
 
 .tag {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 1px 6px;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  color: var(--text-faint);
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  color: var(--text-muted);
 }

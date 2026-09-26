@@ -1,0 +1,10 @@
+{
+  "description": "Delivers AI-powered executive briefs, interactive dashboards, and historical analytics to streamline decision-making across sales, inventory, and accounting.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
