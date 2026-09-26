@@ -76,7 +76,7 @@
   font-weight: 600;
 }
 
-.rowImpact {
+.rowTag {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-muted);
@@ -98,12 +98,6 @@
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-faint);
-}
-
-.marks {
-  display: flex;
-  gap: 4px;
-  color: var(--text-muted);
 }
 
 .detail {
@@ -137,13 +131,6 @@
 .actions {
   display: flex;
   gap: 8px;
-}
-
-.headline {
-  font-size: 16px;
-  line-height: 1.5;
-  max-width: 66ch;
-  margin: 0 0 22px;
 }
 
 @media (max-width: 900px) {
