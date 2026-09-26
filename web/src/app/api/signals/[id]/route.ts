@@ -8,6 +8,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const resolved = await resolveTenantOrError(req);
   if ("error" in resolved) return resolved.error;
 
-  const signal = await getSignal((await params).id);
+  const signal = await getSignal(resolved.tenant.tenantId, (await params).id);
   return signal ? Response.json(signal) : Response.json({ error: "unknown signal" }, { status: 404 });
 }

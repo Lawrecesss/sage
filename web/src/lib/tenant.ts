@@ -1,6 +1,7 @@
 // Dev-mode tenant resolution (ARCHITECTURE.md §9 — no real auth yet). Real
 // login (JWT/session -> tenant_id) is a documented follow-up, not built here.
 
+import { headers } from "next/headers";
 import { getPool } from "@/lib/db";
 import type { ApiError } from "@/lib/types";
 
@@ -11,13 +12,7 @@ export interface ResolvedTenant {
   modules: string[];
 }
 
-/** Reads tenant_id from `x-tenant-id`, falling back to DEFAULT_TENANT_ID, and
- * looks up its enabled modules. Throws UnknownTenantError if the tenant is
- * missing or inactive.
- */
-export async function resolveTenant(req: Request): Promise<ResolvedTenant> {
-  const tenantId = req.headers.get("x-tenant-id")?.trim() || process.env.DEFAULT_TENANT_ID || "demo";
-
+async function resolveTenantById(tenantId: string): Promise<ResolvedTenant> {
   const { rows: tenantRows } = await getPool().query(
     `SELECT 1 FROM shared.tenants WHERE tenant_id = $1 AND status = 'active'`,
     [tenantId],
@@ -32,6 +27,26 @@ export async function resolveTenant(req: Request): Promise<ResolvedTenant> {
   );
 
   return { tenantId, modules: moduleRows.map((r) => r.module_name) };
+}
+
+/** Reads tenant_id from `x-tenant-id`, falling back to DEFAULT_TENANT_ID, and
+ * looks up its enabled modules. Throws UnknownTenantError if the tenant is
+ * missing or inactive.
+ */
+export async function resolveTenant(req: Request): Promise<ResolvedTenant> {
+  const tenantId = req.headers.get("x-tenant-id")?.trim() || process.env.DEFAULT_TENANT_ID || "demo";
+  return resolveTenantById(tenantId);
+}
+
+/**
+ * Same as `resolveTenant`, but for Server Components/pages, which get a Request
+ * object from nowhere — `next/headers` is the page-context equivalent of
+ * `req.headers`. Throws UnknownTenantError same as resolveTenant.
+ */
+export async function resolveTenantForPage(): Promise<ResolvedTenant> {
+  const h = await headers();
+  const tenantId = h.get("x-tenant-id")?.trim() || process.env.DEFAULT_TENANT_ID || "demo";
+  return resolveTenantById(tenantId);
 }
 
 /**

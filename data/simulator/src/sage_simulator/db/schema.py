@@ -16,6 +16,7 @@ from sqlalchemy import (
     Date,
     Float,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     String,
@@ -93,6 +94,9 @@ fact_order_line = Table(
     Column("line_total_sgd", Float, nullable=False),
     Column("is_refund", Boolean, nullable=False),
 )
+# Every sales/accounting query filters or groups by date range (get_sales_timeseries,
+# get_trending_products, the web dashboard's trailing-window comparisons, ...).
+Index("ix_order_line_date", fact_order_line.c.date)
 
 fact_stock_movement = Table(
     "fact_stock_movement",
@@ -103,6 +107,17 @@ fact_stock_movement = Table(
     Column("movement_type", String, nullable=False),  # "sale" | "receipt"
     Column("qty", Integer, nullable=False),  # negative for sale, positive for receipt
     Column("on_hand_after", Integer, nullable=False),
+)
+# Every "current stock" read (retail-mcp's get_inventory_status/get_business_health_summary/
+# get_stockout_root_causes/simulate_reorder_impact, and web's dashboard) does
+# SELECT DISTINCT ON (sku) ... ORDER BY sku, date DESC, movement_id DESC. Without this index
+# Postgres has to sort the entire table from scratch for that (an "external merge" disk sort
+# on this table's row count) — this index lets it satisfy the DISTINCT ON via an index scan.
+Index(
+    "ix_stock_movement_sku_date_movement",
+    fact_stock_movement.c.sku,
+    fact_stock_movement.c.date.desc(),
+    fact_stock_movement.c.movement_id.desc(),
 )
 
 fact_purchase_order = Table(
@@ -117,6 +132,10 @@ fact_purchase_order = Table(
     Column("qty", Integer, nullable=False),
     Column("unit_cost_sgd", Float, nullable=False),
 )
+# get_supplier_performance/get_stockout_root_causes/get_attention_items all GROUP BY
+# supplier_id; the dashboard's lead-time trend additionally filters/splits on ordered_date.
+Index("ix_purchase_order_supplier", fact_purchase_order.c.supplier_id)
+Index("ix_purchase_order_ordered_date", fact_purchase_order.c.ordered_date)
 
 fact_invoice = Table(
     "fact_invoice",
@@ -130,6 +149,9 @@ fact_invoice = Table(
     Column("amount_sgd", Float, nullable=False),
     Column("status", String, nullable=False),  # "paid" | "open" | "overdue"
 )
+# get_accounts_status/get_attention_items/the dashboard's ageing buckets all filter
+# "status != 'paid' AND <days overdue on due_date>".
+Index("ix_invoice_status_due_date", fact_invoice.c.status, fact_invoice.c.due_date)
 
 fact_bill = Table(
     "fact_bill",
@@ -143,3 +165,4 @@ fact_bill = Table(
     Column("amount_sgd", Float, nullable=False),
     Column("status", String, nullable=False),
 )
+Index("ix_bill_status_due_date", fact_bill.c.status, fact_bill.c.due_date)

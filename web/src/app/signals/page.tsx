@@ -5,6 +5,7 @@ import { SignalFilters } from "@/components/signals/SignalFilters";
 import { SignalTable } from "@/components/signals/SignalTable";
 import { Card, EmptyState } from "@/components/ui";
 import { listMetrics, listSignals } from "@/lib/data";
+import { resolveTenantForPage } from "@/lib/tenant";
 import type { Domain, SignalStatus } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Signals" };
@@ -21,8 +22,9 @@ export default async function SignalsPage({
   const params = await searchParams;
   const status = STATUSES.find((s) => s === params.status);
   const domain = DOMAINS.find((d) => d === params.domain);
+  const { tenantId } = await resolveTenantForPage();
 
-  const [signals, metrics] = await Promise.all([listSignals({ status, domain }), listMetrics()]);
+  const [signals, metrics] = await Promise.all([listSignals(tenantId, { status, domain }), listMetrics()]);
   const byId = new Map(metrics.map((m) => [m.id, m]));
 
   return (

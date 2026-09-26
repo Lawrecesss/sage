@@ -208,7 +208,10 @@ class GeneratorConfig(BaseModel):
     # --- reproducibility ---
     seed: int = Field(default=42, ge=0)
     start_date: date = date(2025, 9, 1)
-    months: int = Field(default=12, ge=1, le=36)
+    # 15 months from 2025-09-01 reaches 2026-11-30 — covers today's real date with a
+    # couple months of headroom so tools that default to CURRENT_DATE (get_trending_products,
+    # get_expected_deliveries, etc.) don't silently return empty against this seed.
+    months: int = Field(default=15, ge=1, le=36)
 
     # --- business shape ("Lian & Co.") ---
     currency: str = "SGD"

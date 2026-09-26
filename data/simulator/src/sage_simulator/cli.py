@@ -24,7 +24,7 @@ app = typer.Typer()
 @app.command()
 def generate(
     seed_value: int = typer.Option(42, "--seed", help="RNG seed; same seed -> same dataset."),
-    months: int = typer.Option(12, "--months", help="Number of months to simulate."),
+    months: int = typer.Option(15, "--months", help="Number of months to simulate."),
     database_url: str | None = typer.Option(
         None, "--database-url", envvar="DATABASE_URL", help="Postgres connection string."
     ),
