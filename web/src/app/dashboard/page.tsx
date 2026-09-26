@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getDomainDashboard, getRecommended, listMetrics, listSignals } from "@/lib/data";
-import { resolveTenantForPage } from "@/lib/tenant";
+import { resolveTenantIdForPage } from "@/lib/tenant";
 import type { Domain } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -16,7 +16,7 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const initialDomain = DOMAINS.find((d) => d === params.domain) ?? "sales";
-  const { tenantId } = await resolveTenantForPage();
+  const tenantId = await resolveTenantIdForPage();
 
   // All 3 domains fetched once, in parallel — tab switching afterward is pure
   // client-side state (DashboardView), not a new navigation/re-fetch. See that

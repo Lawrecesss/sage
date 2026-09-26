@@ -29,6 +29,8 @@ function assertValidSchema(tenantId: string): void {
   if (!VALID_SCHEMA.test(tenantId)) throw new Error(`invalid tenant schema name: ${tenantId}`);
 }
 
+// Doubles as "this tenant's reports table is known to exist" — populated by ensureTable()
+// after a save, or by tableKnownToExist() after its first successful existence probe.
 const ensured = new Set<string>();
 
 async function ensureTable(tenantId: string): Promise<void> {
@@ -52,6 +54,23 @@ async function ensureTable(tenantId: string): Promise<void> {
   `);
   await getPool().query(`CREATE INDEX IF NOT EXISTS reports_generated_at_idx ON ${t} (generated_at DESC)`);
   ensured.add(tenantId);
+}
+
+/** listReports/getReport run on every Reports-page navigation and used to each pay for their
+ * own `information_schema.tables` round trip, on top of the actual query — a tenant that has
+ * ever generated one report was proving the table exists again on every single click. Checking
+ * `ensured` first (populated by ensureTable() the first time this tenant saves a report, or by
+ * this function's own first successful probe) means that round trip is paid at most once per
+ * tenant per server process instead of once per request. */
+async function tableKnownToExist(tenantId: string): Promise<boolean> {
+  if (ensured.has(tenantId)) return true;
+  const { rows } = await getPool().query(
+    `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'reports'`,
+    [tenantId],
+  );
+  if (rows.length === 0) return false;
+  ensured.add(tenantId);
+  return true;
 }
 
 export type NewReport = {
@@ -103,7 +122,7 @@ export async function saveReport(tenantId: string, report: NewReport): Promise<s
   return id;
 }
 
-type ReportRow = {
+type ReportListRow = {
   id: string;
   kind: ReportKind;
   title: string;
@@ -112,11 +131,10 @@ type ReportRow = {
   period_end: Date;
   partial: boolean;
   headline: string | null;
-  blocks: ContentBlock[];
-  files: FileRef[];
 };
+type ReportRow = ReportListRow & { blocks: ContentBlock[]; files: FileRef[] };
 
-function toSummary(row: ReportRow): ReportSummary {
+function toSummary(row: ReportListRow): ReportSummary {
   return {
     id: row.id,
     kind: row.kind,
@@ -126,20 +144,24 @@ function toSummary(row: ReportRow): ReportSummary {
     periodEnd: row.period_end.toISOString(),
     partial: row.partial,
     headline: row.headline ?? undefined,
-    files: row.files,
+    // Nothing in the UI reads a list row's `files` today (see ReportSummary's doc comment) —
+    // each row's real value is a base64-encoded PDF + Excel, easily tens of KB, so fetching it
+    // for every row on every list navigation would multiply that cost for no benefit. A future
+    // list UI that wants download links here should query for them explicitly.
+    files: [],
   };
 }
 
-/** Newest first — for a future `/reports` or `GET /api/reports` reading real reports. */
+/** Newest first — for a future `/reports` or `GET /api/reports` reading real reports. Selects
+ * only the list's own columns (not `blocks`/`files`, the two heavy jsonb columns) — the list
+ * never renders either, and pulling them for every row on every navigation was the single
+ * biggest cost on this page. */
 export async function listReports(tenantId: string, limit = 50): Promise<ReportSummary[]> {
   assertValidSchema(tenantId);
-  const exists = await getPool().query(
-    `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'reports'`,
-    [tenantId],
-  );
-  if (exists.rows.length === 0) return []; // no report has ever been generated for this tenant yet
-  const { rows } = await getPool().query<ReportRow>(
-    `SELECT * FROM "${tenantId}".reports ORDER BY generated_at DESC LIMIT $1`,
+  if (!(await tableKnownToExist(tenantId))) return []; // no report has ever been generated for this tenant yet
+  const { rows } = await getPool().query<ReportListRow>(
+    `SELECT id, kind, title, generated_at, period_start, period_end, partial, headline
+       FROM "${tenantId}".reports ORDER BY generated_at DESC LIMIT $1`,
     [limit],
   );
   return rows.map(toSummary);
@@ -147,12 +169,8 @@ export async function listReports(tenantId: string, limit = 50): Promise<ReportS
 
 export async function getReport(tenantId: string, id: string): Promise<Report | null> {
   assertValidSchema(tenantId);
-  const exists = await getPool().query(
-    `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'reports'`,
-    [tenantId],
-  );
-  if (exists.rows.length === 0) return null;
+  if (!(await tableKnownToExist(tenantId))) return null;
   const { rows } = await getPool().query<ReportRow>(`SELECT * FROM "${tenantId}".reports WHERE id = $1`, [id]);
   const row = rows[0];
-  return row ? { ...toSummary(row), blocks: row.blocks } : null;
+  return row ? { ...toSummary(row), files: row.files, blocks: row.blocks } : null;
 }

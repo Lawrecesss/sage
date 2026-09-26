@@ -50,6 +50,25 @@ export async function resolveTenantForPage(): Promise<ResolvedTenant> {
 }
 
 /**
+ * Lean page variant: validates the tenant the same way `resolveTenantForPage` does, but skips
+ * the `tenant_modules` lookup — every page component so far calls `resolveTenantForPage` only
+ * to destructure `tenantId` and discard `.modules` (only agent-response.ts's chat/report routes
+ * actually read it), so that second query was a pure-waste round trip on every page navigation.
+ * Use this in a page/layout that only needs the id; keep `resolveTenantForPage` for anything
+ * that needs enabled modules too.
+ */
+export async function resolveTenantIdForPage(): Promise<string> {
+  const h = await headers();
+  const tenantId = h.get("x-tenant-id")?.trim() || process.env.DEFAULT_TENANT_ID || "demo";
+  const { rows } = await getPool().query(
+    `SELECT 1 FROM shared.tenants WHERE tenant_id = $1 AND status = 'active'`,
+    [tenantId],
+  );
+  if (rows.length === 0) throw new UnknownTenantError(`unknown or inactive tenant: ${tenantId}`);
+  return tenantId;
+}
+
+/**
  * `resolveTenant`, wrapped for routes that just need a tenant check before serving their own
  * data (not chat/reports) — same 404/502 mapping as agent-response.ts, so an unknown tenant or
  * a down control plane looks identical everywhere in the API.
