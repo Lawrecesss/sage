@@ -1,47 +1,51 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BriefItemCard } from "@/components/brief/BriefItemCard";
-import { KpiStrip } from "@/components/brief/KpiStrip";
+import { MessageBlocks } from "@/components/chat/MessageBlocks";
 import styles from "@/components/history/history.module.css";
 import { TopBar } from "@/components/shell/TopBar";
-import { ButtonLink, ChipLink, DomainMark, EmptyState } from "@/components/ui";
-import { listBriefs } from "@/lib/data";
-import { formatDate, formatDateTime, formatImpact } from "@/lib/format";
-import type { Brief, Domain } from "@/lib/types";
+import { ButtonLink, ChipLink, EmptyState } from "@/components/ui";
+import { getReport, listReports } from "@/lib/data";
+import { formatDateTime } from "@/lib/format";
+import { resolveTenantForPage } from "@/lib/tenant";
+import type { ReportKind } from "@/lib/types";
 
 export const metadata: Metadata = { title: "History" };
 export const dynamic = "force-dynamic";
 
-const DOMAINS: Domain[] = ["sales", "inventory", "accounting"];
-
-const impactOf = (b: Brief) => b.items.reduce((sum, i) => sum + i.dollar_impact_est, 0);
-const domainsOf = (b: Brief) => [...new Set(b.items.map((i) => i.domain))];
+const KIND_LABEL: Record<ReportKind, string> = {
+  "morning-brief": "Morning",
+  "afternoon-report": "Afternoon",
+  "evening-report": "Evening",
+  "daily-report": "Daily",
+  "weekly-report": "Weekly",
+};
+const KINDS = Object.keys(KIND_LABEL) as ReportKind[];
 
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ brief?: string; domain?: string; q?: string }>;
+  searchParams: Promise<{ report?: string; kind?: string; q?: string }>;
 }) {
   const params = await searchParams;
-  const domain = DOMAINS.find((d) => d === params.domain);
+  const kind = KINDS.find((k) => k === params.kind);
   const query = (params.q ?? "").trim().toLowerCase();
 
-  const all = await listBriefs();
-  const briefs = all.filter(
-    (b) =>
-      (!domain || domainsOf(b).includes(domain)) &&
-      (!query ||
-        b.headline.toLowerCase().includes(query) ||
-        b.items.some((i) => i.title.toLowerCase().includes(query))),
+  const { tenantId } = await resolveTenantForPage();
+  const all = await listReports(tenantId);
+  const reports = all.filter(
+    (r) =>
+      (!kind || r.kind === kind) &&
+      (!query || r.title.toLowerCase().includes(query) || (r.headline ?? "").toLowerCase().includes(query)),
   );
-  const selected = briefs.find((b) => b.brief_id === params.brief) ?? briefs[0] ?? null;
+  const selectedSummary = reports.find((r) => r.id === params.report) ?? reports[0] ?? null;
+  const selected = selectedSummary ? await getReport(tenantId, selectedSummary.id) : null;
 
-  const href = (next: { brief?: string; domain?: string }) => {
+  const href = (next: { report?: string; kind?: string }) => {
     const qs = new URLSearchParams();
     if (query) qs.set("q", query);
-    const d = next.domain ?? domain;
-    if (d) qs.set("domain", d);
-    if (next.brief) qs.set("brief", next.brief);
+    const k = next.kind ?? kind;
+    if (k) qs.set("kind", k);
+    if (next.report) qs.set("report", next.report);
     return `/history${qs.size ? `?${qs}` : ""}`;
   };
 
@@ -49,7 +53,7 @@ export default async function HistoryPage({
     <>
       <TopBar
         title="History"
-        subtitle={`${all.length} briefs · newest first`}
+        subtitle={`${all.length} report${all.length === 1 ? "" : "s"} · newest first`}
         actions={<ButtonLink href="/?q=%2Fmorning-brief">Generate now</ButtonLink>}
       />
 
@@ -57,53 +61,48 @@ export default async function HistoryPage({
         <div className={styles.list}>
           <div className={styles.tools}>
             <form className={styles.search} method="get">
-              {domain && <input type="hidden" name="domain" value={domain} />}
+              {kind && <input type="hidden" name="kind" value={kind} />}
               <input
                 className={styles.searchInput}
                 type="search"
                 name="q"
                 defaultValue={params.q ?? ""}
-                placeholder="Search briefs…"
-                aria-label="Search briefs"
+                placeholder="Search reports…"
+                aria-label="Search reports"
               />
             </form>
             <div className={styles.filters}>
-              <ChipLink href={href({ domain: undefined })} active={!domain}>
+              <ChipLink href={href({ kind: undefined })} active={!kind}>
                 All
               </ChipLink>
-              {DOMAINS.map((d) => (
-                <ChipLink key={d} href={href({ domain: d })} active={d === domain}>
-                  {d}
+              {KINDS.map((k) => (
+                <ChipLink key={k} href={href({ kind: k })} active={k === kind}>
+                  {KIND_LABEL[k]}
                 </ChipLink>
               ))}
             </div>
           </div>
 
-          {briefs.map((b) => (
+          {reports.map((r) => (
             <Link
-              key={b.brief_id}
-              href={href({ brief: b.brief_id })}
-              className={b.brief_id === selected?.brief_id ? styles.rowActive : styles.row}
+              key={r.id}
+              href={href({ report: r.id })}
+              className={r.id === selectedSummary?.id ? styles.rowActive : styles.row}
             >
               <div className={styles.rowTop}>
-                <span className={styles.rowDate}>{b.period}</span>
-                <span className={styles.rowImpact}>{formatImpact(impactOf(b))}</span>
+                <span className={styles.rowDate}>{formatDateTime(r.generatedAt)}</span>
+                {r.partial && <span className={styles.rowTag}>partial</span>}
               </div>
-              <span className={styles.rowHeadline}>{b.headline}</span>
-              <span className={styles.rowMeta}>
-                <span className={styles.marks}>
-                  {domainsOf(b).map((d) => (
-                    <DomainMark key={d} domain={d} />
-                  ))}
-                </span>
-                {b.items.length} item{b.items.length === 1 ? "" : "s"}
-              </span>
+              <span className={styles.rowHeadline}>{r.headline ?? r.title}</span>
+              <span className={styles.rowMeta}>{KIND_LABEL[r.kind]}</span>
             </Link>
           ))}
 
-          {briefs.length === 0 && (
+          {reports.length === 0 && (
             <div style={{ padding: 16 }}>
-              <EmptyState title="No briefs match">Try clearing the search or filter.</EmptyState>
+              <EmptyState title="No reports match">
+                {all.length === 0 ? "None generated yet — try “Generate now”." : "Try clearing the search or filter."}
+              </EmptyState>
             </div>
           )}
         </div>
@@ -113,31 +112,26 @@ export default async function HistoryPage({
             <>
               <div className={styles.detailHead}>
                 <div>
-                  <div className={styles.detailDate}>{formatDate(selected.period)}</div>
+                  <div className={styles.detailDate}>{selected.title}</div>
                   <div className={styles.detailMeta}>
-                    {selected.brief_id} · generated {formatDateTime(selected.generated_at)}
+                    {formatDateTime(selected.periodStart)} – {formatDateTime(selected.periodEnd)}
+                    {selected.partial ? " · partial" : ""} · generated {formatDateTime(selected.generatedAt)}
                   </div>
                 </div>
                 <div className={styles.actions}>
-                  <ButtonLink href={`/?q=${encodeURIComponent(`Recap the brief for ${selected.period}`)}`} variant="ghost">
+                  <ButtonLink href={`/?q=${encodeURIComponent(`Recap the ${selected.title}`)}`} variant="ghost">
                     Discuss in chat
                   </ButtonLink>
                   <ButtonLink href="/dashboard">Open dashboard</ButtonLink>
                 </div>
               </div>
 
-              <p className={styles.headline}>{selected.headline}</p>
-
-              {selected.kpis.length > 0 && <KpiStrip kpis={selected.kpis} />}
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {selected.items.map((item) => (
-                  <BriefItemCard key={item.rank} item={item} />
-                ))}
-              </div>
+              <MessageBlocks blocks={selected.blocks} />
             </>
           ) : (
-            <EmptyState title="No brief selected">Pick a brief from the list.</EmptyState>
+            <EmptyState title="No report selected">
+              {all.length === 0 ? "Generate one from the chat to see it here." : "Pick a report from the list."}
+            </EmptyState>
           )}
         </div>
       </div>

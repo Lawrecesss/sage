@@ -13,10 +13,14 @@
 // the same reason `lib/data.ts` always has: they need detector/correlator
 // output this project hasn't built.
 //
-// All current-vs-previous comparisons here use trailing-30-day windows
-// anchored to MAX(date) in the relevant fact table, not CURRENT_DATE — the
-// same "don't trust the real clock against a seeded dataset" discipline
-// retail-mcp's tools use (see MCP_TOOLS.md's shared engineering notes).
+// All current-vs-previous comparisons here use trailing-N-day windows anchored
+// to CURRENT_DATE (real wall-clock "today"), not MAX(date) in the fact table.
+// This relies on the seeded dataset having headroom past the real clock (see
+// GeneratorConfig.months's docstring in sage_simulator/config.py) — the same
+// assumption retail-mcp's CURRENT_DATE-defaulting tools make. The one
+// deliberate exception is inventory's avg_daily_demand below, which mirrors
+// simulate_reorder_impact's own anchor-to-latest-sales-date choice (see its
+// docstring in MCP_TOOLS.md) rather than this file's usual CURRENT_DATE rule.
 
 import type { Pool, PoolClient } from "pg";
 import { getPool } from "@/lib/db";
@@ -78,7 +82,7 @@ function kpi(
 
 async function salesDashboard(client: PoolClient): Promise<DomainDashboard> {
   const { rows } = await client.query(`
-    WITH bounds AS (SELECT MAX(date) AS latest FROM fact_order_line),
+    WITH bounds AS (SELECT CURRENT_DATE AS latest),
     windowed AS (
       SELECT
         f.*, (f.date > b.latest - INTERVAL '30 days') AS is_current
@@ -121,7 +125,7 @@ async function salesDashboard(client: PoolClient): Promise<DomainDashboard> {
 
   const [dailyRevenue, channelMix, categoryRevenue] = await Promise.all([
     client.query(`
-      WITH bounds AS (SELECT MAX(date) AS latest FROM fact_order_line)
+      WITH bounds AS (SELECT CURRENT_DATE AS latest)
       SELECT
         to_char(date, 'Dy') AS label,
         date,
@@ -133,7 +137,7 @@ async function salesDashboard(client: PoolClient): Promise<DomainDashboard> {
       ORDER BY date
     `),
     client.query(`
-      WITH bounds AS (SELECT MAX(date) AS latest FROM fact_order_line)
+      WITH bounds AS (SELECT CURRENT_DATE AS latest)
       SELECT channel, COALESCE(SUM(CASE WHEN NOT is_refund THEN line_total_sgd ELSE 0 END), 0) AS net
       FROM fact_order_line, bounds
       WHERE date > bounds.latest - INTERVAL '30 days' AND date <= bounds.latest
@@ -141,7 +145,7 @@ async function salesDashboard(client: PoolClient): Promise<DomainDashboard> {
       ORDER BY net DESC
     `),
     client.query(`
-      WITH bounds AS (SELECT MAX(f.date) AS latest FROM fact_order_line f)
+      WITH bounds AS (SELECT CURRENT_DATE AS latest)
       SELECT s.category, COALESCE(SUM(CASE WHEN NOT f.is_refund THEN f.line_total_sgd ELSE 0 END), 0) AS net
       FROM fact_order_line f
       JOIN dim_sku s ON s.sku = f.sku, bounds
@@ -185,22 +189,27 @@ async function salesDashboard(client: PoolClient): Promise<DomainDashboard> {
 // ── inventory domain ─────────────────────────────────────────────────────
 
 async function inventoryDashboard(client: PoolClient): Promise<DomainDashboard> {
-  // "Current" = latest on_hand_after per SKU as of the most recent movement date.
-  // "Previous" (7 days earlier) is deliberately NOT a second DISTINCT ON reconstruction
-  // of that day's snapshot — Postgres can't use an index to avoid a full sort once a
-  // date filter sits on top of DISTINCT ON's ordering (measured: ~185ms full-table sort
-  // even with an index that makes the unfiltered version ~40ms). Instead it's derived
-  // algebraically: prior_on_hand = current_on_hand - (net qty movement in the last 7
-  // days) — mathematically identical, and just a cheap filtered GROUP BY.
+  // "Current" = latest on_hand_after per SKU as of the most recent movement on or
+  // before CURRENT_DATE — the `m.date <= CURRENT_DATE` filter matters because the
+  // seeded dataset has movements dated past today on purpose (headroom, see
+  // GeneratorConfig.months); without it this picks up a future snapshot instead of
+  // today's. "Previous" (7 days earlier) is deliberately NOT a second DISTINCT ON
+  // reconstruction of that day's snapshot — Postgres can't use an index to avoid a
+  // full sort once a date filter sits on top of DISTINCT ON's ordering (measured:
+  // ~185ms full-table sort even with an index that makes the unfiltered version
+  // ~40ms). Instead it's derived algebraically: prior_on_hand = current_on_hand -
+  // (net qty movement in the last 7 days) — mathematically identical, and just a
+  // cheap filtered GROUP BY.
   const stockRows = await client.query(`
     SELECT DISTINCT ON (m.sku) m.sku, m.on_hand_after, s.category, s.name, s.unit_cost_sgd, s.supplier_id
     FROM fact_stock_movement m
     JOIN dim_sku s ON s.sku = m.sku
+    WHERE m.date <= CURRENT_DATE
     ORDER BY m.sku, m.date DESC, m.movement_id DESC
   `);
 
   const recentChange = await client.query(`
-    WITH bounds AS (SELECT MAX(date) AS latest FROM fact_stock_movement)
+    WITH bounds AS (SELECT CURRENT_DATE AS latest)
     SELECT sku, COALESCE(SUM(qty), 0)::float8 AS net_change
     FROM fact_stock_movement, bounds
     WHERE date > bounds.latest - INTERVAL '7 days' AND date <= bounds.latest
@@ -278,7 +287,7 @@ async function inventoryDashboard(client: PoolClient): Promise<DomainDashboard> 
   daysOfSupplyRows.sort((a, b) => a.value - b.value);
 
   const leadTimeTrend = await client.query(`
-    WITH bounds AS (SELECT MAX(ordered_date) AS latest FROM fact_purchase_order)
+    WITH bounds AS (SELECT CURRENT_DATE AS latest)
     SELECT
       (ordered_date > bounds.latest - INTERVAL '90 days') AS is_current,
       AVG(received_date - ordered_date)::float8 AS avg_lead
@@ -354,7 +363,7 @@ async function inventoryDashboard(client: PoolClient): Promise<DomainDashboard> 
 
 async function accountingDashboard(client: PoolClient): Promise<DomainDashboard> {
   const salesWindow = await client.query(`
-    WITH bounds AS (SELECT MAX(date) AS latest FROM fact_order_line)
+    WITH bounds AS (SELECT CURRENT_DATE AS latest)
     SELECT
       (f.date > bounds.latest - INTERVAL '30 days') AS is_current,
       COALESCE(SUM(f.line_total_sgd), 0) AS revenue,
@@ -375,10 +384,7 @@ async function accountingDashboard(client: PoolClient): Promise<DomainDashboard>
   const prevDiscount = Math.max(num(prev.discount), 0);
 
   const cash = await client.query(`
-    WITH bounds AS (SELECT GREATEST(
-      (SELECT MAX(paid_date) FROM fact_invoice),
-      (SELECT MAX(paid_date) FROM fact_bill)
-    ) AS latest),
+    WITH bounds AS (SELECT CURRENT_DATE AS latest),
     inflow AS (
       SELECT (paid_date > bounds.latest - INTERVAL '14 days') AS is_current, COALESCE(SUM(amount_sgd), 0) AS amt
       FROM fact_invoice, bounds
@@ -429,7 +435,7 @@ async function accountingDashboard(client: PoolClient): Promise<DomainDashboard>
   ];
 
   const marginTrend = await client.query(`
-    WITH bounds AS (SELECT MAX(f.date) AS latest FROM fact_order_line f)
+    WITH bounds AS (SELECT CURRENT_DATE AS latest)
     SELECT
       to_char(date_trunc('month', f.date), 'Mon') AS label,
       date_trunc('month', f.date) AS month,
@@ -441,7 +447,7 @@ async function accountingDashboard(client: PoolClient): Promise<DomainDashboard>
     ORDER BY month
   `);
   const discountByCategory = await client.query(`
-    WITH bounds AS (SELECT MAX(f.date) AS latest FROM fact_order_line f)
+    WITH bounds AS (SELECT CURRENT_DATE AS latest)
     SELECT s.category, COALESCE(SUM((s.list_price_sgd - f.unit_price_sgd) * f.qty), 0) AS discount
     FROM fact_order_line f
     JOIN dim_sku s ON s.sku = f.sku, bounds
@@ -524,7 +530,7 @@ async function salesSeries(
   if (metricId === "average_order_value") {
     const { rows } = await client.query(
       `
-      WITH bounds AS (SELECT MAX(f.date) AS latest FROM fact_order_line f)
+      WITH bounds AS (SELECT CURRENT_DATE AS latest)
       SELECT
         f.date,
         COALESCE(SUM(CASE WHEN NOT f.is_refund THEN f.line_total_sgd ELSE 0 END), 0) AS net,
@@ -551,7 +557,7 @@ async function salesSeries(
   if (metricId === "return_rate") {
     const { rows } = await client.query(
       `
-      WITH bounds AS (SELECT MAX(f.date) AS latest FROM fact_order_line f)
+      WITH bounds AS (SELECT CURRENT_DATE AS latest)
       SELECT
         f.date,
         COALESCE(SUM(f.line_total_sgd), 0) AS revenue,
@@ -578,7 +584,7 @@ async function salesSeries(
   if (metricId === "cogs" || metricId === "gross_margin_pct" || metricId === "discount_impact") {
     const { rows } = await client.query(
       `
-      WITH bounds AS (SELECT MAX(f.date) AS latest FROM fact_order_line f)
+      WITH bounds AS (SELECT CURRENT_DATE AS latest)
       SELECT
         f.date,
         COALESCE(SUM(f.line_total_sgd), 0) AS revenue,
@@ -610,7 +616,7 @@ async function salesSeries(
   const expr = _SALES_SERIES_METRICS[metricId];
   const { rows } = await client.query(
     `
-    WITH bounds AS (SELECT MAX(f.date) AS latest FROM fact_order_line f)
+    WITH bounds AS (SELECT CURRENT_DATE AS latest)
     SELECT f.date, ${expr} AS value
     FROM fact_order_line f
     JOIN dim_sku s ON s.sku = f.sku, bounds
@@ -633,7 +639,7 @@ async function stockOnHandSeries(client: PoolClient, dimensions: Record<string, 
   const params = dimensions.sku ? [dimensions.sku] : [];
   const { rows } = await client.query(
     `
-    WITH bounds AS (SELECT MAX(date) AS latest FROM fact_stock_movement),
+    WITH bounds AS (SELECT CURRENT_DATE AS latest),
     daily AS (
       SELECT date, SUM(on_hand_after) AS total
       FROM (
@@ -658,9 +664,7 @@ async function stockOnHandSeries(client: PoolClient, dimensions: Record<string, 
 
 async function netCashflowSeries(client: PoolClient): Promise<MetricSeries> {
   const { rows } = await client.query(`
-    WITH bounds AS (SELECT GREATEST(
-      (SELECT MAX(paid_date) FROM fact_invoice), (SELECT MAX(paid_date) FROM fact_bill)
-    ) AS latest),
+    WITH bounds AS (SELECT CURRENT_DATE AS latest),
     days AS (
       SELECT generate_series(bounds.latest - INTERVAL '29 days', bounds.latest, '1 day')::date AS d
       FROM bounds
@@ -740,7 +744,7 @@ async function computeSignals(client: PoolClient): Promise<Signal[]> {
       COALESCE(SUM(CASE WHEN is_refund THEN line_total_sgd ELSE 0 END), 0) AS refunds,
       COALESCE(SUM(line_total_sgd), 0) AS revenue
     FROM fact_order_line
-    WHERE date >= (SELECT MAX(date) FROM fact_order_line) - INTERVAL '30 days'
+    WHERE date >= CURRENT_DATE - INTERVAL '30 days'
   `);
   const { refunds, revenue } = rr.rows[0];
   if (num(revenue) > 0) {
@@ -768,6 +772,7 @@ async function computeSignals(client: PoolClient): Promise<Signal[]> {
     WITH latest AS (
       SELECT DISTINCT ON (sku) sku, on_hand_after
       FROM fact_stock_movement
+      WHERE date <= CURRENT_DATE
       ORDER BY sku, date DESC, movement_id DESC
     )
     SELECT COUNT(*)::int AS n, (SELECT COUNT(*) FROM latest)::int AS total FROM latest WHERE on_hand_after <= 0

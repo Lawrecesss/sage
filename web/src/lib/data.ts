@@ -17,12 +17,15 @@ import { DASHBOARD, QUERY_FREQUENCY, RECOMMENDED } from "@/mocks/dashboard";
 import { MOCK_BRIEF_HISTORY, MOCK_SIGNALS, mockSeries } from "@/mocks/fixtures";
 import metricsCatalog from "@/mocks/metrics.json";
 import { liveDomainDashboard, liveMetricSeries, liveSignal, liveSignals } from "./live";
+import { getReport as getStoredReport, listReports as listStoredReports } from "./report-store";
 import type {
   Brief,
   Domain,
   DomainDashboard,
   Metric,
   MetricSeries,
+  Report,
+  ReportSummary,
   RecommendedMetric,
   Signal,
   SignalStatus,
@@ -31,24 +34,28 @@ import type {
 const SOURCE = process.env.SAGE_DATA_SOURCE ?? "mock";
 const METRICS = metricsCatalog as Metric[];
 
-// ── Briefs ───────────────────────────────────────────────────────────────
+// ── Brief (legacy /api/brief only) ──────────────────────────────────────
 // Always mock, even in live mode: a real Brief needs causal_chain/severity output
-// from a Correlator that doesn't exist yet (see lib/live.ts's header comment). These
-// are called unconditionally by /history and /api/brief, so — same reasoning as
-// getRecommended below — they degrade to illustrative data instead of throwing and
-// breaking those pages.
+// from a Correlator that doesn't exist yet (see lib/live.ts's header comment).
+// /history no longer uses this — see Reports below — but /api/brief still does,
+// so it degrades to illustrative data instead of throwing and breaking that route.
 
 export async function getLatestBrief(): Promise<Brief | null> {
   return MOCK_BRIEF_HISTORY[0] ?? null;
 }
 
+// ── Reports ──────────────────────────────────────────────────────────────
+// Real, always: these read the `reports` table saved by every POST /api/reports/[name]
+// call (lib/report-store.ts) — no mock, no SAGE_DATA_SOURCE toggle. The History page's
+// list and detail view.
+
 /** Newest first — the History page's list. */
-export async function listBriefs(): Promise<Brief[]> {
-  return MOCK_BRIEF_HISTORY;
+export async function listReports(tenantId: string, limit?: number): Promise<ReportSummary[]> {
+  return listStoredReports(tenantId, limit);
 }
 
-export async function getBrief(briefId: string): Promise<Brief | null> {
-  return MOCK_BRIEF_HISTORY.find((b) => b.brief_id === briefId) ?? null;
+export async function getReport(tenantId: string, reportId: string): Promise<Report | null> {
+  return getStoredReport(tenantId, reportId);
 }
 
 // ── Signals ──────────────────────────────────────────────────────────────
