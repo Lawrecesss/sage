@@ -24,10 +24,28 @@ export const SLASH_COMMANDS: SlashCommand[] = [
       "Give me this morning's brief: the top open signals ranked by dollar impact, what connects them, and one recommended action each.",
   },
   {
+    name: "afternoon-report",
+    description: "Trading pace so far today, and what's still fixable before close",
+    prompt: () =>
+      "Give me the afternoon report: trading pace against the baseline, developing issues, and what can still be fixed before close.",
+  },
+  {
+    name: "evening-report",
+    description: "Evening trading, refunds, and what to prep for tomorrow",
+    prompt: () =>
+      "Give me the evening report: evening trading against the baseline, refunds and the biggest movers, and what to prepare for tomorrow morning.",
+  },
+  {
     name: "daily-report",
     description: "Yesterday's sales, stock and cash in one summary",
     prompt: () =>
       "Summarise yesterday across sales, inventory and accounting: key numbers against normal, and anything unusual.",
+  },
+  {
+    name: "weekly-report",
+    description: "This week vs last, top drivers, and priorities for next week",
+    prompt: () =>
+      "Give me the weekly report: this week against the prior week, the top drivers, and priorities for next week.",
   },
   {
     name: "explain",

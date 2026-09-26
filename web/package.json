@@ -9,14 +9,17 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "exceljs": "^4.4.0",
     "lucide-react": "^1.48.0",
     "next": "15.5.25",
-    "pdfkit": "^0.17.2",
+    "pdfkit": "^0.20.2",
     "pg": "^8.13.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "svg-to-pdfkit": "^0.1.8"
   },
   "devDependencies": {
     "@types/node": "^20",

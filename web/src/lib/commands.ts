@@ -88,13 +88,13 @@ export function findCommand(name: string): ReportCommand | undefined {
   return COMMANDS.find((c) => c.name === name || c.aliases?.includes(name));
 }
 
-/** Name and heading of the markdown file attached to the report (see report-file.ts). */
+/** Base filename and heading of the PDF/Excel files attached to the report (see report-file.ts). */
 export function reportFileMeta(command: ReportCommand, w: ReportWindow, asOf: Date): ReportFileMeta {
   const period = w.partial
     ? `${formatLocal(w.start)} to ${formatLocal(w.through)} (partial — window still running)`
     : `${formatLocal(w.start)} to ${formatLocal(w.end)}`;
   return {
-    name: `${command.name}-${localDate(w.start)}.md`,
+    name: `${command.name}-${localDate(w.start)}`,
     title: command.title.charAt(0).toUpperCase() + command.title.slice(1),
     subtitle: `Period: ${period} · Generated ${formatLocal(asOf)}`,
   };

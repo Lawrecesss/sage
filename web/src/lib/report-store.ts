@@ -19,6 +19,7 @@
 // connection can never leak one tenant's search_path into another request.
 
 import { getPool } from "@/lib/db";
+import { parseMarkdownLite, plainText, splitLeadAndBody } from "@/lib/report-export/markdown-lite";
 import type { Anomaly, ContentBlock, FileRef, Report, ReportKind, ReportSummary } from "@/lib/types";
 
 // Same shape provision.py enforces for tenant_id (it's used as a Postgres schema/identifier).
@@ -28,6 +29,8 @@ function assertValidSchema(tenantId: string): void {
   if (!VALID_SCHEMA.test(tenantId)) throw new Error(`invalid tenant schema name: ${tenantId}`);
 }
 
+// Doubles as "this tenant's reports table is known to exist" — populated by ensureTable()
+// after a save, or by tableKnownToExist() after its first successful existence probe.
 const ensured = new Set<string>();
 
 async function ensureTable(tenantId: string): Promise<void> {
@@ -55,6 +58,27 @@ async function ensureTable(tenantId: string): Promise<void> {
   ensured.add(tenantId);
 }
 
+/** listReports/getReport run on every Reports-page navigation and used to each pay for their
+ * own `information_schema.tables` round trip, on top of the actual query — a tenant that has
+ * ever generated one report was proving the table exists again on every single click. Checking
+ * `ensured` first (populated by ensureTable() the first time this tenant saves a report, or by
+ * this function's own first successful probe) means that round trip is paid at most once per
+ * tenant per server process instead of once per request. Also runs the same `anomalies` column
+ * migration ensureTable() does — a table from before that column existed would otherwise 42703
+ * the very first time this tenant's reports are *read* rather than saved. */
+async function tableKnownToExist(tenantId: string): Promise<boolean> {
+  if (ensured.has(tenantId)) return true;
+  assertValidSchema(tenantId);
+  const { rows } = await getPool().query(
+    `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'reports'`,
+    [tenantId],
+  );
+  if (rows.length === 0) return false;
+  await getPool().query(`ALTER TABLE "${tenantId}".reports ADD COLUMN IF NOT EXISTS anomalies jsonb NOT NULL DEFAULT '[]'`);
+  ensured.add(tenantId);
+  return true;
+}
+
 export type NewReport = {
   kind: ReportKind;
   title: string;
@@ -64,21 +88,26 @@ export type NewReport = {
   periodEnd: Date;
   partial: boolean;
   blocks: ContentBlock[];
-  file?: FileRef;
+  files?: FileRef[];
   anomalies?: Anomaly[];
 };
 
-/** First line of the reply's markdown, if any — good enough for a list view's one-liner. */
-function headlineOf(blocks: ContentBlock[]): string | undefined {
-  const first = blocks.find((b) => b.type === "markdown");
-  const line = first?.type === "markdown" ? first.text.trim().split("\n")[0] : undefined;
-  return line?.replace(/^#+\s*/, "") || undefined;
+/** The reply's own executive-summary sentence, if any — same lead the PDF/Excel exports and
+ * the Reports page's detail view (ReportInsights) callout use, so the list row's one-liner
+ * never disagrees with what opening the report shows. Falls back to the raw first line for a
+ * reply with no real prose (e.g. only a chart/table). */
+function headlineOf(blocks: ContentBlock[], title: string): string | undefined {
+  const first = blocks.find((b): b is Extract<ContentBlock, { type: "markdown" }> => b.type === "markdown" && b.text.trim() !== "");
+  if (!first) return undefined;
+  const { lead } = splitLeadAndBody(parseMarkdownLite(first.text), title);
+  if (lead?.length) return plainText(lead);
+  return first.text.trim().split("\n")[0]?.replace(/^#+\s*/, "") || undefined;
 }
 
 export async function saveReport(tenantId: string, report: NewReport): Promise<string> {
   await ensureTable(tenantId);
   const id = crypto.randomUUID();
-  const files: FileRef[] = report.file ? [report.file] : [];
+  const files: FileRef[] = report.files ?? [];
   await getPool().query(
     `INSERT INTO "${tenantId}".reports
        (id, kind, title, session_id, generated_at, period_start, period_end, partial, headline, blocks, files, anomalies)
@@ -92,7 +121,7 @@ export async function saveReport(tenantId: string, report: NewReport): Promise<s
       report.periodStart.toISOString(),
       report.periodEnd.toISOString(),
       report.partial,
-      headlineOf(report.blocks) ?? null,
+      headlineOf(report.blocks, report.title) ?? null,
       JSON.stringify(report.blocks),
       JSON.stringify(files),
       JSON.stringify(report.anomalies ?? []),
@@ -101,7 +130,7 @@ export async function saveReport(tenantId: string, report: NewReport): Promise<s
   return id;
 }
 
-type ReportRow = {
+type ReportListRow = {
   id: string;
   kind: ReportKind;
   title: string;
@@ -110,13 +139,10 @@ type ReportRow = {
   period_end: Date;
   partial: boolean;
   headline: string | null;
-  blocks: ContentBlock[];
-  files: FileRef[];
-  /** Missing on a table ensureTable hasn't migrated yet (nothing saved since the column landed). */
-  anomalies?: Anomaly[];
 };
+type ReportRow = ReportListRow & { blocks: ContentBlock[]; files: FileRef[]; anomalies?: Anomaly[] };
 
-function toSummary(row: ReportRow): ReportSummary {
+function toSummary(row: ReportListRow & { anomalies?: Anomaly[] }): ReportSummary {
   return {
     id: row.id,
     kind: row.kind,
@@ -126,41 +152,43 @@ function toSummary(row: ReportRow): ReportSummary {
     periodEnd: row.period_end.toISOString(),
     partial: row.partial,
     headline: row.headline ?? undefined,
-    files: row.files,
+    // Nothing in the UI reads a list row's `files` today (see ReportSummary's doc comment) —
+    // each row's real value is a base64-encoded PDF + Excel, easily tens of KB, so fetching it
+    // for every row on every list navigation would multiply that cost for no benefit. A future
+    // list UI that wants download links here should query for them explicitly.
+    files: [],
+    // Missing on a table ensureTable hasn't migrated yet (nothing saved since the column landed).
     anomalies: row.anomalies ?? [],
   };
 }
 
-/** Whether this tenant has a reports table yet — none exists until its first report is saved. */
-async function hasTable(tenantId: string): Promise<boolean> {
-  assertValidSchema(tenantId);
-  const exists = await getPool().query(
-    `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'reports'`,
-    [tenantId],
-  );
-  return exists.rows.length > 0;
-}
-
-/** Newest first — the Reports page's list. */
+/** Newest first — for a future `/reports` or `GET /api/reports` reading real reports. Selects
+ * only the list's own columns (not `blocks`/`files`, the two heavy jsonb columns) — the list
+ * never renders either, and pulling them for every row on every navigation was the single
+ * biggest cost on this page. */
 export async function listReports(tenantId: string, limit = 50): Promise<ReportSummary[]> {
-  if (!(await hasTable(tenantId))) return []; // no report has ever been generated for this tenant yet
-  const { rows } = await getPool().query<ReportRow>(
-    `SELECT * FROM "${tenantId}".reports ORDER BY generated_at DESC LIMIT $1`,
+  assertValidSchema(tenantId);
+  if (!(await tableKnownToExist(tenantId))) return []; // no report has ever been generated for this tenant yet
+  const { rows } = await getPool().query<ReportListRow & { anomalies?: Anomaly[] }>(
+    `SELECT id, kind, title, generated_at, period_start, period_end, partial, headline, anomalies
+       FROM "${tenantId}".reports ORDER BY generated_at DESC LIMIT $1`,
     [limit],
   );
   return rows.map(toSummary);
 }
 
 export async function getReport(tenantId: string, id: string): Promise<Report | null> {
-  if (!(await hasTable(tenantId))) return null;
+  assertValidSchema(tenantId);
+  if (!(await tableKnownToExist(tenantId))) return null;
   const { rows } = await getPool().query<ReportRow>(`SELECT * FROM "${tenantId}".reports WHERE id = $1`, [id]);
   const row = rows[0];
-  return row ? { ...toSummary(row), blocks: row.blocks } : null;
+  return row ? { ...toSummary(row), files: row.files, blocks: row.blocks } : null;
 }
 
 /** Deletes one report. False if there was no such report. */
 export async function deleteReport(tenantId: string, id: string): Promise<boolean> {
-  if (!(await hasTable(tenantId))) return false;
+  assertValidSchema(tenantId);
+  if (!(await tableKnownToExist(tenantId))) return false;
   const { rowCount } = await getPool().query(`DELETE FROM "${tenantId}".reports WHERE id = $1`, [id]);
   return (rowCount ?? 0) > 0;
 }
@@ -168,7 +196,8 @@ export async function deleteReport(tenantId: string, id: string): Promise<boolea
 /** Whether a `kind` report covering the window starting at `periodStart` is already saved — how
  * the scheduler avoids running the same slot twice (restarts, several replicas). */
 export async function hasReportFor(tenantId: string, kind: ReportKind, periodStart: Date): Promise<boolean> {
-  if (!(await hasTable(tenantId))) return false;
+  assertValidSchema(tenantId);
+  if (!(await tableKnownToExist(tenantId))) return false;
   const { rows } = await getPool().query(
     `SELECT 1 FROM "${tenantId}".reports WHERE kind = $1 AND period_start = $2 LIMIT 1`,
     [kind, periodStart.toISOString()],

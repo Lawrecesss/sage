@@ -283,12 +283,15 @@
   align-items: center;
   height: 32px;
   padding: 0 var(--space-3);
+  border: 0;
   border-radius: var(--radius-full);
+  font: inherit;
   font-size: var(--text-xs);
   font-weight: 500;
   text-decoration: none;
   text-transform: capitalize;
   white-space: nowrap;
+  cursor: pointer;
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 

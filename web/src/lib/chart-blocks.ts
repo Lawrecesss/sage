@@ -69,7 +69,7 @@ export function parseChartBlock(raw: string): ChartBlock | null {
   };
 }
 
-/** A chart as a markdown table — for plain-text replies and for exported files. */
+/** A chart as a markdown table — for plain-text replies, which can't carry a chart block. */
 export function chartToMarkdown({ title, caption, chart }: ChartBlock): string {
   const cell = (v: string | number | null | undefined) => String(v ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
   const suffix = chart.unit ? ` (${chart.unit})` : "";

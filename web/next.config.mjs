@@ -3,9 +3,12 @@ const nextConfig = {
   // This app is its own root; without this Next walks up and picks a stray
   // lockfile in the home directory as the workspace root.
   outputFileTracingRoot: import.meta.dirname,
-  // pdfkit reads its built-in font metrics from its own package folder at runtime, which
-  // breaks once bundled — load it from node_modules instead (lib/report-pdf.ts).
-  serverExternalPackages: ["pdfkit"],
+  // Report export libs (lib/report-export/*): @resvg/resvg-js ships a native .node addon
+  // webpack can't parse, and pdfkit/exceljs ship data files (AFM fonts, CSV codecs) that don't
+  // survive bundling either. All three are only ever `require`d from nodejs-runtime routes
+  // (see api/reports/[name]/route.ts), so they're left external and resolved from
+  // node_modules at request time instead of being bundled.
+  serverExternalPackages: ["@resvg/resvg-js", "pdfkit", "svg-to-pdfkit", "exceljs"],
   experimental: {
     // Explicit, not relying on the default: `dynamic = "force-dynamic"` pages
     // (dashboard, metrics/signals detail) must never be served from the
