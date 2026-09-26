@@ -22,11 +22,6 @@
       // AGENTS.md / SOUL.md / IDENTITY.md are baked into the image (openclaw/workspace).
       workspace: "/opt/sage/workspace",
       skipBootstrap: true,
-      // How hard reasoning models think, sent to OpenRouter as `reasoning.effort`. Thinking
-      // tokens share maxTokens with the answer, so an uncapped thinker (Qwen3) could spend the
-      // whole reply on reasoning and end with no answer (stopReason=length). `low` keeps
-      // turns quick; raise it per message with `/think medium` etc. if quality needs it.
-      thinkingDefault: "low",
     },
   },
   // Only the retail MCP tools (+ session_status). `session_status` keeps the
@@ -52,14 +47,11 @@
           {
             id: "${OPENROUTER_MODEL}",
             name: "OpenRouter model",
-            // true so OpenClaw sends reasoning controls (effort from thinkingDefault above);
-            // with false it sent none, and thinking models reasoned without limit.
-            reasoning: true,
+            reasoning: false,
             input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
             contextWindow: 200000,
-            // Covers thinking + tool calls + the answer. 8192 ran out on report turns.
-            maxTokens: 32768,
+            maxTokens: 8192,
           },
         ],
       },
