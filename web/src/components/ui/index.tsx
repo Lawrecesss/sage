@@ -199,6 +199,29 @@ export function ButtonLink({
   );
 }
 
+/** ButtonLink's look for an action with no destination — e.g. resetting client-side filter
+ * state. Render from a client component. */
+export function Button({
+  onClick,
+  children,
+  variant = "primary",
+  icon: Icon,
+  size = "md",
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  variant?: ButtonVariant;
+  icon?: LucideIcon;
+  size?: "md" | "sm";
+}) {
+  return (
+    <button type="button" onClick={onClick} className={buttonClass(variant, size)}>
+      {Icon && <Icon size={16} strokeWidth={2} aria-hidden />}
+      {children}
+    </button>
+  );
+}
+
 export function ChipLink({ href, active, children }: { href: string; active?: boolean; children: React.ReactNode }) {
   // prefetch={false}: these chips switch a searchParam on a fully dynamic page (e.g. the
   // dashboard's domain tabs) — every click needs a fresh server render, and Link's default
@@ -212,6 +235,30 @@ export function ChipLink({ href, active, children }: { href: string; active?: bo
     >
       {children}
     </Link>
+  );
+}
+
+/** ChipLink's look for client-side state (no navigation) — e.g. filtering an already-fetched
+ * list in memory, where a Link's URL-driven searchParam navigation would only add a same-page
+ * round trip for no benefit. Render from a client component. */
+export function ChipButton({
+  active,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={active ? styles.chipActive : styles.chip}
+      aria-current={active ? "true" : undefined}
+    >
+      {children}
+    </button>
   );
 }
 

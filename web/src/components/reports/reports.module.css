@@ -85,9 +85,15 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
   padding: var(--space-3) var(--space-4);
+  border: 0;
   border-radius: var(--radius);
+  background: none;
+  font: inherit;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
   transition: background-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
@@ -176,10 +182,15 @@
   align-items: center;
   gap: 6px;
   margin-bottom: var(--space-4);
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--accent-text);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .detailHead {
