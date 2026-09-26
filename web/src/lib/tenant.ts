@@ -29,6 +29,20 @@ async function resolveTenantById(tenantId: string): Promise<ResolvedTenant> {
   return { tenantId, modules: moduleRows.map((r) => r.module_name) };
 }
 
+/** Every active tenant with `module` enabled — for work no request asks for (auto-reports.ts). */
+export async function listTenantsWithModule(module: string): Promise<ResolvedTenant[]> {
+  const { rows } = await getPool().query<{ tenant_id: string; modules: string[] }>(
+    `SELECT t.tenant_id, array_agg(m.module_name) AS modules
+       FROM shared.tenants t
+       JOIN shared.tenant_modules m ON m.tenant_id = t.tenant_id AND m.enabled
+      WHERE t.status = 'active'
+      GROUP BY t.tenant_id
+     HAVING bool_or(m.module_name = $1)`,
+    [module],
+  );
+  return rows.map((r) => ({ tenantId: r.tenant_id, modules: r.modules }));
+}
+
 /** Reads tenant_id from `x-tenant-id`, falling back to DEFAULT_TENANT_ID, and
  * looks up its enabled modules. Throws UnknownTenantError if the tenant is
  * missing or inactive.

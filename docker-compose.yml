@@ -69,6 +69,8 @@ services:
       # Dashboard/metrics/signals read live Postgres (lib/live.ts) instead of
       # src/mocks/ — see that file's header for what stays mock and why.
       SAGE_DATA_SOURCE: ${SAGE_DATA_SOURCE:-live}
+      # Scheduled 6-hour report + anomaly scan (web/src/lib/auto-reports.ts). "off" disables.
+      SAGE_AUTO_REPORTS: ${SAGE_AUTO_REPORTS:-on}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

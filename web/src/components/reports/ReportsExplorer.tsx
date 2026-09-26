@@ -13,12 +13,14 @@
 // for whichever one is selected, so switching between reports doesn't refetch or re-render the
 // whole page, and picking a report nobody's looked at yet still pays for exactly one row's data.
 
-import { ArrowLeft, LayoutDashboard, MessageSquare, Search, SearchX, Sparkles } from "lucide-react";
+import { ArrowLeft, FileDown, LayoutDashboard, MessageSquare, Search, SearchX, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AnomalyList } from "@/components/reports/AnomalyList";
+import { DeleteReportButton } from "@/components/reports/DeleteReportButton";
 import { ReportInsights } from "@/components/reports/ReportInsights";
 import styles from "@/components/reports/reports.module.css";
 import { TopBar } from "@/components/shell/TopBar";
-import { Button, ButtonLink, ChipButton, EmptyState, PageSpinner } from "@/components/ui";
+import { Button, ButtonLink, ChipButton, EmptyState, PageSpinner, buttonClass } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type { Report, ReportKind, ReportSummary } from "@/lib/types";
 
@@ -28,6 +30,7 @@ const KIND_LABEL: Record<ReportKind, string> = {
   "evening-report": "Evening",
   "daily-report": "Daily",
   "weekly-report": "Weekly",
+  "six-hour-report": "6-hourly",
 };
 const KINDS = Object.keys(KIND_LABEL) as ReportKind[];
 
@@ -233,12 +236,24 @@ export function ReportsExplorer({
                     >
                       Discuss in chat
                     </ButtonLink>
+                    {/* A plain <a>: it's a file download from an API route, not a page to navigate to. */}
+                    <a
+                      href={`/api/reports/saved/${encodeURIComponent(selectedSummary.id)}/pdf`}
+                      className={buttonClass("secondary", "sm")}
+                      download
+                    >
+                      <FileDown size={16} strokeWidth={2} aria-hidden />
+                      Export PDF
+                    </a>
                     <ButtonLink href="/dashboard" variant="ghost" icon={LayoutDashboard} size="sm">
                       Open dashboard
                     </ButtonLink>
+                    <DeleteReportButton id={selectedSummary.id} title={selectedSummary.headline ?? selectedSummary.title} />
                   </div>
                 </div>
               </header>
+
+              <AnomalyList anomalies={selectedSummary.anomalies} />
 
               <div className={styles.body}>
                 {selected ? (

@@ -7,7 +7,14 @@ import type { ReportKind } from "@/lib/types";
 export const metadata: Metadata = { title: "Reports" };
 export const dynamic = "force-dynamic";
 
-const KINDS: ReportKind[] = ["morning-brief", "afternoon-report", "evening-report", "daily-report", "weekly-report"];
+const KINDS: ReportKind[] = [
+  "morning-brief",
+  "afternoon-report",
+  "evening-report",
+  "daily-report",
+  "weekly-report",
+  "six-hour-report",
+];
 
 /** Server component's only job: the initial fetch. Selecting a report, filtering by kind or
  * search, and paging through the list are all client-side from here — see ReportsExplorer for

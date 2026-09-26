@@ -20,7 +20,7 @@
 
 import { getPool } from "@/lib/db";
 import { parseMarkdownLite, plainText, splitLeadAndBody } from "@/lib/report-export/markdown-lite";
-import type { ContentBlock, FileRef, Report, ReportKind, ReportSummary } from "@/lib/types";
+import type { Anomaly, ContentBlock, FileRef, Report, ReportKind, ReportSummary } from "@/lib/types";
 
 // Same shape provision.py enforces for tenant_id (it's used as a Postgres schema/identifier).
 const VALID_SCHEMA = /^[a-z][a-z0-9_]{0,62}$/;
@@ -52,6 +52,8 @@ async function ensureTable(tenantId: string): Promise<void> {
       files jsonb NOT NULL DEFAULT '[]'
     )
   `);
+  // Added after the table first shipped, so tables created before it get it here.
+  await getPool().query(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS anomalies jsonb NOT NULL DEFAULT '[]'`);
   await getPool().query(`CREATE INDEX IF NOT EXISTS reports_generated_at_idx ON ${t} (generated_at DESC)`);
   ensured.add(tenantId);
 }
@@ -64,6 +66,7 @@ async function ensureTable(tenantId: string): Promise<void> {
  * tenant per server process instead of once per request. */
 async function tableKnownToExist(tenantId: string): Promise<boolean> {
   if (ensured.has(tenantId)) return true;
+  assertValidSchema(tenantId);
   const { rows } = await getPool().query(
     `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'reports'`,
     [tenantId],
@@ -83,6 +86,7 @@ export type NewReport = {
   partial: boolean;
   blocks: ContentBlock[];
   files?: FileRef[];
+  anomalies?: Anomaly[];
 };
 
 /** The reply's own executive-summary sentence, if any — same lead the PDF/Excel exports and
@@ -103,8 +107,8 @@ export async function saveReport(tenantId: string, report: NewReport): Promise<s
   const files: FileRef[] = report.files ?? [];
   await getPool().query(
     `INSERT INTO "${tenantId}".reports
-       (id, kind, title, session_id, generated_at, period_start, period_end, partial, headline, blocks, files)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+       (id, kind, title, session_id, generated_at, period_start, period_end, partial, headline, blocks, files, anomalies)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
     [
       id,
       report.kind,
@@ -117,6 +121,7 @@ export async function saveReport(tenantId: string, report: NewReport): Promise<s
       headlineOf(report.blocks, report.title) ?? null,
       JSON.stringify(report.blocks),
       JSON.stringify(files),
+      JSON.stringify(report.anomalies ?? []),
     ],
   );
   return id;
@@ -132,9 +137,9 @@ type ReportListRow = {
   partial: boolean;
   headline: string | null;
 };
-type ReportRow = ReportListRow & { blocks: ContentBlock[]; files: FileRef[] };
+type ReportRow = ReportListRow & { blocks: ContentBlock[]; files: FileRef[]; anomalies?: Anomaly[] };
 
-function toSummary(row: ReportListRow): ReportSummary {
+function toSummary(row: ReportListRow & { anomalies?: Anomaly[] }): ReportSummary {
   return {
     id: row.id,
     kind: row.kind,
@@ -149,6 +154,8 @@ function toSummary(row: ReportListRow): ReportSummary {
     // for every row on every list navigation would multiply that cost for no benefit. A future
     // list UI that wants download links here should query for them explicitly.
     files: [],
+    // Missing on a table ensureTable hasn't migrated yet (nothing saved since the column landed).
+    anomalies: row.anomalies ?? [],
   };
 }
 
@@ -159,8 +166,8 @@ function toSummary(row: ReportListRow): ReportSummary {
 export async function listReports(tenantId: string, limit = 50): Promise<ReportSummary[]> {
   assertValidSchema(tenantId);
   if (!(await tableKnownToExist(tenantId))) return []; // no report has ever been generated for this tenant yet
-  const { rows } = await getPool().query<ReportListRow>(
-    `SELECT id, kind, title, generated_at, period_start, period_end, partial, headline
+  const { rows } = await getPool().query<ReportListRow & { anomalies?: Anomaly[] }>(
+    `SELECT id, kind, title, generated_at, period_start, period_end, partial, headline, anomalies
        FROM "${tenantId}".reports ORDER BY generated_at DESC LIMIT $1`,
     [limit],
   );
@@ -173,4 +180,24 @@ export async function getReport(tenantId: string, id: string): Promise<Report | 
   const { rows } = await getPool().query<ReportRow>(`SELECT * FROM "${tenantId}".reports WHERE id = $1`, [id]);
   const row = rows[0];
   return row ? { ...toSummary(row), files: row.files, blocks: row.blocks } : null;
+}
+
+/** Deletes one report. False if there was no such report. */
+export async function deleteReport(tenantId: string, id: string): Promise<boolean> {
+  assertValidSchema(tenantId);
+  if (!(await tableKnownToExist(tenantId))) return false;
+  const { rowCount } = await getPool().query(`DELETE FROM "${tenantId}".reports WHERE id = $1`, [id]);
+  return (rowCount ?? 0) > 0;
+}
+
+/** Whether a `kind` report covering the window starting at `periodStart` is already saved — how
+ * the scheduler avoids running the same slot twice (restarts, several replicas). */
+export async function hasReportFor(tenantId: string, kind: ReportKind, periodStart: Date): Promise<boolean> {
+  assertValidSchema(tenantId);
+  if (!(await tableKnownToExist(tenantId))) return false;
+  const { rows } = await getPool().query(
+    `SELECT 1 FROM "${tenantId}".reports WHERE kind = $1 AND period_start = $2 LIMIT 1`,
+    [kind, periodStart.toISOString()],
+  );
+  return rows.length > 0;
 }

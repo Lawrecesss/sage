@@ -7,7 +7,7 @@
 
 import type { ReportFileMeta } from "@/lib/report-file";
 import { type ReportWindow, type WindowSpec, formatLocal, localDate } from "@/lib/report-windows";
-import type { ReportKind } from "@/lib/types";
+import type { Anomaly, ReportKind } from "@/lib/types";
 
 export type ReportCommand = {
   name: ReportKind;
@@ -71,6 +71,17 @@ export const COMMANDS: ReportCommand[] = [
       "Risks and the top 3 priorities for next week.",
     ],
   },
+  {
+    // Not a slash command: lib/auto-reports.ts runs this on its own every 6 hours.
+    name: "six-hour-report",
+    title: "6-hour report",
+    window: { kind: "slot", hours: 6 },
+    focus: [
+      "Headline: what changed in these 6 hours that the owner should know about.",
+      "Trading: revenue, units and refunds against the baseline.",
+      "Anomalies: start with any flagged anomalies listed below, then look for any others in the tools' data. For each, say what moved, the likely cause (check stock levels, supplier delays and price changes with the tools) and one recommended action.",
+    ],
+  },
 ];
 
 export function findCommand(name: string): ReportCommand | undefined {
@@ -89,7 +100,30 @@ export function reportFileMeta(command: ReportCommand, w: ReportWindow, asOf: Da
   };
 }
 
-export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date): string {
+/** The anomaly scan's findings as prompt lines — facts for the agent to verify and explain. */
+function anomalyLines(anomalies: Anomaly[]): string[] {
+  if (anomalies.length === 0) return [];
+  const { period, baseline } = anomalies[0];
+  const pct = (c: number | null) => (c === null ? "new" : `${c >= 0 ? "+" : ""}${Math.round(c * 100)}%`);
+  return [
+    "",
+    `Flagged anomalies (gross revenue by SKU, ${period.start} to ${period.end} vs ${baseline.start} to ${baseline.end}, computed before this run):`,
+    ...anomalies.flatMap((a) => [
+      `- [${a.severity}] ${a.summary} — ${a.items
+        .map(
+          (i) =>
+            `${i.name} (${i.sku}): SGD ${i.previous.toFixed(0)} -> ${i.current.toFixed(0)}, ${pct(i.change)}` +
+            (i.onHand != null ? `, ${i.onHand} on hand` : "") +
+            (i.daysOfCover != null ? ` (~${Math.round(i.daysOfCover)} days cover, ${i.leadTimeDays}-day lead time)` : ""),
+        )
+        .join("; ")}`,
+      ...(a.action ? [`  Suggested action: ${a.action}`] : []),
+    ]),
+    "Confirm each with the tools before reporting it, and say so if the tools disagree. For an item up while another is down in the same category, consider substitution (one out of stock or repriced). The suggested actions come from simple stock rules: keep, sharpen or replace each one based on what the tools show.",
+  ];
+}
+
+export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date, anomalies: Anomaly[] = []): string {
   // Local time for the reader, UTC ISO for precision.
   const at = (d: Date) => `${formatLocal(d)} [${d.toISOString()}]`;
   return [
@@ -104,6 +138,9 @@ export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date)
     "",
     "Cover, in this order:",
     ...command.focus.map((f) => `- ${f}`),
+    ...anomalyLines(anomalies),
+    "",
+    "End with a section headed exactly `## Recommended actions`: a numbered list of the 3–5 most important things to do next, highest dollar impact first. Each one starts with a verb, names the SKU, channel or supplier it's about, and says in one clause why (the figure behind it).",
     "",
     "Rules:",
     "- Call the retail tools and use only figures they return.",

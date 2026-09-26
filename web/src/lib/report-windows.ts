@@ -9,7 +9,11 @@ export const BUSINESS_TZ = process.env.SAGE_TIMEZONE ?? "Asia/Singapore";
 
 export type WindowSpec =
   | { kind: "day"; startHour: number; endHour: number } // wall-clock hours; endHour 24 = midnight
-  | { kind: "week" }; // Monday 00:00 -> next Monday 00:00
+  | { kind: "week" } // Monday 00:00 -> next Monday 00:00
+  // The most recent *completed* slot of `hours` (a divisor of 24), aligned to local midnight —
+  // e.g. hours 6 run at 06:05 covers 00:00–06:00. Scheduled reports run just after a slot
+  // closes, so unlike the others this never returns the still-running window.
+  | { kind: "slot"; hours: number };
 
 export type ReportWindow = {
   start: Date;
@@ -73,6 +77,12 @@ export function computeWindow(spec: WindowSpec, asOf: Date, tz = BUSINESS_TZ): R
     startHour = 0;
     endDay = addDays(startDay, 7);
     endHour = 0;
+  } else if (spec.kind === "slot") {
+    // Hours outside 0–24 roll over the day boundary in localToUtc (Date.UTC normalises them).
+    endHour = Math.floor(now.h / spec.hours) * spec.hours;
+    startHour = endHour - spec.hours;
+    startDay = today;
+    endDay = today;
   } else {
     startDay = localToUtc(today, spec.startHour, tz) > asOf ? addDays(today, -1) : today;
     startHour = spec.startHour;
