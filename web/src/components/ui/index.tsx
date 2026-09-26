@@ -4,6 +4,21 @@ import Link from "next/link";
 import type { Domain, Severity, SignalStatus } from "@/lib/types";
 import styles from "./ui.module.css";
 
+export function Spinner({ label }: { label?: string }) {
+  return <span className={styles.spinner} role="status" aria-label={label ?? "Loading"} />;
+}
+
+/** Full-section loading state — used by route loading.tsx files and while a
+ * client component is mid-transition. */
+export function PageSpinner({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div className={styles.spinnerPage} role="status">
+      <Spinner />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 export function Card({
   title,
   aside,
@@ -97,8 +112,11 @@ export function ButtonLink({
 }
 
 export function ChipLink({ href, active, children }: { href: string; active?: boolean; children: React.ReactNode }) {
+  // prefetch={false}: these chips switch a searchParam on a fully dynamic page (e.g. the
+  // dashboard's domain tabs) — every click needs a fresh server render, and Link's default
+  // prefetch can otherwise serve a stale client Router Cache entry for the same pathname.
   return (
-    <Link href={href} className={active ? styles.chipActive : styles.chip}>
+    <Link href={href} prefetch={false} className={active ? styles.chipActive : styles.chip}>
       {children}
     </Link>
   );

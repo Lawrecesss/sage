@@ -16,5 +16,5 @@ export async function GET(req: Request) {
   const status = STATUSES.find((s) => s === params.get("status"));
   const domain = DOMAINS.find((d) => d === params.get("domain"));
   const limit = Math.min(Math.max(Number(params.get("limit")) || 100, 1), 500);
-  return Response.json(await listSignals({ status, domain, limit }));
+  return Response.json(await listSignals(resolved.tenant.tenantId, { status, domain, limit }));
 }

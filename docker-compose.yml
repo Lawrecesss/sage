@@ -67,6 +67,9 @@ services:
       # lookups); lib/report-store.ts also owns one per-tenant table, `reports`.
       DATABASE_URL: postgresql://sage:${POSTGRES_PASSWORD:-sage}@db:5432/sage
       DEFAULT_TENANT_ID: ${DEFAULT_TENANT_ID:-demo}
+      # Dashboard/metrics/signals read live Postgres (lib/live.ts) instead of
+      # src/mocks/ — see that file's header for what stays mock and why.
+      SAGE_DATA_SOURCE: ${SAGE_DATA_SOURCE:-live}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
