@@ -34,7 +34,7 @@ const METRICS = metricsCatalog as Metric[];
 // ── Briefs ───────────────────────────────────────────────────────────────
 // Always mock, even in live mode: a real Brief needs causal_chain/severity output
 // from a Correlator that doesn't exist yet (see lib/live.ts's header comment). These
-// are called unconditionally by /history and /api/brief, so — same reasoning as
+// are called unconditionally by /reports and /api/brief, so — same reasoning as
 // getRecommended below — they degrade to illustrative data instead of throwing and
 // breaking those pages.
 
@@ -42,7 +42,7 @@ export async function getLatestBrief(): Promise<Brief | null> {
   return MOCK_BRIEF_HISTORY[0] ?? null;
 }
 
-/** Newest first — the History page's list. */
+/** Newest first — the Reports page's list. */
 export async function listBriefs(): Promise<Brief[]> {
   return MOCK_BRIEF_HISTORY;
 }

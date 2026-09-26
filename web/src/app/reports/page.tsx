@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BriefItemCard } from "@/components/brief/BriefItemCard";
 import { KpiStrip } from "@/components/brief/KpiStrip";
-import styles from "@/components/history/history.module.css";
+import styles from "@/components/reports/reports.module.css";
 import { TopBar } from "@/components/shell/TopBar";
 import { ButtonLink, ChipLink, DomainMark, EmptyState } from "@/components/ui";
 import { listBriefs } from "@/lib/data";
 import { formatDate, formatDateTime, formatImpact } from "@/lib/format";
 import type { Brief, Domain } from "@/lib/types";
 
-export const metadata: Metadata = { title: "History" };
+export const metadata: Metadata = { title: "Reports" };
 export const dynamic = "force-dynamic";
 
 const DOMAINS: Domain[] = ["sales", "inventory", "accounting"];
@@ -17,7 +17,7 @@ const DOMAINS: Domain[] = ["sales", "inventory", "accounting"];
 const impactOf = (b: Brief) => b.items.reduce((sum, i) => sum + i.dollar_impact_est, 0);
 const domainsOf = (b: Brief) => [...new Set(b.items.map((i) => i.domain))];
 
-export default async function HistoryPage({
+export default async function ReportsPage({
   searchParams,
 }: {
   searchParams: Promise<{ brief?: string; domain?: string; q?: string }>;
@@ -42,13 +42,13 @@ export default async function HistoryPage({
     const d = next.domain ?? domain;
     if (d) qs.set("domain", d);
     if (next.brief) qs.set("brief", next.brief);
-    return `/history${qs.size ? `?${qs}` : ""}`;
+    return `/reports${qs.size ? `?${qs}` : ""}`;
   };
 
   return (
     <>
       <TopBar
-        title="History"
+        title="Reports"
         subtitle={`${all.length} briefs · newest first`}
         actions={<ButtonLink href="/?q=%2Fmorning-brief">Generate now</ButtonLink>}
       />

@@ -2,24 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { NewChatLink } from "@/components/chat/NewChatLink";
+import { ChatHistory } from "./ChatHistory";
 import { ThemeToggle } from "./ThemeToggle";
 import styles from "./shell.module.css";
 
+// `match` is the path prefix that marks an item active; Chat's href `/` redirects to a
+// fresh `/chat/<sessionId>`, so it is active anywhere under `/chat`.
 const NAV = [
-  { href: "/", label: "Chat", icon: ChatIcon, exact: true },
-  { href: "/history", label: "History", icon: HistoryIcon },
-  { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
+  { href: "/", match: "/chat", label: "Chat", icon: ChatIcon, history: true },
+  { href: "/reports", match: "/reports", label: "Reports", icon: ReportsIcon },
+  { href: "/dashboard", match: "/dashboard", label: "Dashboard", icon: DashboardIcon },
 ];
+
+const HISTORY_OPEN_KEY = "sage.chatHistoryOpen";
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true);
   const pathname = usePathname();
-  const isActive = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href));
+
+  // Remember whether the chat history is expanded (read after mount: localStorage is client-only).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(HISTORY_OPEN_KEY) === "false") setHistoryOpen(false);
+    } catch {}
+  }, []);
+
+  function toggleHistory() {
+    setHistoryOpen((open) => {
+      try {
+        localStorage.setItem(HISTORY_OPEN_KEY, String(!open));
+      } catch {}
+      return !open;
+    });
+  }
+  const isActive = (match: string) => pathname === match || pathname.startsWith(`${match}/`);
 
   return (
     <aside className={styles.sidebar} data-collapsed={collapsed || undefined}>
-      <Link href="/" className={styles.brand} title="Sage">
+      <NewChatLink className={styles.brand} title="Sage">
         <span className={styles.logo} aria-hidden>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <rect x="0" y="0" width="5" height="5" fill="currentColor" />
@@ -29,20 +52,51 @@ export function Sidebar() {
           </svg>
         </span>
         {!collapsed && <span className={styles.brandName}>SAGE</span>}
-      </Link>
+      </NewChatLink>
 
       <nav className={styles.nav} aria-label="Main">
-        {NAV.map(({ href, label, icon: Icon, exact }) => (
-          <Link
-            key={href}
-            href={href}
-            title={label}
-            className={isActive(href, exact) ? styles.navActive : styles.navLink}
-            aria-current={isActive(href, exact) ? "page" : undefined}
-          >
-            <Icon />
-            {!collapsed && <span>{label}</span>}
-          </Link>
+        {NAV.map(({ href, match, label, icon: Icon, history }) => (
+          <div key={href} className={styles.navRow} data-active={isActive(match) || undefined}>
+            {href === "/" ? (
+              // Chat starts a new session; see NewChatLink for why this isn't a <Link href="/">.
+              <NewChatLink title={label} className={isActive(match) ? styles.navActive : styles.navLink}>
+                <Icon />
+                {!collapsed && <span>{label}</span>}
+              </NewChatLink>
+            ) : (
+              <Link
+                href={href}
+                title={label}
+                className={isActive(match) ? styles.navActive : styles.navLink}
+                aria-current={isActive(match) ? "page" : undefined}
+              >
+                <Icon />
+                {!collapsed && <span>{label}</span>}
+              </Link>
+            )}
+            {history && !collapsed && (
+              <button
+                type="button"
+                className={styles.navToggle}
+                onClick={toggleHistory}
+                aria-expanded={historyOpen}
+                aria-label={historyOpen ? "Hide chat history" : "Show chat history"}
+                title={historyOpen ? "Hide chat history" : "Show chat history"}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  aria-hidden
+                  style={{ transform: historyOpen ? "rotate(90deg)" : undefined }}
+                >
+                  <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
+            {history && !collapsed && historyOpen && <ChatHistory />}
+          </div>
         ))}
       </nav>
 
@@ -85,11 +139,11 @@ function ChatIcon() {
   );
 }
 
-function HistoryIcon() {
+function ReportsIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M3.5 1.5h6l3 3v10h-9v-13z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M9.5 1.5v3h3M5.5 8h5M5.5 10.5h5M5.5 13h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }

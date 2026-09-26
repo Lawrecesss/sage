@@ -62,6 +62,182 @@
   gap: 2px;
   padding: 10px 8px;
   flex: 1;
+  /* The chat history can grow long; it scrolls inside the nav, the footer stays put. */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Nav row: an item, its optional toggle, and (for Chat) its history ── */
+
+.navRow {
+  position: relative;
+}
+
+.navRow > a {
+  padding-right: 30px;
+}
+
+.navToggle {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.navToggle svg {
+  transition: transform 0.15s ease;
+}
+
+.navToggle:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.navRow[data-active] .navToggle {
+  color: var(--on-accent);
+}
+
+.navRow[data-active] .navToggle:hover {
+  background: rgba(127, 127, 127, 0.25);
+}
+
+/* ── Chat history ────────────────────────────────────────────────────── */
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 10px 17px;
+  padding-left: 9px;
+  border-left: 1px solid var(--border);
+}
+
+.historyNew {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--text-muted);
+}
+
+.historyNew:hover {
+  border-style: solid;
+  color: var(--text);
+  background: var(--surface-muted);
+}
+
+.historyEmpty {
+  margin: 0;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.historyLabel {
+  padding: 0 8px 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.historyList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.historyItem,
+.historyItemActive {
+  position: relative;
+  border-radius: var(--radius);
+}
+
+.historyItem:hover {
+  background: var(--surface-muted);
+}
+
+.historyItemActive {
+  background: var(--surface-muted);
+  box-shadow: inset 2px 0 0 var(--text);
+}
+
+.historyLink {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 26px 5px 8px;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.historyTitle {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyItem:hover .historyTitle,
+.historyItemActive .historyTitle {
+  color: var(--text);
+}
+
+.historyItemActive .historyTitle {
+  font-weight: 600;
+}
+
+.historyTime {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.historyDelete {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.historyItem:hover .historyDelete,
+.historyItemActive:hover .historyDelete,
+.historyDelete:focus-visible {
+  opacity: 1;
+}
+
+.historyDelete:hover {
+  background: var(--border);
+  color: var(--text);
 }
 
 .navLink,
