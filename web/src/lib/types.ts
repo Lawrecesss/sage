@@ -186,13 +186,20 @@ export type Report = ReportSummary & { blocks: ContentBlock[] };
 export type ChatEvent =
   | { type: "text"; delta: string }
   | { type: "block"; block: Exclude<ContentBlock, MarkdownBlock> }
+  /** The model's thinking, incrementally — shown in the reply's "Thinking" panel, not the answer. */
+  | { type: "thinking"; delta: string }
+  /** A tool call starting (e.g. "retail__compare_periods") — a step in the "Thinking" panel. */
+  | { type: "step"; tool: string }
   | { type: "done"; report?: ReportSummary }
   | { type: "error"; error: string };
+
+/** The "Thinking" panel of one reply, in order: runs of thinking text and the tool calls between them. */
+export type ThinkingStep = { kind: "thought"; text: string } | { kind: "tool"; tool: string };
 
 /** One turn as the UI holds it. History lives server-side in OpenClaw, so this is never sent. */
 export type ChatMessage =
   | { role: "user"; content: string }
-  | { role: "assistant"; blocks: ContentBlock[]; report?: ReportSummary };
+  | { role: "assistant"; blocks: ContentBlock[]; report?: ReportSummary; thinking?: ThinkingStep[] };
 
 // --- Dashboard page: KPIs, charts, signals (mocked today — see src/mocks) ---
 //

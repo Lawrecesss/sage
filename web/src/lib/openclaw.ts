@@ -23,7 +23,14 @@ export class OpenClawError extends Error {
 }
 
 /**
- * Runs one agent turn and returns the reply as a stream of text deltas.
+ * One piece of a streamed agent turn: reply text, the model's thinking, or a tool call starting.
+ * Thinking and tool steps come from our OpenClaw patch (openclaw/patches/stream-thinking.mjs),
+ * as `delta.reasoning_content` and `delta.sage_tool` next to the usual `delta.content`.
+ */
+export type AgentPart = { type: "text"; delta: string } | { type: "thinking"; delta: string } | { type: "tool"; name: string };
+
+/**
+ * Runs one agent turn and returns it as a stream of AgentParts.
  *
  * OpenClaw keeps conversation history server-side, keyed by `user`, so only the
  * new message is sent. Tool calls (retail MCP) happen inside the gateway's loop.
@@ -35,13 +42,13 @@ export class OpenClawError extends Error {
  * retail-mcp independently validates tenant_id server-side; this is not a
  * hard security boundary against a fully adversarial prompt injection.
  */
-export async function streamAgentReply(
+export async function streamAgentParts(
   message: string,
   sessionId: string,
   tenantId: string,
   modules: string[],
   signal?: AbortSignal,
-): Promise<ReadableStream<string>> {
+): Promise<ReadableStream<AgentPart>> {
   const token = process.env.OPENCLAW_TOKEN;
   if (!token) throw new OpenClawError("OPENCLAW_TOKEN is not set", 500);
 
@@ -69,7 +76,23 @@ export async function streamAgentReply(
 
   // undici types its body as node:stream/web's ReadableStream; at runtime it's the same Web Stream.
   const body = res.body as unknown as ReadableStream<BufferSource>;
-  return body.pipeThrough(new TextDecoderStream()).pipeThrough(sseContentDeltas());
+  return body.pipeThrough(new TextDecoderStream()).pipeThrough(sseAgentParts());
+}
+
+/** Just the reply text of an AgentPart stream — for readers that don't show thinking. */
+export function replyText(parts: ReadableStream<AgentPart>): ReadableStream<string> {
+  return parts.pipeThrough(
+    new TransformStream<AgentPart, string>({
+      transform(part, controller) {
+        if (part.type === "text") controller.enqueue(part.delta);
+      },
+    }),
+  );
+}
+
+/** streamAgentParts, reply text only (the scheduled-report path, which nobody watches). */
+export async function streamAgentReply(...args: Parameters<typeof streamAgentParts>): Promise<ReadableStream<string>> {
+  return replyText(await streamAgentParts(...args));
 }
 
 /**
@@ -106,8 +129,8 @@ export async function completeAgentReply(
   return typeof body.choices?.[0]?.message?.content === "string" ? body.choices[0].message.content : "";
 }
 
-/** Turns an OpenAI chat-completions SSE stream into its `delta.content` strings. */
-function sseContentDeltas(): TransformStream<string, string> {
+/** Turns an OpenAI chat-completions SSE stream into AgentParts. */
+function sseAgentParts(): TransformStream<string, AgentPart> {
   let buffer = "";
   return new TransformStream({
     transform(chunk, controller) {
@@ -119,8 +142,12 @@ function sseContentDeltas(): TransformStream<string, string> {
           if (!line.startsWith("data: ")) continue;
           const data = line.slice(6).trim();
           if (data === "[DONE]") return;
-          const content = JSON.parse(data).choices?.[0]?.delta?.content;
-          if (content) controller.enqueue(content);
+          const delta = JSON.parse(data).choices?.[0]?.delta ?? {};
+          if (typeof delta.reasoning_content === "string" && delta.reasoning_content) {
+            controller.enqueue({ type: "thinking", delta: delta.reasoning_content });
+          }
+          if (typeof delta.sage_tool?.name === "string") controller.enqueue({ type: "tool", name: delta.sage_tool.name });
+          if (typeof delta.content === "string" && delta.content) controller.enqueue({ type: "text", delta: delta.content });
         }
       }
     },
