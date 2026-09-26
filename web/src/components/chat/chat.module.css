@@ -704,3 +704,61 @@
     max-width: 88%;
   }
 }
+
+/* ── Thinking panel (ThinkingPanel.tsx) ───────────────────────────────── */
+
+.thinkingPanel {
+  margin: 0 0 var(--space-3);
+  border-left: 2px solid var(--hairline);
+  padding-left: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.thinkingSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  list-style: none;
+  user-select: none;
+}
+
+.thinkingSummary::-webkit-details-marker {
+  display: none;
+}
+
+.thinkingSummary:hover {
+  color: var(--text);
+}
+
+.thinkingSummary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.thinkingSteps {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.thinkingThought {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.thinkingTool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}

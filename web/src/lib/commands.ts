@@ -119,6 +119,7 @@ function anomalyLines(anomalies: Anomaly[]): string[] {
         .join("; ")}`,
       ...(a.action ? [`  Suggested action: ${a.action}`] : []),
     ]),
+    "These figures are exact: they come straight from the sales table (gross revenue, refunds excluded). A SKU that a tool result leaves out had zero sales in that period, and a refund is not a sale — never estimate or fill in a figure the tools didn't return.",
     "Confirm each with the tools before reporting it, and say so if the tools disagree. For an item up while another is down in the same category, consider substitution (one out of stock or repriced). The suggested actions come from simple stock rules: keep, sharpen or replace each one based on what the tools show.",
   ];
 }

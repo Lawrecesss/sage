@@ -19,7 +19,8 @@
     "react-dom": "19.0.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "svg-to-pdfkit": "^0.1.8"
+    "svg-to-pdfkit": "^0.1.8",
+    "undici": "^6.29.0"
   },
   "devDependencies": {
     "@types/node": "^20",

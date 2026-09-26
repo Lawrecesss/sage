@@ -1,7 +1,7 @@
 // Shared by every route that runs one agent turn and streams the reply back: request-body
 // parsing and the streamed response (see the models in types.ts).
 import { ChartSplitter, type Part, chartToMarkdown } from "@/lib/chart-blocks";
-import { OpenClawError, streamAgentReply } from "@/lib/openclaw";
+import { type AgentPart, OpenClawError, replyText, streamAgentParts, streamAgentReply } from "@/lib/openclaw";
 import { type ReportFileMeta, buildReportFiles } from "@/lib/report-file";
 import { saveReport } from "@/lib/report-store";
 import { type ResolvedTenant, UnknownTenantError, resolveTenant } from "@/lib/tenant";
@@ -38,14 +38,14 @@ export function parseReportRequest(body: unknown): Parsed<ReportRequest> {
 }
 
 /**
- * Text deltas -> NDJSON `ChatEvent`s: prose as `text`, each complete ```chart fence as a
+ * Agent parts -> NDJSON `ChatEvent`s: thinking as `thinking`, tool calls as `step`, prose as `text`, each complete ```chart fence as a
  * `block`, then (if `file` is given) the exported file as the last block, and finally
  * exactly one `done` or `error`.
  */
-function toEventStream(text: ReadableStream<string>, path: string, file?: ReportFileMeta): ReadableStream<Uint8Array> {
+function toEventStream(parts: ReadableStream<AgentPart>, path: string, file?: ReportFileMeta): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const line = (event: ChatEvent) => encoder.encode(`${JSON.stringify(event)}\n`);
-  const reader = text.getReader();
+  const reader = parts.getReader();
   const splitter = new ChartSplitter();
   const blocks: ContentBlock[] = []; // the reply so far, for the exported file
 
@@ -68,7 +68,14 @@ function toEventStream(text: ReadableStream<string>, path: string, file?: Report
       try {
         for (;;) {
           const { done, value } = await reader.read();
-          const events = toEvents(done ? splitter.end() : splitter.push(value));
+          // Thinking and tool steps aren't part of the answer: they skip the chart splitter and
+          // the exported file, and go straight to the client's "Thinking" panel.
+          const events: ChatEvent[] =
+            value?.type === "thinking"
+              ? [{ type: "thinking", delta: value.delta }]
+              : value?.type === "tool"
+                ? [{ type: "step", tool: value.name }]
+                : toEvents(done ? splitter.end() : splitter.push(value?.delta ?? ""));
           for (const event of events) controller.enqueue(line(event));
           if (done) {
             if (file) {
@@ -209,7 +216,7 @@ export async function agentResponse(
     // mid-reply — so, unlike chat, don't tie the upstream call to the client's abort signal:
     // req.signal aborts the one shared fetch behind both tee() branches, not just the
     // client-facing one, and a disconnect shouldn't be able to kill a report mid-save.
-    const agentStream = await streamAgentReply(
+    const agentStream = await streamAgentParts(
       message,
       sessionId,
       tenant.tenantId,
@@ -221,14 +228,15 @@ export async function agentResponse(
       // Fire-and-forget: this is a long-lived container process, not a serverless function
       // torn down at response time, so the recording finishes even though the response
       // doesn't wait on it — a slow write must never delay the reply the user is reading.
-      recordReport(path, tenant.tenantId, sessionId, options.report, forStorage, options.file);
+      // Saved reports keep the answer only, not the thinking behind it.
+      recordReport(path, tenant.tenantId, sessionId, options.report, replyText(forStorage), options.file);
     }
     if (req.headers.get("accept")?.includes(NDJSON)) {
       return new Response(toEventStream(stream, path, options.file), {
         headers: { "Content-Type": `${NDJSON}; charset=utf-8`, "Cache-Control": "no-store" },
       });
     }
-    return new Response(toPlainStream(stream), {
+    return new Response(toPlainStream(replyText(stream)), {
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
     });
   } catch (err) {

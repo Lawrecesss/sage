@@ -18,6 +18,9 @@ COPY --chown=node:node docker-entrypoint.sh /opt/sage/docker-entrypoint.sh
 # which means node must own the directory, not just the files in it.
 USER root
 RUN chown node:node /opt/sage && chmod +x /opt/sage/docker-entrypoint.sh
+# Stream the agent's thinking and tool steps over the HTTP API (see the script's header).
+COPY patches/stream-thinking.mjs /tmp/stream-thinking.mjs
+RUN node /tmp/stream-thinking.mjs && rm /tmp/stream-thinking.mjs
 USER node
 
 EXPOSE 18789
