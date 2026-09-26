@@ -19,7 +19,7 @@
 // connection can never leak one tenant's search_path into another request.
 
 import { getPool } from "@/lib/db";
-import type { ContentBlock, FileRef, Report, ReportKind, ReportSummary } from "@/lib/types";
+import type { Anomaly, ContentBlock, FileRef, Report, ReportKind, ReportSummary } from "@/lib/types";
 
 // Same shape provision.py enforces for tenant_id (it's used as a Postgres schema/identifier).
 const VALID_SCHEMA = /^[a-z][a-z0-9_]{0,62}$/;
@@ -49,6 +49,8 @@ async function ensureTable(tenantId: string): Promise<void> {
       files jsonb NOT NULL DEFAULT '[]'
     )
   `);
+  // Added after the table first shipped, so tables created before it get it here.
+  await getPool().query(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS anomalies jsonb NOT NULL DEFAULT '[]'`);
   await getPool().query(`CREATE INDEX IF NOT EXISTS reports_generated_at_idx ON ${t} (generated_at DESC)`);
   ensured.add(tenantId);
 }
@@ -63,6 +65,7 @@ export type NewReport = {
   partial: boolean;
   blocks: ContentBlock[];
   file?: FileRef;
+  anomalies?: Anomaly[];
 };
 
 /** First line of the reply's markdown, if any — good enough for a list view's one-liner. */
@@ -78,8 +81,8 @@ export async function saveReport(tenantId: string, report: NewReport): Promise<s
   const files: FileRef[] = report.file ? [report.file] : [];
   await getPool().query(
     `INSERT INTO "${tenantId}".reports
-       (id, kind, title, session_id, generated_at, period_start, period_end, partial, headline, blocks, files)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+       (id, kind, title, session_id, generated_at, period_start, period_end, partial, headline, blocks, files, anomalies)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
     [
       id,
       report.kind,
@@ -92,6 +95,7 @@ export async function saveReport(tenantId: string, report: NewReport): Promise<s
       headlineOf(report.blocks) ?? null,
       JSON.stringify(report.blocks),
       JSON.stringify(files),
+      JSON.stringify(report.anomalies ?? []),
     ],
   );
   return id;
@@ -108,6 +112,8 @@ type ReportRow = {
   headline: string | null;
   blocks: ContentBlock[];
   files: FileRef[];
+  /** Missing on a table ensureTable hasn't migrated yet (nothing saved since the column landed). */
+  anomalies?: Anomaly[];
 };
 
 function toSummary(row: ReportRow): ReportSummary {
@@ -121,17 +127,23 @@ function toSummary(row: ReportRow): ReportSummary {
     partial: row.partial,
     headline: row.headline ?? undefined,
     files: row.files,
+    anomalies: row.anomalies ?? [],
   };
 }
 
-/** Newest first — for a future `/reports` or `GET /api/reports` reading real reports. */
-export async function listReports(tenantId: string, limit = 50): Promise<ReportSummary[]> {
+/** Whether this tenant has a reports table yet — none exists until its first report is saved. */
+async function hasTable(tenantId: string): Promise<boolean> {
   assertValidSchema(tenantId);
   const exists = await getPool().query(
     `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'reports'`,
     [tenantId],
   );
-  if (exists.rows.length === 0) return []; // no report has ever been generated for this tenant yet
+  return exists.rows.length > 0;
+}
+
+/** Newest first — the Reports page's list. */
+export async function listReports(tenantId: string, limit = 50): Promise<ReportSummary[]> {
+  if (!(await hasTable(tenantId))) return []; // no report has ever been generated for this tenant yet
   const { rows } = await getPool().query<ReportRow>(
     `SELECT * FROM "${tenantId}".reports ORDER BY generated_at DESC LIMIT $1`,
     [limit],
@@ -140,13 +152,26 @@ export async function listReports(tenantId: string, limit = 50): Promise<ReportS
 }
 
 export async function getReport(tenantId: string, id: string): Promise<Report | null> {
-  assertValidSchema(tenantId);
-  const exists = await getPool().query(
-    `SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = 'reports'`,
-    [tenantId],
-  );
-  if (exists.rows.length === 0) return null;
+  if (!(await hasTable(tenantId))) return null;
   const { rows } = await getPool().query<ReportRow>(`SELECT * FROM "${tenantId}".reports WHERE id = $1`, [id]);
   const row = rows[0];
   return row ? { ...toSummary(row), blocks: row.blocks } : null;
+}
+
+/** Deletes one report. False if there was no such report. */
+export async function deleteReport(tenantId: string, id: string): Promise<boolean> {
+  if (!(await hasTable(tenantId))) return false;
+  const { rowCount } = await getPool().query(`DELETE FROM "${tenantId}".reports WHERE id = $1`, [id]);
+  return (rowCount ?? 0) > 0;
+}
+
+/** Whether a `kind` report covering the window starting at `periodStart` is already saved — how
+ * the scheduler avoids running the same slot twice (restarts, several replicas). */
+export async function hasReportFor(tenantId: string, kind: ReportKind, periodStart: Date): Promise<boolean> {
+  if (!(await hasTable(tenantId))) return false;
+  const { rows } = await getPool().query(
+    `SELECT 1 FROM "${tenantId}".reports WHERE kind = $1 AND period_start = $2 LIMIT 1`,
+    [kind, periodStart.toISOString()],
+  );
+  return rows.length > 0;
 }

@@ -86,6 +86,15 @@ With `SAGE_DATA_SOURCE=mock` (the default), Dashboard, Reports, Signals and Metr
 
 Chat needs more: `POST /api/chat` resolves the tenant before calling OpenClaw (`x-tenant-id` header, else `DEFAULT_TENANT_ID`) by reading `shared.tenants` — so it needs OpenClaw **and** Postgres with the control-plane tables seeded. Run `make up` and `make seed` from the repo root; without a database the route answers `502 tenant lookup unavailable`, and for a tenant that isn't active, `404`.
 
+## Reports
+
+Reports are saved per tenant (`lib/report-store.ts`) and listed on `/reports`, where each one can be discussed in chat, **exported as PDF** (`GET /api/reports/saved/[id]/pdf`, rendered server-side by `lib/report-pdf.ts`) or **deleted** (`DELETE /api/reports/saved/[id]`).
+
+- **On demand:** `POST /api/reports/[name]` for the slash-command reports (`lib/commands.ts`).
+- **Every 6 hours:** `lib/auto-reports.ts`, started from `src/instrumentation.ts`, runs a `six-hour-report` for each tenant with the retail module once each 00/06/12/18 (business time, `SAGE_TIMEZONE`) slot has closed. It checks every 15 minutes, so a restart catches up on the missed slot instead of skipping it; an advisory lock plus a "already saved?" check make it safe on several replicas. `SAGE_AUTO_REPORTS=off` turns it off.
+- **Anomaly scan:** before every report, `lib/anomalies.ts` compares SKU gross revenue with the previous period (at least 7 days each, since sales are by date only) and flags hard movers — above all, *divergences*: one SKU grossing up while another in the same category grosses down. The findings go into the prompt for the agent to confirm and explain, and are saved with the report (shown above the prose and in the PDF).
+
+
 ## Multi-tenancy
 
 This app is the frontend *and* the backend (ARCHITECTURE.md §2) — the API routes here are the backend. Tenant identity is dev-mode only for now: `lib/tenant.ts` resolves it per request and `lib/openclaw.ts` threads it to the agent. Business data is per-tenant Postgres schemas (§3.2), so when `lib/data.ts` grows its `live` branch, its functions take the resolved tenant as their first argument. Mock mode deliberately ignores tenancy.

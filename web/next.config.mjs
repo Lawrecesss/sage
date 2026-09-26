@@ -3,6 +3,9 @@ const nextConfig = {
   // This app is its own root; without this Next walks up and picks a stray
   // lockfile in the home directory as the workspace root.
   outputFileTracingRoot: import.meta.dirname,
+  // pdfkit reads its built-in font metrics from its own package folder at runtime, which
+  // breaks once bundled — load it from node_modules instead (lib/report-pdf.ts).
+  serverExternalPackages: ["pdfkit"],
   experimental: {
     // Explicit, not relying on the default: `dynamic = "force-dynamic"` pages
     // (dashboard, metrics/signals detail) must never be served from the

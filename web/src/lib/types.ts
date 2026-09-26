@@ -105,13 +105,42 @@ export type TableBlock = {
 export type FileBlock = { type: "file"; file: FileRef };
 export type ContentBlock = MarkdownBlock | ChartBlock | TableBlock | FileBlock;
 
-/** The prebuilt reports — the same names as the commands in commands.ts. */
+/** The prebuilt reports — the same names as the commands in commands.ts. "six-hour-report"
+ * is the one the scheduler (lib/auto-reports.ts) runs by itself every 6 hours. */
 export type ReportKind =
   | "morning-brief"
   | "afternoon-report"
   | "evening-report"
   | "daily-report"
-  | "weekly-report";
+  | "weekly-report"
+  | "six-hour-report";
+
+/** One SKU's gross (non-refund) revenue in the anomaly scan's current and previous periods. */
+export type AnomalyItem = {
+  sku: string;
+  name: string;
+  category: string;
+  /** SGD. */
+  current: number;
+  previous: number;
+  /** Fractional: 0.42 = +42%. Null when there were no previous sales to compare against. */
+  change: number | null;
+};
+
+/**
+ * Something the pre-report scan (lib/anomalies.ts) flagged, handed to the agent to explain and
+ * saved with the report. `divergence` is the "A is up while B is down" case: two SKUs in the
+ * same category moving hard in opposite directions (substitution, a stock-out, a price change).
+ */
+export type Anomaly = {
+  kind: "divergence" | "surge" | "drop";
+  severity: Severity;
+  summary: string;
+  items: AnomalyItem[];
+  /** ISO dates (inclusive) of the two periods compared. */
+  period: { start: string; end: string };
+  baseline: { start: string; end: string };
+};
 
 /** One row of the Reports page (the sheet view): enough to list, sort and open without the body. */
 export type ReportSummary = {
@@ -128,6 +157,8 @@ export type ReportSummary = {
   headline?: string;
   /** Exports of this report (md, pdf, ...). */
   files: FileRef[];
+  /** What the anomaly scan flagged when the report was generated. Empty for older reports. */
+  anomalies: Anomaly[];
 };
 
 /**

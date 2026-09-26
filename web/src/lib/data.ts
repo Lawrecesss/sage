@@ -17,7 +17,11 @@ import { DASHBOARD, QUERY_FREQUENCY, RECOMMENDED } from "@/mocks/dashboard";
 import { MOCK_BRIEF_HISTORY, MOCK_SIGNALS, mockSeries } from "@/mocks/fixtures";
 import metricsCatalog from "@/mocks/metrics.json";
 import { liveDomainDashboard, liveMetricSeries, liveSignal, liveSignals } from "./live";
-import { getReport as getStoredReport, listReports as listStoredReports } from "./report-store";
+import {
+  deleteReport as deleteStoredReport,
+  getReport as getStoredReport,
+  listReports as listStoredReports,
+} from "./report-store";
 import type {
   Brief,
   Domain,
@@ -56,6 +60,11 @@ export async function listReports(tenantId: string, limit?: number): Promise<Rep
 
 export async function getReport(tenantId: string, reportId: string): Promise<Report | null> {
   return getStoredReport(tenantId, reportId);
+}
+
+/** False if there was no such report. */
+export async function deleteReport(tenantId: string, reportId: string): Promise<boolean> {
+  return deleteStoredReport(tenantId, reportId);
 }
 
 // ── Signals ──────────────────────────────────────────────────────────────
