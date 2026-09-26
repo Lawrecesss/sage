@@ -125,6 +125,12 @@ export type AnomalyItem = {
   previous: number;
   /** Fractional: 0.42 = +42%. Null when there were no previous sales to compare against. */
   change: number | null;
+  /** Current stock (negative = oversold). Null if the SKU has no stock records. Absent on older reports. */
+  onHand?: number | null;
+  /** Days the stock lasts at the current period's sales pace. Null if it isn't selling. */
+  daysOfCover?: number | null;
+  /** The SKU's supplier lead time, for comparing against daysOfCover. */
+  leadTimeDays?: number;
 };
 
 /**
@@ -137,6 +143,8 @@ export type Anomaly = {
   severity: Severity;
   summary: string;
   items: AnomalyItem[];
+  /** What to do about it, from the stock and lead-time rules in anomalies.ts. Absent on older reports. */
+  action?: string;
   /** ISO dates (inclusive) of the two periods compared. */
   period: { start: string; end: string };
   baseline: { start: string; end: string };

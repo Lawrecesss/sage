@@ -108,13 +108,18 @@ function anomalyLines(anomalies: Anomaly[]): string[] {
   return [
     "",
     `Flagged anomalies (gross revenue by SKU, ${period.start} to ${period.end} vs ${baseline.start} to ${baseline.end}, computed before this run):`,
-    ...anomalies.map(
-      (a) =>
-        `- [${a.severity}] ${a.summary} — ${a.items
-          .map((i) => `${i.name} (${i.sku}): SGD ${i.previous.toFixed(0)} -> ${i.current.toFixed(0)}, ${pct(i.change)}`)
-          .join("; ")}`,
-    ),
-    "Confirm each with the tools before reporting it, and say so if the tools disagree. For an item up while another is down in the same category, consider substitution (one out of stock or repriced).",
+    ...anomalies.flatMap((a) => [
+      `- [${a.severity}] ${a.summary} — ${a.items
+        .map(
+          (i) =>
+            `${i.name} (${i.sku}): SGD ${i.previous.toFixed(0)} -> ${i.current.toFixed(0)}, ${pct(i.change)}` +
+            (i.onHand != null ? `, ${i.onHand} on hand` : "") +
+            (i.daysOfCover != null ? ` (~${Math.round(i.daysOfCover)} days cover, ${i.leadTimeDays}-day lead time)` : ""),
+        )
+        .join("; ")}`,
+      ...(a.action ? [`  Suggested action: ${a.action}`] : []),
+    ]),
+    "Confirm each with the tools before reporting it, and say so if the tools disagree. For an item up while another is down in the same category, consider substitution (one out of stock or repriced). The suggested actions come from simple stock rules: keep, sharpen or replace each one based on what the tools show.",
   ];
 }
 
@@ -134,6 +139,8 @@ export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date,
     "Cover, in this order:",
     ...command.focus.map((f) => `- ${f}`),
     ...anomalyLines(anomalies),
+    "",
+    "End with a section headed exactly `## Recommended actions`: a numbered list of the 3–5 most important things to do next, highest dollar impact first. Each one starts with a verb, names the SKU, channel or supplier it's about, and says in one clause why (the figure behind it).",
     "",
     "Rules:",
     "- Call the retail tools and use only figures they return.",

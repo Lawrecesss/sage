@@ -278,13 +278,19 @@ function anomalies(doc: Doc, list: Anomaly[]) {
     doc.font(FONT.bold).fontSize(7.5).fillColor(SEVERITY_COLOR[a.severity]).text(a.severity.toUpperCase(), left, y, { width: 50 });
     doc.font(FONT.bold).fontSize(10).fillColor(COLOR.text).text(clean(a.summary), left + 52, y - 1, { width: width - 52 });
     for (const it of a.items) {
+      const stock = it.onHand == null ? "" : it.onHand <= 0 ? ", out of stock" : `, ${it.onHand} in stock`;
       doc
         .font(FONT.regular)
         .fontSize(8.5)
         .fillColor(COLOR.muted)
-        .text(clean(`${it.name} (${it.sku}, ${it.category}): ${money(it.previous)} -> ${money(it.current)}, ${pct(it.change)}`), left + 52, doc.y, {
+        .text(clean(`${it.name} (${it.sku}, ${it.category}): ${money(it.previous)} -> ${money(it.current)}, ${pct(it.change)}${stock}`), left + 52, doc.y, {
           width: width - 52,
         });
+    }
+    if (a.action) {
+      doc.moveDown(0.2);
+      doc.font(FONT.bold).fontSize(9).fillColor(COLOR.accent).text("Recommended: ", left + 52, doc.y, { width: width - 52, continued: true });
+      doc.font(FONT.regular).fillColor(COLOR.text).text(clean(a.action));
     }
     doc.moveDown(0.5);
   }

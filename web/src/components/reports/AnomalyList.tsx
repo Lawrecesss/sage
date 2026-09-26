@@ -1,6 +1,6 @@
 // The anomaly scan's findings for a saved report (lib/anomalies.ts), above the agent's prose.
 
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Lightbulb } from "lucide-react";
 import styles from "@/components/reports/reports.module.css";
 import { SeverityBadge } from "@/components/ui";
 import { formatMoney, formatShortDate } from "@/lib/format";
@@ -21,6 +21,11 @@ function Item({ item }: { item: AnomalyItem }) {
           {formatMoney(item.previous)} → {formatMoney(item.current)}
         </span>
         <span className={`num ${up ? styles.up : styles.down}`}>{change}</span>
+        {item.onHand != null && (
+          <span className={`num ${item.onHand <= 0 ? styles.down : ""}`}>
+            {item.onHand <= 0 ? "Out of stock" : `${item.onHand} in stock`}
+          </span>
+        )}
       </span>
     </li>
   );
@@ -53,6 +58,14 @@ export function AnomalyList({ anomalies }: { anomalies: Anomaly[] }) {
                 <Item key={item.sku} item={item} />
               ))}
             </ul>
+            {a.action && (
+              <p className={styles.anomalyAction}>
+                <Lightbulb size={14} strokeWidth={2} aria-hidden />
+                <span>
+                  <strong>Recommended:</strong> {a.action}
+                </span>
+              </p>
+            )}
           </li>
         ))}
       </ul>
