@@ -63,7 +63,9 @@ async function ensureTable(tenantId: string): Promise<void> {
  * ever generated one report was proving the table exists again on every single click. Checking
  * `ensured` first (populated by ensureTable() the first time this tenant saves a report, or by
  * this function's own first successful probe) means that round trip is paid at most once per
- * tenant per server process instead of once per request. */
+ * tenant per server process instead of once per request. Also runs the same `anomalies` column
+ * migration ensureTable() does — a table from before that column existed would otherwise 42703
+ * the very first time this tenant's reports are *read* rather than saved. */
 async function tableKnownToExist(tenantId: string): Promise<boolean> {
   if (ensured.has(tenantId)) return true;
   assertValidSchema(tenantId);
@@ -72,6 +74,7 @@ async function tableKnownToExist(tenantId: string): Promise<boolean> {
     [tenantId],
   );
   if (rows.length === 0) return false;
+  await getPool().query(`ALTER TABLE "${tenantId}".reports ADD COLUMN IF NOT EXISTS anomalies jsonb NOT NULL DEFAULT '[]'`);
   ensured.add(tenantId);
   return true;
 }
