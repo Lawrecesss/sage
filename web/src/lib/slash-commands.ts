@@ -6,8 +6,12 @@
 // ReportCommand in lib/commands.ts exactly (checked in parseInput via findCommand), and
 // instead of a client-built prompt they dispatch to POST /api/reports/<name> — the same
 // tenant-scoped, window-aware report the Reports/Dashboard side runs, not a one-off summary.
+// Their `prompt` below is never actually sent (see ParsedInput.prompt) — it only fires if
+// findCommand somehow fails to match a name that's right there in the same array, which
+// shouldn't happen — so it's generated from commands.ts's own definition (reportPromptFallback)
+// rather than hand-written, so it can never silently drift from what the real report asks for.
 
-import { findCommand } from "@/lib/commands";
+import { type ReportCommand, findCommand } from "@/lib/commands";
 
 export interface SlashCommand {
   name: string; // without the leading slash
@@ -16,43 +20,52 @@ export interface SlashCommand {
   prompt: (arg: string) => string;
 }
 
+/** Single source of truth is commands.ts — this just restates that command's own sections as
+ * plain prose, so it can never say something the real report (buildPrompt) doesn't also say. */
+function reportPromptFallback(name: string): (arg: string) => string {
+  return () => {
+    const command = findCommand(name) as ReportCommand | undefined;
+    if (!command) return `Run the ${name} report.`;
+    return [
+      `Run the ${command.title}.`,
+      `- Scorecard: ${command.scorecardMetrics.join(", ")} vs. baseline.`,
+      ...command.sections.map((s) => `- ${s.heading}: ${s.detail}`),
+    ].join("\n");
+  };
+}
+
 export const SLASH_COMMANDS: SlashCommand[] = [
   {
     name: "morning-brief",
-    description: "Today's top issues, ranked by dollar impact",
-    prompt: () =>
-      "Give me this morning's brief: the top open signals ranked by dollar impact, what connects them, and one recommended action each.",
+    description: "Trading vs last night's close, today's biggest drivers, and top risks by dollar impact",
+    prompt: reportPromptFallback("morning-brief"),
   },
   {
     name: "afternoon-report",
-    description: "Trading pace so far today, and what's still fixable before close",
-    prompt: () =>
-      "Give me the afternoon report: trading pace against the baseline, developing issues, and what can still be fixed before close.",
+    description: "Afternoon pace vs this morning, developing issues, and what's still fixable before close",
+    prompt: reportPromptFallback("afternoon-report"),
   },
   {
     name: "evening-report",
-    description: "Evening trading, refunds, and what to prep for tomorrow",
-    prompt: () =>
-      "Give me the evening report: evening trading against the baseline, refunds and the biggest movers, and what to prepare for tomorrow morning.",
+    description: "Evening vs this afternoon, refunds and channel-mix shifts, and what to prep for tomorrow",
+    prompt: reportPromptFallback("evening-report"),
   },
   {
     name: "daily-report",
-    description: "Yesterday's sales, stock and cash in one summary",
-    prompt: () =>
-      "Summarise yesterday across sales, inventory and accounting: key numbers against normal, and anything unusual.",
+    description: "Today's full-day scorecard vs yesterday, top movers, and priorities for tomorrow",
+    prompt: reportPromptFallback("daily-report"),
   },
   {
     name: "weekly-report",
-    description: "This week vs last, top drivers, and priorities for next week",
-    prompt: () =>
-      "Give me the weekly report: this week against the prior week, the top drivers, and priorities for next week.",
+    description: "This week vs last week, top drivers, and priorities for next week",
+    prompt: reportPromptFallback("weekly-report"),
   },
   {
     name: "explain",
     description: "Explain one signal and its likely cause",
     args: "<signal-id>",
     prompt: (arg) =>
-      `Explain signal ${arg || "(ask me which one)"}: what moved, by how much against expected, the likely cause across domains, and what to do.`,
+      `Explain signal ${arg || "(ask me which one)"}: what moved, by how much against the baseline, the most likely cause (check across domains — sales, inventory, suppliers, accounts), and one recommended action.`,
   },
 ];
 
