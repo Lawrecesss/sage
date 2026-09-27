@@ -22,9 +22,6 @@
       // AGENTS.md / SOUL.md / IDENTITY.md are baked into the image (openclaw/workspace).
       workspace: "/opt/sage/workspace",
       skipBootstrap: true,
-      // How hard the model thinks, sent to OpenRouter as `reasoning.effort`. The thinking is
-      // streamed to the web UI (patches/stream-thinking.mjs) and shown as "Thinking" steps.
-      thinkingDefault: "medium",
     },
   },
   // Only the retail MCP tools (+ session_status). `session_status` keeps the
@@ -50,13 +47,13 @@
           {
             id: "${OPENROUTER_MODEL}",
             name: "OpenRouter model",
-            // true so OpenClaw asks for reasoning (effort from thinkingDefault above).
-            reasoning: true,
+            // No extended thinking: the agent loop already reasons through tool calls,
+            // and thinking on top made each turn much slower.
+            reasoning: false,
             input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
             contextWindow: 200000,
-            // Thinking shares this with tool calls and the answer.
-            maxTokens: 32768,
+            maxTokens: 8192,
           },
         ],
       },
