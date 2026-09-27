@@ -171,6 +171,23 @@ export type ReportSummary = {
 };
 
 /**
+ * One entry in the top-bar notification bell (lib/notifications.ts): an anomaly a saved report's
+ * scan flagged. `critical` is a high-severity one; the rest are plain anomalies. `id` is stable
+ * for the life of the report, so the browser can remember which ones have been seen.
+ */
+export type AnomalyNotification = {
+  id: string;
+  critical: boolean;
+  severity: Severity;
+  kind: Anomaly["kind"];
+  summary: string;
+  reportId: string;
+  reportTitle: string;
+  /** ISO timestamp of the report run the anomaly came from. */
+  generatedAt: string;
+};
+
+/**
  * A saved report, opened from the Reports page. Now actually persisted (lib/report-store.ts)
  * for every /api/reports/[name] call — see the note on `Brief` below for how this relates to
  * it.
@@ -186,13 +203,20 @@ export type Report = ReportSummary & { blocks: ContentBlock[] };
 export type ChatEvent =
   | { type: "text"; delta: string }
   | { type: "block"; block: Exclude<ContentBlock, MarkdownBlock> }
+  /** The model's thinking, incrementally — shown in the reply's "Thinking" panel, not the answer. */
+  | { type: "thinking"; delta: string }
+  /** A tool call starting (e.g. "retail__compare_periods") — a step in the "Thinking" panel. */
+  | { type: "step"; tool: string }
   | { type: "done"; report?: ReportSummary }
   | { type: "error"; error: string };
+
+/** The "Thinking" panel of one reply, in order: runs of thinking text and the tool calls between them. */
+export type ThinkingStep = { kind: "thought"; text: string } | { kind: "tool"; tool: string };
 
 /** One turn as the UI holds it. History lives server-side in OpenClaw, so this is never sent. */
 export type ChatMessage =
   | { role: "user"; content: string }
-  | { role: "assistant"; blocks: ContentBlock[]; report?: ReportSummary };
+  | { role: "assistant"; blocks: ContentBlock[]; report?: ReportSummary; thinking?: ThinkingStep[] };
 
 // --- Dashboard page: KPIs, charts, signals (mocked today — see src/mocks) ---
 //

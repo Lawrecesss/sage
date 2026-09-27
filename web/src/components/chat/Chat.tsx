@@ -11,15 +11,16 @@ import { loadTranscript, refreshChatTitle, saveTranscript, shouldRetitle } from 
 import { findCommand } from "@/lib/commands";
 import { chatPath, newSessionId } from "@/lib/session-id";
 import { parseInput, SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
-import type { ChatEvent, ContentBlock } from "@/lib/types";
+import type { ChatEvent, ContentBlock, ThinkingStep } from "@/lib/types";
 import styles from "./chat.module.css";
+import { ThinkingPanel } from "./ThinkingPanel";
 
 type Message =
   | { role: "user"; content: string }
   // `reportTitle` is set only for a report-command reply (morning-brief, ...) — it switches
   // the reply's rendering to ReportInsights (KPI strip + auto-charted breakdown) instead of
   // plain MessageBlocks, the same rich view the Reports page gives that same report.
-  | { role: "assistant"; blocks: ContentBlock[]; reportTitle?: string };
+  | { role: "assistant"; blocks: ContentBlock[]; reportTitle?: string; thinking?: ThinkingStep[] };
 
 const NDJSON = "application/x-ndjson";
 const MAX_INPUT_HEIGHT = 220;
@@ -149,6 +150,19 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
         }
         if (event.type === "block") {
           return [...m.slice(0, -1), { ...last, blocks: [...last.blocks, event.block] }];
+        }
+        // Thinking deltas extend the current run of thought; a tool call starts a new step.
+        if (event.type === "thinking") {
+          const steps = last.thinking ?? [];
+          const prev = steps.at(-1);
+          const thinking: ThinkingStep[] =
+            prev?.kind === "thought"
+              ? [...steps.slice(0, -1), { kind: "thought", text: prev.text + event.delta }]
+              : [...steps, { kind: "thought", text: event.delta }];
+          return [...m.slice(0, -1), { ...last, thinking }];
+        }
+        if (event.type === "step") {
+          return [...m.slice(0, -1), { ...last, thinking: [...(last.thinking ?? []), { kind: "tool", tool: event.tool }] }];
         }
         if (event.type === "error") {
           return [...m.slice(0, -1), { ...last, blocks: [...last.blocks, { type: "markdown", text: `\n[error: ${event.error}]` }] }];
@@ -324,6 +338,11 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                 </span>
                 <div className={styles.assistantText}>
                   <span className="visually-hidden">Sage:</span>
+                  {/* Live until the answer starts arriving (or the turn ends), then it folds away. */}
+                  <ThinkingPanel
+                    steps={m.thinking ?? []}
+                    live={busy && i === messages.length - 1 && m.blocks.length === 0}
+                  />
                   {m.blocks.length > 0 &&
                     (m.reportTitle && !(busy && i === messages.length - 1) ? (
                       // Once the reply has finished streaming, a report command gets the same

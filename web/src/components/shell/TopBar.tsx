@@ -1,9 +1,11 @@
+import { NotificationBell } from "./NotificationBell";
 import styles from "./shell.module.css";
 
 /**
  * Page header. The title and its one-line description stack on the left; `controls`
  * (tabs, filters) sit beside them on wide screens and wrap below on narrow ones; `actions`
- * stay on the right. Actions are page-specific — navigation lives in the sidebar only.
+ * stay on the right, followed by the notification bell, which every page gets. Actions are
+ * page-specific — navigation lives in the sidebar only.
  */
 export function TopBar({
   title,
@@ -26,7 +28,10 @@ export function TopBar({
         {subtitle && <p className={styles.pageSubtitle}>{subtitle}</p>}
       </div>
       {tabs && <div className={styles.topbarControls}>{tabs}</div>}
-      {actions && <div className={styles.topbarRight}>{actions}</div>}
+      <div className={styles.topbarRight}>
+        {actions}
+        <NotificationBell />
+      </div>
     </header>
   );
 }
