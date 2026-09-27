@@ -50,8 +50,8 @@
           {
             id: "${OPENROUTER_MODEL}",
             name: "OpenRouter model",
-            // true so OpenClaw asks for reasoning (effort from thinkingDefault above).
-            reasoning: true,
+            // false so OpenClaw never asks for reasoning, regardless of thinkingDefault above.
+            reasoning: false,
             input: ["text"],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
             contextWindow: 200000,
