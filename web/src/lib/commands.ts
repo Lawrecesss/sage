@@ -3,7 +3,8 @@
 // the agent uses the retail tools it already has (tenant scoping is added in tenant.ts).
 //
 // The reports follow the usual retail cadence: three dayparts that partition the trading day
-// (00–12, 12–18, 18–24, business-local time), then period-close reports (day, week).
+// (00–12, 12–18, 18–24, business-local time), then period-close reports (day, week). The
+// enquiry-report is the one that isn't about trading: it covers the customer-enquiry backlog.
 
 import type { ReportFileMeta } from "@/lib/report-file";
 import { type ReportWindow, type WindowSpec, formatLocal, localDate, localTime } from "@/lib/report-windows";
@@ -31,6 +32,16 @@ export type ReportCommand = {
    * command wants beyond the standard actual-vs-baseline row (e.g. a trailing average, a
    * same-day pace check). Omit when the table alone is enough. */
   scorecardNote?: string;
+  /** The scorecard's column headers, when the default dollar-variance ones don't fit (e.g.
+   * counts of enquiries). Always five: metric, actual, baseline, absolute and % change. */
+  scorecardColumns?: [string, string, string, string, string];
+  /** Which deterministic pre-scan feeds the prompt its facts (run by the report route):
+   * "anomalies" (the default — SKU revenue movements, lib/anomalies.ts) or "enquiries"
+   * (the customer-enquiry backlog, lib/enquiries.ts). */
+  scan?: "anomalies" | "enquiries";
+  /** Replaces the default "highest dollar impact first" ordering rule of the closing
+   * `## Recommended actions` list, for a report where urgency, not dollars, sets the order. */
+  actionsOrder?: string;
   /** Supporting sections, in the order they must appear — the analysis and evidence for the
    * headline, most material first (see buildPrompt's MECE/ordering rule). The opening one-line
    * summary, the scorecard and the closing `## Recommended actions` are added by `buildPrompt`
@@ -125,6 +136,47 @@ export const COMMANDS: ReportCommand[] = [
     ],
   },
   {
+    name: "enquiry-report",
+    aliases: ["enquiries", "customer-enquiries"],
+    title: "customer enquiry report",
+    // Today so far vs yesterday at the same time (same-length baseline, so computeWindow clips
+    // it to the same elapsed fraction). The backlog figures are snapshots at each window's end.
+    window: { kind: "day", startHour: 0, endHour: 24, baseline: { startHour: 0, endHour: 24, dayOffset: 1 } },
+    baselineLabel: "yesterday at the same point in the day",
+    scan: "enquiries",
+    scorecardMetrics: [
+      "open enquiries",
+      "overdue",
+      "needing immediate attention",
+      "received",
+      "resolved",
+      "resolved within SLA (%)",
+      "median first response (hours)",
+    ],
+    scorecardColumns: ["Metric", "Now", "Baseline", "Change", "Change (%)"],
+    scorecardNote:
+      "Take every figure from get_customer_enquiries, called twice: once with as_of set to this window's end (or its \"so far\" point if partial) and window_start set to this window's start, and once with the baseline window's end and start. Open, overdue and needing-immediate-attention are backlog snapshots at that moment (the `backlog` fields); received, resolved, within-SLA and first-response cover the window (the `flow` fields). For the backlog rows, more is worse — say so if the backlog grew.",
+    sections: [
+      {
+        heading: "Needs immediate attention",
+        detail:
+          "Every enquiry marked immediate, most urgent first, as a Markdown table with columns exactly `Enquiry | Customer issue | Priority | Overdue by | Next step` — the enquiry ID, its subject, its priority, how late it is, and one concrete next step (call the customer, chase the courier, approve the refund, ...). If there are none, say so in one sentence.",
+      },
+      {
+        heading: "Overdue backlog",
+        detail:
+          "The other overdue enquiries (not already listed above) summarised by topic as a two-column table (topic, overdue count), highest first, then one line naming the oldest one and how late it is. Say whether the overdue backlog grew or shrank vs the baseline.",
+      },
+      {
+        heading: "Root causes",
+        detail:
+          "What is behind the overdue enquiries: check with the other retail tools whether they cluster on a SKU (stock levels, supplier delays), on refunds, or on one channel or contact method. Name each cause once, with the enquiry IDs it explains.",
+      },
+    ],
+    actionsOrder:
+      "most urgent first (immediate-attention enquiries before the rest). Each one starts with a verb, names the enquiry ID(s), SKU, channel or supplier it's about, and says in one clause why (the figure behind it).",
+  },
+  {
     // Not a slash command: lib/auto-reports.ts runs this on its own every 6 hours.
     name: "six-hour-report",
     title: "6-hour report",
@@ -197,7 +249,14 @@ function anomalyLines(anomalies: Anomaly[]): string[] {
  * metrics/note, the sections' content and (for a sub-day window) the data-availability note
  * below vary by command.
  */
-export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date, anomalies: Anomaly[] = []): string {
+export function buildPrompt(
+  command: ReportCommand,
+  w: ReportWindow,
+  asOf: Date,
+  anomalies: Anomaly[] = [],
+  /** Pre-computed facts from a command's non-anomaly scan (e.g. enquiryPromptLines). */
+  scanLines: string[] = [],
+): string {
   // Local time for the reader, UTC ISO for precision.
   const at = (d: Date) => `${formatLocal(d)} [${d.toISOString()}]`;
 
@@ -209,6 +268,14 @@ export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date,
   const dataNote = subDay
     ? `Sales data is by calendar date only, with no time-of-day breakdown available — the figures below are the full day of ${localDate(w.start)}, not limited to ${localTime(w.start)}–${localTime(w.end)}.`
     : undefined;
+
+  const [metricCol, actualCol, baselineCol, changeCol, changePctCol] = command.scorecardColumns ?? [
+    "Metric",
+    "Actual",
+    "Baseline",
+    "Variance ($)",
+    "Variance (%)",
+  ];
 
   return [
     `Run the ${command.title}.`,
@@ -225,15 +292,19 @@ export function buildPrompt(command: ReportCommand, w: ReportWindow, asOf: Date,
     ...(dataNote
       ? [`- Immediately after it, as its own separate paragraph (a blank line before and after, not appended to the summary sentence), include this verbatim — do not paraphrase or reword it: "${dataNote}"`]
       : []),
-    "- Then a section headed exactly `## Scorecard`: a Markdown table, one row per metric, columns exactly `Metric | Actual | Baseline | Variance ($) | Variance (%)`, in this metric order: " +
+    `- Then a section headed exactly \`## Scorecard\`: a Markdown table, one row per metric, columns exactly \`${metricCol} | ${actualCol} | ${baselineCol} | ${changeCol} | ${changePctCol}\`, in this metric order: ` +
       command.scorecardMetrics.join(", ") +
-      ". Actual and Baseline come from the tools for this window and the baseline window above; Variance is Actual minus Baseline. Write every Variance cell with an explicit leading `+` or `-` sign (e.g. `+$1,240`, `-3.2%`) so the direction is unmistakable at a glance, never a bare number.",
+      `. ${actualCol} and ${baselineCol} come from the tools for this window and the baseline window above; ${changeCol} is ${actualCol} minus ${baselineCol}. Write every change cell with an explicit leading \`+\` or \`-\` sign (e.g. \`${command.scorecardColumns ? "+3" : "+$1,240"}\`, \`-3.2%\`) so the direction is unmistakable at a glance, never a bare number.`,
     ...(command.scorecardNote ? [`  ${command.scorecardNote}`] : []),
     "- Then these supporting sections, each headed with `##` exactly as written below, in this order: together they must fully explain the scorecard above (nothing material left unaccounted for), each naming a driver, SKU or channel at most once across all of them (no repeats between sections), and any ranked list inside a section goes highest dollar impact first. Wherever a section ranks things by dollar impact (drivers, movers, risks), present that ranking as its own two-column Markdown table — name in column 1, dollar impact in column 2 — instead of a prose list or bullets: it renders as a bar chart automatically, which a store owner scans far faster than a paragraph.",
     ...command.sections.map((s) => `  ## ${s.heading} — ${s.detail}`),
     ...anomalyLines(anomalies),
+    ...scanLines,
     "",
-    "- End with a section headed exactly `## Recommended actions`: a numbered list of the 3–5 most important things to do next, highest dollar impact first. Each one starts with a verb, names the SKU, channel or supplier it's about, and says in one clause why (the figure behind it).",
+    `- End with a section headed exactly \`## Recommended actions\`: a numbered list of the 3–5 most important things to do next, ${
+      command.actionsOrder ??
+      "highest dollar impact first. Each one starts with a verb, names the SKU, channel or supplier it's about, and says in one clause why (the figure behind it)."
+    }`,
     "",
     "Rules:",
     "- Call the retail tools for every figure; never estimate or guess a number.",

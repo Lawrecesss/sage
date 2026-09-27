@@ -17,10 +17,6 @@
       "sku",
       "store"
     ],
-    "detectors": [
-      "zscore_7d",
-      "wow_change"
-    ],
     "owner_domain": "sales"
   },
   {
@@ -41,10 +37,6 @@
       "sku",
       "store"
     ],
-    "detectors": [
-      "zscore_7d",
-      "wow_change"
-    ],
     "owner_domain": "sales"
   },
   {
@@ -62,10 +54,6 @@
     "dimensions": [
       "channel",
       "category"
-    ],
-    "detectors": [
-      "zscore_7d",
-      "wow_change"
     ],
     "owner_domain": "sales"
   },
@@ -86,10 +74,6 @@
       "category",
       "sku"
     ],
-    "detectors": [
-      "zscore_7d",
-      "wow_change"
-    ],
     "owner_domain": "sales"
   },
   {
@@ -106,9 +90,6 @@
     ],
     "dimensions": [
       "channel"
-    ],
-    "detectors": [
-      "wow_change"
     ],
     "owner_domain": "sales"
   },
@@ -128,10 +109,6 @@
       "category",
       "channel"
     ],
-    "detectors": [
-      "zscore_7d",
-      "wow_change"
-    ],
     "owner_domain": "sales"
   },
   {
@@ -150,10 +127,6 @@
       "sku",
       "channel"
     ],
-    "detectors": [
-      "zscore_7d",
-      "threshold_breach"
-    ],
     "owner_domain": "sales"
   },
   {
@@ -169,9 +142,6 @@
     ],
     "dimensions": [
       "channel"
-    ],
-    "detectors": [
-      "wow_change"
     ],
     "owner_domain": "sales"
   },
@@ -190,9 +160,6 @@
       "category",
       "store"
     ],
-    "detectors": [
-      "threshold_breach"
-    ],
     "owner_domain": "inventory"
   },
   {
@@ -210,10 +177,6 @@
       "category",
       "store"
     ],
-    "detectors": [
-      "threshold_breach",
-      "zscore_7d"
-    ],
     "owner_domain": "inventory"
   },
   {
@@ -230,9 +193,6 @@
       "sku",
       "category"
     ],
-    "detectors": [
-      "threshold_breach"
-    ],
     "owner_domain": "inventory"
   },
   {
@@ -247,9 +207,6 @@
     ],
     "dimensions": [
       "category"
-    ],
-    "detectors": [
-      "wow_change"
     ],
     "owner_domain": "inventory"
   },
@@ -268,9 +225,6 @@
       "category",
       "sku"
     ],
-    "detectors": [
-      "wow_change"
-    ],
     "owner_domain": "inventory"
   },
   {
@@ -287,10 +241,6 @@
     "dimensions": [
       "supplier",
       "category"
-    ],
-    "detectors": [
-      "zscore_7d",
-      "wow_change"
     ],
     "owner_domain": "inventory"
   },
@@ -309,9 +259,6 @@
       "supplier",
       "sku"
     ],
-    "detectors": [
-      "threshold_breach"
-    ],
     "owner_domain": "inventory"
   },
   {
@@ -327,9 +274,6 @@
     "dimensions": [
       "category",
       "store"
-    ],
-    "detectors": [
-      "threshold_breach"
     ],
     "owner_domain": "inventory"
   },
@@ -347,9 +291,6 @@
     "dimensions": [
       "category",
       "supplier"
-    ],
-    "detectors": [
-      "zscore_7d"
     ],
     "owner_domain": "inventory"
   },
@@ -369,10 +310,6 @@
       "category",
       "channel"
     ],
-    "detectors": [
-      "zscore_7d",
-      "wow_change"
-    ],
     "owner_domain": "accounting"
   },
   {
@@ -389,10 +326,6 @@
     "dimensions": [
       "category",
       "channel"
-    ],
-    "detectors": [
-      "zscore_7d",
-      "wow_change"
     ],
     "owner_domain": "accounting"
   },
@@ -411,9 +344,6 @@
       "category",
       "supplier"
     ],
-    "detectors": [
-      "wow_change"
-    ],
     "owner_domain": "accounting"
   },
   {
@@ -431,9 +361,6 @@
       "category",
       "channel"
     ],
-    "detectors": [
-      "wow_change"
-    ],
     "owner_domain": "accounting"
   },
   {
@@ -449,9 +376,6 @@
     ],
     "dimensions": [
       "ageing_bucket"
-    ],
-    "detectors": [
-      "threshold_breach"
     ],
     "owner_domain": "accounting"
   },
@@ -470,9 +394,6 @@
       "ageing_bucket",
       "supplier"
     ],
-    "detectors": [
-      "threshold_breach"
-    ],
     "owner_domain": "accounting"
   },
   {
@@ -487,9 +408,6 @@
       "month"
     ],
     "dimensions": [],
-    "detectors": [
-      "wow_change"
-    ],
     "owner_domain": "accounting"
   },
   {
@@ -504,9 +422,6 @@
     ],
     "dimensions": [
       "expense_category"
-    ],
-    "detectors": [
-      "wow_change"
     ],
     "owner_domain": "accounting"
   }

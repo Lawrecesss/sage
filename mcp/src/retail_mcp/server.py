@@ -114,6 +114,19 @@ _FRESHNESS_TABLES = {
 }
 
 
+# get_customer_enquiries: how the backlog is triaged. Kept in step with web's
+# lib/enquiries.ts (the dashboard section and the enquiry report's pre-scan) so
+# the agent and the dashboard never disagree about what needs attention.
+# An open enquiry is "immediate" when it is past its due_at AND any of: high or
+# urgent priority, a complaint, still unanswered, or 48h+ late. Other late ones
+# are "overdue"; ones due within the next _DUE_SOON_HOURS are "due_soon".
+_ENQUIRY_PRIORITY_RANK = {"urgent": 0, "high": 1, "normal": 2, "low": 3}
+_ENQUIRY_ATTENTION_RANK = {"immediate": 0, "overdue": 1, "due_soon": 2, "on_track": 3}
+_ENQUIRY_LONG_OVERDUE_HOURS = 48
+_DUE_SOON_HOURS = 4
+_MAX_ENQUIRY_WINDOW_DAYS = 90
+
+
 def _clamp_limit(limit: int) -> int:
     return max(1, min(int(limit), _MAX_LIMIT))
 
@@ -1567,6 +1580,199 @@ def simulate_reorder_impact(
             }
         )
         return result
+
+
+def _parse_timestamp(value: str, name: str) -> datetime:
+    """ISO-8601 date or timestamp -> aware datetime (a naive value is taken as UTC)."""
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an ISO-8601 timestamp or YYYY-MM-DD, got {value!r}") from exc
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def _enquiry_attention(hours_overdue: float, priority: str, topic: str, responded: bool) -> str:
+    if hours_overdue > 0:
+        if (
+            priority in ("urgent", "high")
+            or topic == "complaint"
+            or not responded
+            or hours_overdue >= _ENQUIRY_LONG_OVERDUE_HOURS
+        ):
+            return "immediate"
+        return "overdue"
+    return "due_soon" if -hours_overdue <= _DUE_SOON_HOURS else "on_track"
+
+
+@mcp.tool(annotations={"readOnlyHint": True})
+def get_customer_enquiries(
+    tenant_id: str,
+    as_of: str | None = None,
+    window_start: str | None = None,
+    limit: int = _DEFAULT_LIMIT,
+) -> dict:
+    """Customer enquiries (order status, delivery problems, refunds, billing,
+    complaints, product and stock questions): the open backlog as of a moment,
+    triaged so overdue ones and the ones needing immediate attention come first,
+    plus how the team handled enquiries over a recent window.
+
+    Args:
+        tenant_id: The tenant to query. Pass it exactly as given in the
+            system message for this conversation.
+        as_of: The moment to evaluate the backlog at, ISO-8601 (e.g.
+            "2026-09-27T15:00:00+08:00"). Defaults to now. Pass an earlier
+            moment to get a baseline backlog (e.g. this time yesterday).
+        window_start: Start of the handling window the "flow" figures cover,
+            ISO-8601. Defaults to 24 hours before as_of; at most 90 days.
+        limit: Max open enquiries listed in "items", most urgent first.
+            Default 50, capped at 500. Backlog counts always cover all of them.
+
+    Status is derived as of `as_of`, never stored: an enquiry is open if it
+    was created by then and not yet resolved; overdue if open and past its
+    due_at (the resolution target set by its priority's SLA: urgent 4h,
+    high 24h, normal 48h, low 72h). Each open enquiry's "attention" is:
+    "immediate" (overdue AND high/urgent priority, a complaint, never
+    answered, or 48h+ late), "overdue" (any other late one), "due_soon"
+    (due within 4 hours), or "on_track".
+
+    Returns one dict:
+      as_of, window_start;
+      backlog: open, overdue, immediate, due_soon, unanswered (open with no
+        first reply yet), value_at_stake_sgd (order value linked to open
+        enquiries), by_priority {priority: {open, overdue}}, by_topic
+        {topic: {open, overdue}};
+      flow (inside the window): received, resolved, resolved_within_sla,
+        sla_hit_rate (resolved_within_sla / resolved, null if none
+        resolved), median_first_response_hours and median_resolution_hours
+        (for enquiries received in the window and answered / resolved by
+        as_of; null if none);
+      items: open enquiries, most urgent first (attention, then priority,
+        then most overdue) — enquiry_id, created_at, subject, topic,
+        priority, channel, contact_method, segment, order_id, sku, sku_name,
+        value_at_stake_sgd, due_at, hours_overdue (negative = hours left),
+        age_hours, responded, attention.
+    """
+    as_of_ts = _parse_timestamp(as_of, "as_of") if as_of is not None else datetime.now(UTC)
+    start_ts = (
+        _parse_timestamp(window_start, "window_start")
+        if window_start is not None
+        else as_of_ts - timedelta(hours=24)
+    )
+    if start_ts >= as_of_ts:
+        raise ValueError("window_start must be before as_of")
+    if as_of_ts - start_ts > timedelta(days=_MAX_ENQUIRY_WINDOW_DAYS):
+        raise ValueError(f"window_start can be at most {_MAX_ENQUIRY_WINDOW_DAYS} days before as_of")
+    limit = _clamp_limit(limit)
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        assert_tenant_active(conn, tenant_id)
+        conn.execute(text(f'SET search_path TO "{tenant_id}"'))
+
+        open_rows = conn.execute(
+            text(
+                """
+                SELECT e.enquiry_id, e.created_at, e.subject, e.topic, e.priority, e.channel,
+                       e.contact_method, e.segment, e.order_id, e.sku, s.name AS sku_name,
+                       e.value_at_stake_sgd, e.due_at,
+                       EXTRACT(EPOCH FROM (CAST(:as_of AS timestamptz) - e.due_at)) / 3600 AS hours_overdue,
+                       EXTRACT(EPOCH FROM (CAST(:as_of AS timestamptz) - e.created_at)) / 3600 AS age_hours,
+                       COALESCE(e.first_response_at <= CAST(:as_of AS timestamptz), false) AS responded
+                FROM fact_customer_enquiry e
+                LEFT JOIN dim_sku s ON s.sku = e.sku
+                WHERE e.created_at <= CAST(:as_of AS timestamptz)
+                  AND (e.resolved_at IS NULL OR e.resolved_at > CAST(:as_of AS timestamptz))
+                """
+            ),
+            {"as_of": as_of_ts},
+        ).mappings().all()
+
+        flow = conn.execute(
+            text(
+                """
+                WITH w AS (
+                    SELECT *,
+                           created_at > CAST(:start AS timestamptz) AS received_in_window,
+                           (resolved_at > CAST(:start AS timestamptz)
+                            AND resolved_at <= CAST(:as_of AS timestamptz)) AS resolved_in_window
+                    FROM fact_customer_enquiry
+                    WHERE created_at <= CAST(:as_of AS timestamptz)
+                      AND (created_at > CAST(:start AS timestamptz) OR resolved_at > CAST(:start AS timestamptz))
+                )
+                SELECT
+                    COUNT(*) FILTER (WHERE received_in_window) AS received,
+                    COUNT(*) FILTER (WHERE resolved_in_window) AS resolved,
+                    COUNT(*) FILTER (WHERE resolved_in_window AND resolved_at <= due_at) AS resolved_within_sla,
+                    percentile_cont(0.5) WITHIN GROUP (
+                        ORDER BY EXTRACT(EPOCH FROM (first_response_at - created_at)) / 3600
+                    ) FILTER (
+                        WHERE received_in_window AND first_response_at <= CAST(:as_of AS timestamptz)
+                    ) AS median_first_response_hours,
+                    percentile_cont(0.5) WITHIN GROUP (
+                        ORDER BY EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600
+                    ) FILTER (
+                        WHERE received_in_window AND resolved_at <= CAST(:as_of AS timestamptz)
+                    ) AS median_resolution_hours
+                FROM w
+                """
+            ),
+            {"start": start_ts, "as_of": as_of_ts},
+        ).mappings().one()
+
+    items = []
+    for row in open_rows:
+        item = dict(row)
+        hours_overdue = float(item["hours_overdue"])
+        item["hours_overdue"] = round(hours_overdue, 1)
+        item["age_hours"] = round(float(item["age_hours"]), 1)
+        item["attention"] = _enquiry_attention(hours_overdue, item["priority"], item["topic"], item["responded"])
+        items.append(item)
+    items.sort(
+        key=lambda i: (
+            _ENQUIRY_ATTENTION_RANK[i["attention"]],
+            _ENQUIRY_PRIORITY_RANK.get(i["priority"], len(_ENQUIRY_PRIORITY_RANK)),
+            -i["hours_overdue"],
+        )
+    )
+
+    by_priority: dict[str, dict] = {}
+    by_topic: dict[str, dict] = {}
+    for i in items:
+        for bucket, key in ((by_priority, i["priority"]), (by_topic, i["topic"])):
+            entry = bucket.setdefault(key, {"open": 0, "overdue": 0})
+            entry["open"] += 1
+            entry["overdue"] += int(i["attention"] in ("immediate", "overdue"))
+
+    def _hours(v) -> float | None:
+        return None if v is None else round(float(v), 1)
+
+    resolved = int(flow["resolved"])
+    within = int(flow["resolved_within_sla"])
+    return {
+        "as_of": as_of_ts.isoformat(),
+        "window_start": start_ts.isoformat(),
+        "backlog": {
+            "open": len(items),
+            "overdue": sum(1 for i in items if i["attention"] in ("immediate", "overdue")),
+            "immediate": sum(1 for i in items if i["attention"] == "immediate"),
+            "due_soon": sum(1 for i in items if i["attention"] == "due_soon"),
+            "unanswered": sum(1 for i in items if not i["responded"]),
+            "value_at_stake_sgd": round(sum(i["value_at_stake_sgd"] or 0 for i in items), 2),
+            "by_priority": dict(
+                sorted(by_priority.items(), key=lambda kv: _ENQUIRY_PRIORITY_RANK.get(kv[0], len(_ENQUIRY_PRIORITY_RANK)))
+            ),
+            "by_topic": dict(sorted(by_topic.items(), key=lambda kv: (-kv[1]["overdue"], -kv[1]["open"], kv[0]))),
+        },
+        "flow": {
+            "received": int(flow["received"]),
+            "resolved": resolved,
+            "resolved_within_sla": within,
+            "sla_hit_rate": round(within / resolved, 3) if resolved else None,
+            "median_first_response_hours": _hours(flow["median_first_response_hours"]),
+            "median_resolution_hours": _hours(flow["median_resolution_hours"]),
+        },
+        "items": items[:limit],
+    }
 
 
 @mcp.tool(annotations={"readOnlyHint": True})

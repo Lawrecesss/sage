@@ -2,7 +2,7 @@ import dash from "@/components/dashboard/dashboard.module.css";
 import shell from "@/components/shell/shell.module.css";
 import { Skeleton } from "@/components/ui";
 
-/** Mirrors the Dashboard layout: KPI grid, recommended strip, charts, signals table. */
+/** Mirrors the Dashboard layout: KPI grid, recommended strip, charts, anomalies, enquiries. */
 export default function Loading() {
   return (
     <div aria-busy="true" aria-label="Loading dashboard" style={{ display: "contents" }}>

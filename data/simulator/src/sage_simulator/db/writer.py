@@ -98,3 +98,4 @@ def seed(
         _bulk_insert(conn, schema.fact_purchase_order, [asdict(row) for row in dataset.purchase_orders])
         _bulk_insert(conn, schema.fact_invoice, [asdict(row) for row in dataset.invoices])
         _bulk_insert(conn, schema.fact_bill, [asdict(row) for row in dataset.bills])
+        _bulk_insert(conn, schema.fact_customer_enquiry, [asdict(row) for row in dataset.enquiries])

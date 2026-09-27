@@ -23,6 +23,7 @@ join two or more domains in a single call rather than living in one.
 | Inventory | `get_inventory_status` | `fact_stock_movement` |
 | Suppliers | `get_supplier_performance`, `get_expected_deliveries` | `fact_purchase_order` |
 | Accounts | `get_accounts_status` | `fact_invoice` (receivable), `fact_bill` (payable) |
+| Customer service | `get_customer_enquiries` | `fact_customer_enquiry` |
 | Composite (cross-domain) | `get_business_health_summary` (sales+inventory+suppliers+accounts), `get_stockout_root_causes` (inventory+suppliers), `compare_periods` (sales), `get_attention_items` (sales+inventory+suppliers+accounts), `get_benchmark_gap_analysis` (sales+accounts), `get_cash_flow_forecast` (sales+accounts), `simulate_reorder_impact` (inventory+suppliers) | multiple |
 | Meta / infrastructure | `ping`, `describe_schema`, `get_data_freshness` | none / all tables (introspection) |
 
@@ -340,6 +341,38 @@ So `status` will only ever be `"received_on_time"` or `"received_late"` for
 this data; `"not_yet_received"` is real, handled code (for a production
 tenant whose live data could have genuinely pending orders with a null
 `received_date`), but structurally unreachable against `demo`'s seeded data.
+
+## `get_customer_enquiries(tenant_id, as_of=None, window_start=None, limit=50)`
+
+Customer enquiries (order status, delivery problems, refunds, billing,
+complaints, product and stock questions): the open backlog **as of** a
+moment, triaged, plus how enquiries were handled over a window.
+
+- `as_of` — ISO-8601 timestamp to evaluate the backlog at; defaults to now.
+  Pass an earlier moment for a baseline (the enquiry report uses "this time
+  yesterday").
+- `window_start` — start of the handling window the `flow` figures cover;
+  defaults to 24h before `as_of`, at most 90 days.
+- `limit` — max open enquiries in `items`, most urgent first (default 50,
+  max 500). Backlog counts always cover every open enquiry.
+
+Status is **derived, never stored**: open = created by `as_of` and not yet
+resolved; overdue = open and past `due_at` (the resolution target from the
+priority's SLA — urgent 4h, high 24h, normal 48h, low 72h). Each open
+enquiry gets an `attention` level: `immediate` (overdue AND high/urgent, a
+complaint, never answered, or 48h+ late), `overdue`, `due_soon` (due within
+4h) or `on_track`.
+
+Returns `{as_of, window_start, backlog, flow, items}`:
+`backlog` has `open`, `overdue`, `immediate`, `due_soon`, `unanswered`,
+`value_at_stake_sgd`, `by_priority`, `by_topic`; `flow` has `received`,
+`resolved`, `resolved_within_sla`, `sla_hit_rate`,
+`median_first_response_hours`, `median_resolution_hours`; `items` are the
+open enquiries sorted by attention, then priority, then most overdue.
+
+The same triage rules are implemented in `web/src/lib/enquiries.ts` (the
+dashboard's "Customer enquiries" section and the `enquiry-report` pre-scan)
+— change both together.
 
 ## `GET /health` (not an MCP tool)
 

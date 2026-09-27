@@ -10,11 +10,11 @@ Three pages in the sidebar, matching the agreed structure:
 |---|---|---|
 | `/chat/[sessionId]` | **Chat** — one conversation per URL: streaming replies, slash commands, `?q=` prefills the input. `/` redirects to a fresh session | `POST /api/chat` → OpenClaw |
 | `/reports` | **Reports** — the brief archive: list with search and domain filter on the left, the full brief on the right (`/history` redirects here) | `listBriefs()` |
-| `/dashboard` | **Dashboard** — KPI grid, charts and open signals per domain (`?domain=sales\|inventory\|accounting`), with **Recommended** inside it | `getDomainDashboard()`, `getRecommended()`, `listSignals()` |
+| `/dashboard` | **Dashboard** — KPI grid and charts per domain (`?domain=sales\|inventory\|accounting`), with **Recommended** inside it, then the **Anomalies** and **Customer enquiries** sections shared by every tab | `getDomainDashboard()`, `getRecommended()`, `listCurrentAnomalies()`, `getEnquiryOverview()` |
 
-Drill-downs, reachable from those pages but not in the nav: `/signals`, `/signals/[id]`, `/metrics`, `/metrics/[id]`.
+Drill-downs, reachable from those pages but not in the nav: `/anomalies` (the current anomaly scan plus what recent reports flagged; `/signals` redirects here), `/metrics`, `/metrics/[id]`.
 
-JSON endpoints: `GET /api/brief`, `/api/signals`, `/api/signals/[id]`, `/api/metrics`. Like
+JSON endpoints: `GET /api/brief`, `/api/anomalies`, `/api/metrics`. Like
 `/api/chat`, each resolves the tenant first (`x-tenant-id` header, else `DEFAULT_TENANT_ID`) and
 404s an unknown/inactive one — so, unlike the pages above, these need Postgres with the
 control-plane tables seeded even though they still serve mock data (`lib/data.ts`).
@@ -46,22 +46,25 @@ Recommended lives **inside the dashboard**, not as its own page. Collapsed, it i
 ```
 src/
   app/                 routes (server components by default)
-    page.tsx           redirects to chat/[sessionId] · reports/ · dashboard/ · signals/ · metrics/
+    page.tsx           redirects to chat/[sessionId] · reports/ · dashboard/ · anomalies/ · metrics/
     api/               chat (OpenClaw proxy) + dashboard JSON routes
   components/
     shell/             Sidebar (collapsible), TopBar, ThemeToggle
     ui/                Card, badges, chips, Delta, EmptyState, ButtonLink
     charts/            Sparkline, LineChart, BarChart, BarList (all SVG)
-    dashboard/         KpiGrid, RecommendedPanel
-    brief/ reports/ signals/ metrics/ chat/   feature components + CSS modules
+    dashboard/         KpiGrid, RecommendedPanel, EnquiryPanel
+    anomalies/         AnomalyList (reports, dashboard, /anomalies)
+    reports/ metrics/ chat/   feature components + CSS modules
   lib/
-    types.ts           frontend contracts (Signal, Metric, Brief, Kpi, ...)
+    types.ts           frontend contracts (Anomaly, Metric, Brief, Kpi, ...)
     data.ts            the only place pages get data from (mock/live switch)
     format.ts          SGD, percent, deltas, dates (Asia/Singapore)
-    slash-commands.ts  /morning-brief, /daily-report, /explain <signal-id>
+    slash-commands.ts  /morning-brief, /daily-report, /enquiry-report, /explain <product or SKU>
     openclaw.ts        server-only OpenClaw client (holds the token)
   mocks/
-    fixtures.ts        signals + brief history for the Lian & Co. persona
+    fixtures.ts        brief history and metric series for the Lian & Co. persona
+    anomalies.ts       anomaly scan results for mock mode
+    enquiries.ts       customer-enquiry backlog for mock mode
     dashboard.ts       per-domain KPIs, charts, recommended metrics
     metrics.json       generated from metrics.yaml (`sql` field dropped)
 ```
@@ -82,7 +85,7 @@ pnpm install
 pnpm dev            # http://localhost:3000
 ```
 
-With `SAGE_DATA_SOURCE=mock` (the default), Dashboard, Reports, Signals and Metrics all work without any backend.
+With `SAGE_DATA_SOURCE=mock` (the default), Dashboard, Anomalies and Metrics all work without any backend.
 
 Chat needs more: `POST /api/chat` resolves the tenant before calling OpenClaw (`x-tenant-id` header, else `DEFAULT_TENANT_ID`) by reading `shared.tenants` — so it needs OpenClaw **and** Postgres with the control-plane tables seeded. Run `make up` and `make seed` from the repo root; without a database the route answers `502 tenant lookup unavailable`, and for a tenant that isn't active, `404`.
 

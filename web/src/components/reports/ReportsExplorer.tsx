@@ -15,7 +15,7 @@
 
 import { ArrowLeft, FileDown, LayoutDashboard, MessageSquare, Search, SearchX, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { AnomalyList } from "@/components/reports/AnomalyList";
+import { AnomalyList } from "@/components/anomalies/AnomalyList";
 import { DeleteReportButton } from "@/components/reports/DeleteReportButton";
 import { ReportInsights } from "@/components/reports/ReportInsights";
 import styles from "@/components/reports/reports.module.css";
@@ -32,6 +32,7 @@ const KIND_LABEL: Record<ReportKind, string> = {
   "daily-report": "Daily",
   "weekly-report": "Weekly",
   "six-hour-report": "6-hourly",
+  "enquiry-report": "Enquiries",
 };
 const KINDS = Object.keys(KIND_LABEL) as ReportKind[];
 

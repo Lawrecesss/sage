@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from .accounting import build_bills, build_invoices
 from .dates import build_dates
+from .enquiries import build_enquiries
 from .inventory import simulate_inventory
 from .sales import build_order_lines
 
 __all__ = [
     "build_bills",
     "build_dates",
+    "build_enquiries",
     "build_invoices",
     "build_order_lines",
     "simulate_inventory",

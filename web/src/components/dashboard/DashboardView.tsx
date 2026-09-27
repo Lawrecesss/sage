@@ -10,50 +10,58 @@
 // (all domains up front) instead of 1x — worth it since after that, tab
 // switching is instant for the rest of the session.
 
-import { ArrowRight, CalendarDays, CircleCheck, MessageSquare, Store } from "lucide-react";
+import { ArrowRight, CalendarDays, MessageSquare, Store } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import { AnomalyList } from "@/components/anomalies/AnomalyList";
 import { BarChart } from "@/components/charts/BarChart";
 import { BarList } from "@/components/charts/BarList";
+import { EnquiryPanel } from "@/components/dashboard/EnquiryPanel";
 import { KpiGrid } from "@/components/dashboard/KpiGrid";
 import { RecommendedPanel } from "@/components/dashboard/RecommendedPanel";
 import { TopBar } from "@/components/shell/TopBar";
 import shell from "@/components/shell/shell.module.css";
-import { SignalTable } from "@/components/signals/SignalTable";
-import { ButtonLink, Card, EmptyState, SegmentedButtons } from "@/components/ui";
+import { ButtonLink, Card, SegmentedButtons } from "@/components/ui";
 import styles from "./dashboard.module.css";
 import { formatMetricValue } from "@/lib/format";
-import type { DashboardChartBlock, Domain, DomainDashboard, Metric, RecommendedMetric, Signal } from "@/lib/types";
+import type {
+  Anomaly,
+  DashboardChartBlock,
+  Domain,
+  DomainDashboard,
+  EnquiryOverview,
+  RecommendedMetric,
+} from "@/lib/types";
 
 const LABEL: Record<Domain, string> = { sales: "Sales", inventory: "Inventory", accounting: "Accounting" };
+/** The dashboard shows the most severe few; /anomalies has the rest. */
+const MAX_ANOMALIES = 4;
 
 export function DashboardView({
   domains,
   initialDomain,
   dashboards,
-  signalsByDomain,
-  metrics,
+  anomalies,
   recommended,
+  enquiries,
   recDefaultOpen,
 }: {
   domains: Domain[];
   initialDomain: Domain;
   dashboards: Record<Domain, DomainDashboard>;
-  signalsByDomain: Record<Domain, Signal[]>;
-  metrics: Metric[];
+  /** Not per-domain: the latest anomaly scan, the same on every tab. */
+  anomalies: Anomaly[];
   recommended: {
     metrics: RecommendedMetric[];
     frequency: { week: string; counts: Record<string, number> }[];
     updated_at: string;
   };
+  /** Not per-domain: the same section on every tab (see EnquiryPanel). */
+  enquiries: EnquiryOverview | null;
   recDefaultOpen: boolean;
 }) {
   const [domain, setDomain] = useState<Domain>(initialDomain);
-  const byId = new Map(metrics.map((m) => [m.id, m]));
   const dash = dashboards[domain];
-  const byImpact = [...signalsByDomain[domain]].sort(
-    (a, b) => Math.abs(b.dollar_impact_est) - Math.abs(a.dollar_impact_est),
-  );
 
   // Keep ?domain= in the URL so reloads and shared links land on the same tab — without a navigation.
   const selectDomain = (d: Domain) => {
@@ -122,25 +130,21 @@ export function DashboardView({
           })}
         </div>
 
-        <Card
-          flush
-          title="Open signals"
-          description={`${LABEL[domain]} · ranked by estimated impact`}
+        <AnomalyList
+          anomalies={anomalies.slice(0, MAX_ANOMALIES)}
+          title="Anomalies"
+          explain
+          emptyText="No SKU moved unusually over the last 7 days."
+          className={styles.anomalyCard}
           aside={
-            <Link href="/signals" className={styles.link}>
-              All signals
+            <Link href="/anomalies" className={styles.link}>
+              {anomalies.length > MAX_ANOMALIES ? `All ${anomalies.length} anomalies` : "All anomalies"}
               <ArrowRight size={14} strokeWidth={2} aria-hidden />
             </Link>
           }
-        >
-          {byImpact.length ? (
-            <SignalTable signals={byImpact} metrics={byId} />
-          ) : (
-            <EmptyState title="Nothing open" icon={CircleCheck}>
-              No open signals in {domain} right now.
-            </EmptyState>
-          )}
-        </Card>
+        />
+
+        <EnquiryPanel overview={enquiries} />
       </div>
     </>
   );

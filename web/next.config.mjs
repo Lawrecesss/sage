@@ -11,15 +11,18 @@ const nextConfig = {
   serverExternalPackages: ["@resvg/resvg-js", "pdfkit", "svg-to-pdfkit", "exceljs"],
   experimental: {
     // Explicit, not relying on the default: `dynamic = "force-dynamic"` pages
-    // (dashboard, metrics/signals detail) must never be served from the
+    // (dashboard, anomalies, metric detail) must never be served from the
     // client Router Cache — every navigation needs fresh SQL. Without this,
     // a plain router.push() to the same route with a different searchParam
     // can silently reuse a stale cached render (see DomainTabs.tsx).
     staleTimes: { dynamic: 0 },
   },
-  // History was renamed to Reports; keep old links and bookmarks working.
+  // Renamed pages; keep old links and bookmarks working. Signals were replaced by anomalies.
   async redirects() {
-    return [{ source: "/history", destination: "/reports", permanent: true }];
+    return [
+      { source: "/history", destination: "/reports", permanent: true },
+      { source: "/signals/:path*", destination: "/anomalies", permanent: true },
+    ];
   },
 };
 

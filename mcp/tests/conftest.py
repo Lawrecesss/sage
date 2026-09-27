@@ -23,6 +23,7 @@ from _schema import (
     dim_sku,
     dim_supplier,
     fact_bill,
+    fact_customer_enquiry,
     fact_invoice,
     fact_order_line,
     fact_purchase_order,
@@ -35,6 +36,7 @@ from fixtures import (
     BILLS,
     CHANNELS,
     DATES,
+    ENQUIRIES,
     INVOICES,
     PURCHASE_ORDERS,
     SEGMENTS,
@@ -89,6 +91,7 @@ def seeded_tenant(engine):
         conn.execute(fact_purchase_order.insert(), PURCHASE_ORDERS)
         conn.execute(fact_invoice.insert(), INVOICES)
         conn.execute(fact_bill.insert(), BILLS)
+        conn.execute(fact_customer_enquiry.insert(), ENQUIRIES)
 
     yield
 

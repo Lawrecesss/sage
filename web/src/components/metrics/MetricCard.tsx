@@ -14,11 +14,6 @@ export function MetricCard({ metric }: { metric: Metric }) {
         <div className={styles.tags}>
           <span className={styles.tag}>{metric.unit}</span>
           <span className={styles.tag}>{humanize(metric.direction)}</span>
-          {metric.detectors.map((d) => (
-            <span key={d} className={styles.tag}>
-              {d}
-            </span>
-          ))}
         </div>
       </Card>
     </Link>

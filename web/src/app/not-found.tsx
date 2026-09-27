@@ -14,7 +14,7 @@ export default function NotFound() {
           </ButtonLink>
         }
       >
-        <p>That page, signal or metric doesn&apos;t exist.</p>
+        <p>That page or metric doesn&apos;t exist.</p>
       </EmptyState>
     </div>
   );

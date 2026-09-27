@@ -32,11 +32,10 @@ class IncidentType(str, Enum):
 
 
 @dataclass(frozen=True)
-class ExpectedSignal:
-    """A (metric, detector) pair the detectors should fire for this incident."""
+class ExpectedAnomaly:
+    """A metric the anomaly detection should flag for this incident."""
 
     metric_id: str
-    detector: str  # zscore_7d | wow_change | shreshold
 
 
 @dataclass(frozen=True)
@@ -56,7 +55,7 @@ class Incident:
     window_start: date
     window_end: date
     affected_entities: dict[str, list[str]]  # e.g. {"sku": [...], "supplier": [...]}
-    expected_signals: list[ExpectedSignal] = field(default_factory=list)
+    expected_anomalies: list[ExpectedAnomaly] = field(default_factory=list)
     expected_causal_chain: list[CausalStep] = field(default_factory=list)
     true_dollar_impact: float = 0.0
     dollar_recoverable: float = 0.0

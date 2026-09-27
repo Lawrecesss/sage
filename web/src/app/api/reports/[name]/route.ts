@@ -1,17 +1,20 @@
 import { agentResponse, parseReportRequest } from "@/lib/agent-response";
 import { detectAnomaliesSafe } from "@/lib/anomalies";
 import { buildPrompt, findCommand, reportFileMeta } from "@/lib/commands";
+import { enquiryPromptLines, scanEnquiriesSafe } from "@/lib/enquiries";
 import { computeWindow } from "@/lib/report-windows";
 import { resolveTenantOrError } from "@/lib/tenant";
-import type { ApiError } from "@/lib/types";
+import type { Anomaly, ApiError } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * POST ReportRequest -> streamed report (ChatResponse) for the report `name`
- * (morning-brief, afternoon-report, evening-report, daily-report, weekly-report, six-hour-report).
- * The anomaly scan (lib/anomalies.ts) runs first; its findings go into the prompt and the saved report.
+ * (morning-brief, afternoon-report, evening-report, daily-report, weekly-report, six-hour-report,
+ * enquiry-report). The command's pre-scan runs first — the anomaly scan (lib/anomalies.ts), whose
+ * findings go into the prompt and the saved report, or for enquiry-report the enquiry scan
+ * (lib/enquiries.ts), whose findings go into the prompt.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
@@ -31,8 +34,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ name: s
   const { sessionId, asOf: asOfIso } = parsed.value;
   const asOf = asOfIso === undefined ? new Date() : new Date(asOfIso);
   const window = computeWindow(command.window, asOf);
-  const anomalies = await detectAnomaliesSafe(resolved.tenant.tenantId, window);
-  return agentResponse(req, buildPrompt(command, window, asOf, anomalies), sessionId, {
+  const tenantId = resolved.tenant.tenantId;
+  let anomalies: Anomaly[] = [];
+  let scanLines: string[] = [];
+  if (command.scan === "enquiries") {
+    // Backlog now vs the baseline moment; flow over each window (see the enquiry-report command).
+    const [current, baseline] = await Promise.all([
+      scanEnquiriesSafe(tenantId, window.through, window.start),
+      scanEnquiriesSafe(tenantId, window.baselineThrough, window.baselineStart),
+    ]);
+    scanLines = enquiryPromptLines(current, baseline);
+  } else {
+    anomalies = await detectAnomaliesSafe(tenantId, window);
+  }
+  return agentResponse(req, buildPrompt(command, window, asOf, anomalies, scanLines), sessionId, {
     file: reportFileMeta(command, window, asOf),
     report: {
       kind: command.name,

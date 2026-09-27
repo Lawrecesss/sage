@@ -98,9 +98,10 @@ Short version:
 - `get_cash_flow_forecast` — naive short-horizon cash projection
 - `simulate_reorder_impact` — what-if: proposed PO qty/date vs. resulting stockout risk
 - `get_data_freshness` — latest business-event date per source table
+- `get_customer_enquiries` — open enquiry backlog as of a moment (overdue / needs immediate attention) plus handling over a window
 
-No tool covers customer enquiries or general "operational updates" — there's
-no backing table for either anywhere in `data/simulator/src/sage_simulator/db/schema.py`.
+No tool covers general "operational updates" — there's no backing table for
+it anywhere in `data/simulator/src/sage_simulator/db/schema.py`.
 
 Every call carries `tenant_id`, sourced from the system message OpenClaw was
 given in hop 2 above — this is how tenant identity survives across the hop

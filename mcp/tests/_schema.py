@@ -155,6 +155,25 @@ fact_bill = Table(
     Column("status", String, nullable=False),
 )
 
+fact_customer_enquiry = Table(
+    "fact_customer_enquiry",
+    metadata,
+    Column("enquiry_id", String, primary_key=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("channel", String, ForeignKey("dim_channel.channel"), nullable=False),
+    Column("contact_method", String, nullable=False),
+    Column("segment", String, ForeignKey("dim_customer_segment.segment"), nullable=False),
+    Column("topic", String, nullable=False),
+    Column("priority", String, nullable=False),
+    Column("subject", String, nullable=False),
+    Column("order_id", String, nullable=True),
+    Column("sku", String, ForeignKey("dim_sku.sku"), nullable=True),
+    Column("value_at_stake_sgd", Float, nullable=True),
+    Column("due_at", DateTime(timezone=True), nullable=False),
+    Column("first_response_at", DateTime(timezone=True), nullable=True),
+    Column("resolved_at", DateTime(timezone=True), nullable=True),
+)
+
 shared_metadata = MetaData(schema="shared")
 
 tenants = Table(

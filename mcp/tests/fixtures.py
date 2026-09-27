@@ -333,6 +333,54 @@ BILLS = [
 ]
 
 # ---------------------------------------------------------------------------
+# fact_customer_enquiry — every row placed relative to ENQ_AS_OF, one per triage branch
+# of get_customer_enquiries (see its docstring). Expected results are spelled out in
+# test_enquiries.py next to each assertion.
+# ---------------------------------------------------------------------------
+
+ENQ_AS_OF = datetime(2025, 6, 15, 12, 0, tzinfo=UTC)
+
+
+def _enq(enquiry_id, *, created_h, due_h, priority="normal", topic="order_status",
+         first_h=None, resolved_h=None, value=None, sku=None):
+    """Hours are relative to ENQ_AS_OF (negative = before it). first_h/resolved_h None = never."""
+    at = lambda h: None if h is None else ENQ_AS_OF + timedelta(hours=h)
+    return {
+        "enquiry_id": enquiry_id, "created_at": at(created_h), "channel": "online",
+        "contact_method": "email", "segment": "retail", "topic": topic, "priority": priority,
+        "subject": f"Subject for {enquiry_id}", "order_id": None, "sku": sku,
+        "value_at_stake_sgd": value, "due_at": at(due_h),
+        "first_response_at": at(first_h), "resolved_at": at(resolved_h),
+    }
+
+
+ENQUIRIES = [
+    # Open and late: urgent -> immediate.
+    _enq("E-URGENT-LATE", created_h=-10, due_h=-6, priority="urgent", topic="delivery_issue",
+         first_h=-9.5, value=300.0, sku="SKU-CHAIR-1"),
+    # Open, late, normal, answered, only 2h late -> plain overdue.
+    _enq("E-NORMAL-LATE", created_h=-50, due_h=-2, first_h=-48, value=120.0),
+    # Open, late, never answered -> immediate.
+    _enq("E-UNANSWERED-LATE", created_h=-50, due_h=-2, topic="product_question"),
+    # Open, low priority but 58h late -> immediate (48h+ rule).
+    _enq("E-LOW-VERY-LATE", created_h=-130, due_h=-58, priority="low", topic="stock_availability", first_h=-120),
+    # Open, a complaint 1h late -> immediate.
+    _enq("E-COMPLAINT-LATE", created_h=-49, due_h=-1, topic="complaint", first_h=-40),
+    # Open, due in 2h -> due_soon.
+    _enq("E-DUE-SOON", created_h=-46, due_h=2, first_h=-45),
+    # Open, due in 70h -> on_track.
+    _enq("E-ON-TRACK", created_h=-2, due_h=70, priority="low", first_h=-1),
+    # Resolved only AFTER ENQ_AS_OF -> still open as of it; due in 8h -> on_track.
+    _enq("E-RESOLVED-AFTER", created_h=-40, due_h=8, first_h=-39, resolved_h=3),
+    # Resolved inside the last 24h, inside its SLA -> not open; flow resolved_within_sla.
+    _enq("E-RESOLVED-IN-SLA", created_h=-20, due_h=28, first_h=-19, resolved_h=-10),
+    # Resolved inside the last 24h but after its due_at -> flow resolved, not within SLA.
+    _enq("E-RESOLVED-LATE", created_h=-30, due_h=-6, priority="high", first_h=-29, resolved_h=-2),
+    # Created after ENQ_AS_OF -> invisible as of it.
+    _enq("E-FUTURE", created_h=5, due_h=53),
+]
+
+# ---------------------------------------------------------------------------
 # Aggregation helpers mirroring server.py's _METRICS exactly (see the module
 # docstring above for why revenue/units/margin sum every row, refunds included).
 # ---------------------------------------------------------------------------

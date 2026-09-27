@@ -14,6 +14,7 @@ const KINDS: ReportKind[] = [
   "daily-report",
   "weekly-report",
   "six-hour-report",
+  "enquiry-report",
 ];
 
 /** Server component's only job: the initial fetch. Selecting a report, filtering by kind or
