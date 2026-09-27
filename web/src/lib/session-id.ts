@@ -12,7 +12,13 @@ export function newSessionId(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-/** Path for a chat session, optionally prefilling the input (`?q=`). */
-export function chatPath(sessionId: string, q?: string): string {
-  return q ? `/chat/${sessionId}?q=${encodeURIComponent(q)}` : `/chat/${sessionId}`;
+/** Path for a chat session, optionally prefilling the input (`?q=`) and/or opening it grounded
+ * in a saved report (`?report=`, see the Reports page's "Discuss in chat" and Chat.tsx's
+ * `initialReportId`). */
+export function chatPath(sessionId: string, q?: string, reportId?: string): string {
+  const qs = new URLSearchParams();
+  if (q) qs.set("q", q);
+  if (reportId) qs.set("report", reportId);
+  const suffix = qs.size ? `?${qs}` : "";
+  return `/chat/${sessionId}${suffix}`;
 }

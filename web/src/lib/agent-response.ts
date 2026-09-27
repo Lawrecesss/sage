@@ -3,11 +3,14 @@
 import { ChartSplitter, type Part, chartToMarkdown } from "@/lib/chart-blocks";
 import { type AgentPart, OpenClawError, replyText, streamAgentParts, streamAgentReply } from "@/lib/openclaw";
 import { type ReportFileMeta, buildReportFiles } from "@/lib/report-file";
-import { saveReport } from "@/lib/report-store";
+import { reportToMarkdown } from "@/lib/report-context";
+import { getReport, saveReport } from "@/lib/report-store";
 import { type ResolvedTenant, UnknownTenantError, resolveTenant } from "@/lib/tenant";
 import type { Anomaly, ApiError, ChatEvent, ChatRequest, ContentBlock, ReportKind, ReportRequest } from "@/lib/types";
 
 const SESSION_ID = /^[A-Za-z0-9-]{8,64}$/;
+// report-store.ts mints ids with crypto.randomUUID().
+const REPORT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_MESSAGE_CHARS = 4000;
 const NDJSON = "application/x-ndjson";
 
@@ -25,7 +28,10 @@ export function parseChatRequest(body: unknown): Parsed<ChatRequest> {
     return { ok: false, error: { error: `message is required (max ${MAX_MESSAGE_CHARS} chars)` } };
   }
   if (!isValidSessionId(b.sessionId)) return { ok: false, error: { error: "invalid sessionId" } };
-  return { ok: true, value: { message, sessionId: b.sessionId } };
+  if (b.reportId !== undefined && !REPORT_ID.test(String(b.reportId))) {
+    return { ok: false, error: { error: "invalid reportId" } };
+  }
+  return { ok: true, value: { message, sessionId: b.sessionId, reportId: b.reportId as string | undefined } };
 }
 
 export function parseReportRequest(body: unknown): Parsed<ReportRequest> {
@@ -196,7 +202,7 @@ export async function agentResponse(
   req: Request,
   message: string,
   sessionId: string,
-  options: { file?: ReportFileMeta; report?: ReportMeta } = {},
+  options: { file?: ReportFileMeta; report?: ReportMeta; reportId?: string } = {},
 ) {
   const path = new URL(req.url).pathname;
 
@@ -209,6 +215,20 @@ export async function agentResponse(
     }
     console.error(`[${path}] tenant resolution failed`, err);
     return Response.json({ error: "tenant lookup unavailable" } satisfies ApiError, { status: 502 });
+  }
+
+  // "Discuss in chat" (Reports page): the reply the user picked, not just its title, so the
+  // agent discusses the actual numbers instead of re-deriving a fresh, possibly different one
+  // for the same-named report. Silently ignored if the id is stale (deleted, wrong tenant) —
+  // the turn still runs, just without that grounding.
+  if (options.reportId) {
+    const report = await getReport(tenant.tenantId, options.reportId).catch((err) => {
+      console.error(`[${path}] report lookup failed`, err);
+      return null;
+    });
+    if (report) {
+      message = `${message}\n\n---\nThe report being discussed (already generated, shown to the user):\n\n${reportToMarkdown(report)}`;
+    }
   }
 
   try {
