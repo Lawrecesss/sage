@@ -2,20 +2,18 @@
 // table and file blocks in order. Shared by the chat log and (once it reads real reports)
 // the Reports page.
 //
-// Citations: signal IDs ("sig-001", in prose or code) and metric keys (`gross_revenue`, in
-// code spans) render as chips that link to the signal's explain view and the metric page.
+// Citations: metric keys (`gross_revenue`, in code spans) render as chips that link to the
+// metric page.
 
 import { Download } from "lucide-react";
-import { Children, type ReactNode } from "react";
+import { Children } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChatChart } from "@/components/chat/ChatChart";
 import styles from "@/components/chat/chat.module.css";
-import { MetricKey, SignalChip } from "@/components/ui";
+import { MetricKey } from "@/components/ui";
 import type { ContentBlock } from "@/lib/types";
 
-const SIGNAL_RE = /\b(sig-\d{2,})\b/g;
-const SIGNAL_ONLY = /^sig-\d{2,}$/;
 const METRIC_ONLY = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
 
 function formatBytes(n: number): string {
@@ -30,25 +28,11 @@ function formatBytes(n: number): string {
   return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
 }
 
-/** Turns bare signal IDs inside plain text children into chips. */
-function linkify(children: ReactNode): ReactNode {
-  return Children.map(children, (child) => {
-    if (typeof child !== "string") return child;
-    const parts = child.split(SIGNAL_RE);
-    if (parts.length === 1) return child;
-    return parts.map((part, i) => (i % 2 ? <SignalChip key={i} id={part} /> : part));
-  });
-}
-
 const components: Components = {
-  p: ({ children }) => <p>{linkify(children)}</p>,
-  li: ({ children }) => <li>{linkify(children)}</li>,
-  td: ({ children }) => <td>{linkify(children)}</td>,
   pre: ({ children }) => <pre>{children}</pre>,
   code: ({ className, children }) => {
     const text = Children.toArray(children).join("");
     const inline = !className && !text.includes("\n");
-    if (inline && SIGNAL_ONLY.test(text)) return <SignalChip id={text} />;
     if (inline && METRIC_ONLY.test(text)) return <MetricKey id={text} />;
     return <code className={className}>{children}</code>;
   },

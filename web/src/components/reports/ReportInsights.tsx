@@ -4,7 +4,7 @@
 // downloads never disagree about a report's structure or duplicate a table that's already
 // shown as a chart. The rest of the reply still renders through MessageBlocks: `bodyBlocks`
 // hands back plain markdown text, re-serialized by `buildReportView`, so it keeps going through
-// the same react-markdown pipeline (signal chips, GFM tables, charts) instead of a second
+// the same react-markdown pipeline (metric chips, GFM tables, charts) instead of a second
 // hand-rolled renderer.
 
 import { Delta } from "@/components/ui";

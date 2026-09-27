@@ -136,28 +136,6 @@
   display: inline-block;
 }
 
-.status {
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.statusOpen::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-right: 6px;
-  background: var(--accent-text);
-}
-
 .domain {
   display: inline-flex;
   align-items: center;
@@ -369,8 +347,7 @@
 
 /* ── Identifiers: the only mono in the UI ────────────────────────────── */
 
-.metricKey,
-.signalChip {
+.metricKey {
   display: inline-flex;
   align-items: center;
   height: 22px;
@@ -392,16 +369,6 @@
 .metricKey:hover {
   color: var(--text);
   background: var(--border);
-}
-
-.signalChip {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
-.signalChip:hover {
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 /* ── Empty / error ───────────────────────────────────────────────────── */

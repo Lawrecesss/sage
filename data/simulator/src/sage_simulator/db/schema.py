@@ -3,8 +3,8 @@
 `data/warehouse` (which used to own this) was deleted — its `schema.sql` was
 only ever a comment-based stub, never real DDL. This module is the real thing,
 scoped to exactly what the simulator writes: master-data dims and the
-transactional facts. Agent-facing derived tables (`signals`, `briefings`,
-`causal_chains`, `agent_runs`) belong to a future detector/mcp-write-path
+transactional facts. Agent-facing derived tables (`briefings`,
+`causal_chains`, `agent_runs`) belong to a future mcp-write-path
 service, not here.
 """
 
@@ -14,6 +14,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     Date,
+    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -166,3 +167,27 @@ fact_bill = Table(
     Column("status", String, nullable=False),
 )
 Index("ix_bill_status_due_date", fact_bill.c.status, fact_bill.c.due_date)
+
+fact_customer_enquiry = Table(
+    "fact_customer_enquiry",
+    metadata,
+    Column("enquiry_id", String, primary_key=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("channel", String, ForeignKey("dim_channel.channel"), nullable=False),
+    Column("contact_method", String, nullable=False),  # "email" | "chat" | "phone" | "in_store" | "marketplace"
+    Column("segment", String, ForeignKey("dim_customer_segment.segment"), nullable=False),
+    Column("topic", String, nullable=False),  # see simulate/enquiries.py::TOPICS
+    Column("priority", String, nullable=False),  # "urgent" | "high" | "normal" | "low"
+    Column("subject", String, nullable=False),
+    Column("order_id", String, nullable=True),
+    Column("sku", String, ForeignKey("dim_sku.sku"), nullable=True),
+    Column("value_at_stake_sgd", Float, nullable=True),
+    Column("due_at", DateTime(timezone=True), nullable=False),  # resolution target
+    Column("first_response_at", DateTime(timezone=True), nullable=True),
+    Column("resolved_at", DateTime(timezone=True), nullable=True),
+)
+# No stored status: every reader derives open/overdue as of its own "now"
+# (created_at <= now AND (resolved_at IS NULL OR resolved_at > now)), so the
+# backlog scans filter on resolved_at and created_at.
+Index("ix_enquiry_resolved_at", fact_customer_enquiry.c.resolved_at)
+Index("ix_enquiry_created_at", fact_customer_enquiry.c.created_at)

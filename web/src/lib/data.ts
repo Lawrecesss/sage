@@ -2,8 +2,7 @@
 //
 // One seam between the UI and the backend: pages call these functions, never
 // fetch/SQL directly. SAGE_DATA_SOURCE=mock (default) serves fixtures; "live"
-// is where the real reads go once the `signals` / `briefings` tables and the
-// metric layer exist. Keep function signatures stable when implementing live.
+// reads the tenant's Postgres schema. Keep function signatures stable when implementing live.
 // Server-only: import from server components and route handlers, not "use client" files.
 //
 // Going live is tenant-scoped work: business data lives in a per-tenant Postgres
@@ -14,25 +13,30 @@
 // so the UI can be built before the warehouse is populated.
 
 import { DASHBOARD, QUERY_FREQUENCY, RECOMMENDED } from "@/mocks/dashboard";
-import { MOCK_BRIEF_HISTORY, MOCK_SIGNALS, mockSeries } from "@/mocks/fixtures";
+import { mockEnquiryOverview } from "@/mocks/enquiries";
+import { mockAnomalies } from "@/mocks/anomalies";
+import { MOCK_BRIEF_HISTORY, mockSeries } from "@/mocks/fixtures";
 import metricsCatalog from "@/mocks/metrics.json";
-import { liveDomainDashboard, liveMetricSeries, liveSignal, liveSignals } from "./live";
+import { scanEnquiriesSafe } from "./enquiries";
+import { detectAnomaliesSafe } from "./anomalies";
+import { liveDomainDashboard, liveMetricSeries } from "./live";
+import { computeWindow } from "./report-windows";
 import {
   deleteReport as deleteStoredReport,
   getReport as getStoredReport,
   listReports as listStoredReports,
 } from "./report-store";
 import type {
+  Anomaly,
   Brief,
   Domain,
   DomainDashboard,
+  EnquiryOverview,
   Metric,
   MetricSeries,
   Report,
   ReportSummary,
   RecommendedMetric,
-  Signal,
-  SignalStatus,
 } from "./types";
 
 const SOURCE = process.env.SAGE_DATA_SOURCE ?? "mock";
@@ -67,28 +71,27 @@ export async function deleteReport(tenantId: string, reportId: string): Promise<
   return deleteStoredReport(tenantId, reportId);
 }
 
-// ── Signals ──────────────────────────────────────────────────────────────
+// ── Anomalies ────────────────────────────────────────────────────────────
+// The same deterministic scan every report runs first (lib/anomalies.ts), here over the last
+// 7 complete local days vs the 7 before — for the dashboard's Anomalies card and /anomalies.
+// Anomalies flagged by past report runs are read from the saved reports (lib/notifications.ts).
 
-export interface SignalFilter {
-  status?: SignalStatus;
-  domain?: Domain;
-  limit?: number;
-}
+const ANOMALY_SCAN_DAYS = 7;
 
-export async function listSignals(tenantId: string, filter: SignalFilter = {}): Promise<Signal[]> {
-  if (SOURCE === "live") return liveSignals(tenantId, filter);
-  return MOCK_SIGNALS.filter(
-    (s) =>
-      (!filter.status || s.status === filter.status) &&
-      (!filter.domain || metricDomain(s.metric_id) === filter.domain),
-  )
-    .sort((a, b) => b.score - a.score)
-    .slice(0, filter.limit ?? 100);
-}
-
-export async function getSignal(tenantId: string, signalId: string): Promise<Signal | null> {
-  if (SOURCE === "live") return liveSignal(tenantId, signalId);
-  return MOCK_SIGNALS.find((s) => s.signal_id === signalId) ?? null;
+export async function listCurrentAnomalies(tenantId: string): Promise<Anomaly[]> {
+  const now = new Date();
+  if (SOURCE !== "live") return mockAnomalies(now);
+  // Today's local midnight: the scan works on whole days, so today's partial sales are left out.
+  const through = computeWindow({ kind: "day", startHour: 0, endHour: 24 }, now).start;
+  const start = new Date(through.getTime() - ANOMALY_SCAN_DAYS * 86_400_000);
+  return detectAnomaliesSafe(tenantId, {
+    start,
+    end: through,
+    through,
+    partial: false,
+    baselineStart: new Date(start.getTime() - ANOMALY_SCAN_DAYS * 86_400_000),
+    baselineThrough: start,
+  });
 }
 
 // ── Metrics ──────────────────────────────────────────────────────────────
@@ -112,16 +115,25 @@ export async function getMetricSeries(
   return mockSeries(metricId, dimensions, METRICS.find((m) => m.id === metricId)?.unit);
 }
 
-/** Domain that owns a metric, per the metric catalog. */
-export function metricDomain(metricId: string): Domain | undefined {
-  return METRICS.find((m) => m.id === metricId)?.owner_domain;
-}
-
 // ── Dashboard ────────────────────────────────────────────────────────────
 
 export async function getDomainDashboard(tenantId: string, domain: Domain): Promise<DomainDashboard> {
   if (SOURCE === "live") return liveDomainDashboard(tenantId, domain);
   return DASHBOARD[domain];
+}
+
+/** How far back the dashboard's enquiry handling figures (SLA hit rate, first response) look. */
+const ENQUIRY_FLOW_DAYS = 7;
+
+/**
+ * The dashboard's customer-enquiry section: open backlog right now, most urgent first, plus
+ * handling over the last week. Null in live mode if the tenant has no enquiry table (seeded
+ * before enquiries existed) — the section says so rather than breaking the page.
+ */
+export async function getEnquiryOverview(tenantId: string): Promise<EnquiryOverview | null> {
+  const now = new Date();
+  if (SOURCE !== "live") return mockEnquiryOverview(now);
+  return scanEnquiriesSafe(tenantId, now, new Date(now.getTime() - ENQUIRY_FLOW_DAYS * 86_400_000));
 }
 
 /**

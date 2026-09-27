@@ -468,3 +468,19 @@
     width: 168px;
   }
 }
+
+/* ── Anomalies card (AnomalyList, restyled to match the dashboard's cards) ── */
+
+section.anomalyCard {
+  margin-top: 0;
+  padding: var(--space-5);
+  border: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 767px) {
+  section.anomalyCard {
+    padding: var(--space-4);
+  }
+}

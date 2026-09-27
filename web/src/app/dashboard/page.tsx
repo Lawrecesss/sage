@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import { getDomainDashboard, getRecommended, listMetrics, listSignals } from "@/lib/data";
+import { getDomainDashboard, getEnquiryOverview, getRecommended, listCurrentAnomalies } from "@/lib/data";
 import { resolveTenantIdForPage } from "@/lib/tenant";
 import type { Domain } from "@/lib/types";
 
@@ -21,20 +21,16 @@ export default async function DashboardPage({
   // All 3 domains fetched once, in parallel — tab switching afterward is pure
   // client-side state (DashboardView), not a new navigation/re-fetch. See that
   // file's header comment for why.
-  const [dashList, signalsList, recommended, metrics] = await Promise.all([
+  const [dashList, anomalies, recommended, enquiries] = await Promise.all([
     Promise.all(DOMAINS.map((d) => getDomainDashboard(tenantId, d))),
-    Promise.all(DOMAINS.map((d) => listSignals(tenantId, { domain: d, status: "open" }))),
+    listCurrentAnomalies(tenantId),
     getRecommended(),
-    listMetrics(),
+    getEnquiryOverview(tenantId),
   ]);
 
   const dashboards = Object.fromEntries(DOMAINS.map((d, i) => [d, dashList[i]])) as Record<
     Domain,
     (typeof dashList)[number]
-  >;
-  const signalsByDomain = Object.fromEntries(DOMAINS.map((d, i) => [d, signalsList[i]])) as Record<
-    Domain,
-    (typeof signalsList)[number]
   >;
 
   return (
@@ -42,9 +38,9 @@ export default async function DashboardPage({
       domains={DOMAINS}
       initialDomain={initialDomain}
       dashboards={dashboards}
-      signalsByDomain={signalsByDomain}
-      metrics={metrics}
+      anomalies={anomalies}
       recommended={recommended}
+      enquiries={enquiries}
       recDefaultOpen={params.rec === "open"}
     />
   );

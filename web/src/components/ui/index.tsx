@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Landmark, Package, ShoppingBag, type LucideIcon } from "lucide-react";
 import type { Tone } from "@/lib/format";
-import type { Domain, Severity, SignalStatus } from "@/lib/types";
+import type { Domain, Severity } from "@/lib/types";
 import styles from "./ui.module.css";
 
 const cx = (...c: (string | false | undefined | null)[]) => c.filter(Boolean).join(" ");
@@ -73,15 +73,6 @@ export function SeverityDot({ severity }: { severity: Severity }) {
   return (
     <span className={cx(styles.sevDot, SEVERITY_TONE[severity])} title={`${SEVERITY_LABEL[severity]} severity`}>
       <span className="visually-hidden">{SEVERITY_LABEL[severity]} severity</span>
-    </span>
-  );
-}
-
-/** Status is secondary information: always muted, never the loudest thing in a row. */
-export function StatusBadge({ status }: { status: SignalStatus }) {
-  return (
-    <span className={cx(styles.status, status === "open" && styles.statusOpen)}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
   );
 }
@@ -324,15 +315,6 @@ export function SegmentedButtons<T extends string>({
 export function MetricKey({ id }: { id: string }) {
   return (
     <Link href={`/metrics/${id}`} className={styles.metricKey} title={`Metric: ${id}`}>
-      {id}
-    </Link>
-  );
-}
-
-/** Signal ID chip that links to the explain view. */
-export function SignalChip({ id }: { id: string }) {
-  return (
-    <Link href={`/signals/${id}`} className={styles.signalChip} title={`Signal ${id}`}>
       {id}
     </Link>
   );

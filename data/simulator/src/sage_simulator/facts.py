@@ -10,7 +10,7 @@ for master data.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 
 
 @dataclass
@@ -87,6 +87,32 @@ class Bill:
 
 
 @dataclass
+class CustomerEnquiry:
+    """One customer contact and how it was handled.
+
+    Only facts are stored: when it came in, its resolution target, and when it was
+    first answered and resolved. Status ("open", "overdue", ...) never is — readers
+    derive it as of their own "now", so the same rows answer both "what is overdue
+    right now" and "what was overdue last Tuesday".
+    """
+
+    enquiry_id: str
+    created_at: datetime  # timezone-aware
+    channel: str  # the sales channel the customer bought from / contacted through
+    contact_method: str  # "email" | "chat" | "phone" | "in_store" | "marketplace"
+    segment: str
+    topic: str  # see simulate/enquiries.py::TOPICS
+    priority: str  # "urgent" | "high" | "normal" | "low"
+    subject: str
+    order_id: str | None
+    sku: str | None
+    value_at_stake_sgd: float | None  # the linked order line's value, if any
+    due_at: datetime  # resolution target: created_at + the priority's SLA
+    first_response_at: datetime | None  # None = not answered by the end of the run
+    resolved_at: datetime | None  # None = still unresolved at the end of the run
+
+
+@dataclass
 class Dataset:
     """Everything one `generate` run produces, ready to seed into Postgres."""
 
@@ -96,3 +122,4 @@ class Dataset:
     purchase_orders: list[PurchaseOrder] = field(default_factory=list)
     invoices: list[Invoice] = field(default_factory=list)
     bills: list[Bill] = field(default_factory=list)
+    enquiries: list[CustomerEnquiry] = field(default_factory=list)

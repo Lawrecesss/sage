@@ -1,17 +1,12 @@
-// Live (Postgres-backed) implementations for the dashboard/metrics/signals
-// surface that `lib/data.ts` used to serve entirely from `src/mocks/`.
+// Live (Postgres-backed) implementations for the dashboard/metrics surface
+// that `lib/data.ts` used to serve entirely from `src/mocks/`.
 //
 // Scope, deliberately: dashboard KPIs/charts and metric series are wired to
-// real SQL against the tenant's schema; signals implement the
-// "threshold_breach" detector only (the same checks retail-mcp's
-// get_attention_items runs), reusing that exact logic so the chat agent and
-// the dashboard never disagree about what counts as an issue. The
-// "zscore_7d"/"wow_change" detectors are real statistical work, not a
-// data-source swap, and are NOT implemented here — see the `detector: "threshold_breach"`
-// note on every signal below. Briefs (causal_chain, severity ranking across
-// signals) and the Recommended panel (affinity model) stay on mock data for
-// the same reason `lib/data.ts` always has: they need detector/correlator
-// output this project hasn't built.
+// real SQL against the tenant's schema. Anomalies are not here — they come
+// from the anomaly scan in lib/anomalies.ts. Briefs (causal_chain, severity
+// ranking) and the Recommended panel (affinity model) stay on mock data for
+// the same reason `lib/data.ts` always has: they need correlator output this
+// project hasn't built.
 //
 // All current-vs-previous comparisons here use trailing-N-day windows anchored
 // to CURRENT_DATE (real wall-clock "today"), not MAX(date) in the fact table.
@@ -32,8 +27,6 @@ import type {
   Metric,
   MetricSeries,
   MetricUnit,
-  Signal,
-  SignalStatus,
 } from "@/lib/types";
 import { mockSeries } from "@/mocks/fixtures";
 import metricsCatalog from "@/mocks/metrics.json";
@@ -721,165 +714,3 @@ export async function liveMetricSeries(
   });
 }
 
-// ── signals (threshold_breach detector only) ────────────────────────────
-
-const DOMAIN_BY_METRIC: Record<string, Domain> = {
-  return_rate: "sales",
-  stockout_rate: "inventory",
-  supplier_lead_time_days: "inventory",
-  ar_ageing: "accounting",
-  ap_ageing: "accounting",
-};
-
-async function computeSignals(client: PoolClient): Promise<Signal[]> {
-  const now = new Date().toISOString();
-  const signals: Signal[] = [];
-
-  const returnRateThreshold = 0.08;
-  const supplierDelayThreshold = 5;
-  const overdueDaysThreshold = 60;
-
-  const rr = await client.query(`
-    SELECT
-      COALESCE(SUM(CASE WHEN is_refund THEN line_total_sgd ELSE 0 END), 0) AS refunds,
-      COALESCE(SUM(line_total_sgd), 0) AS revenue
-    FROM fact_order_line
-    WHERE date >= CURRENT_DATE - INTERVAL '30 days'
-  `);
-  const { refunds, revenue } = rr.rows[0];
-  if (num(revenue) > 0) {
-    const rate = num(refunds) / num(revenue);
-    if (rate > returnRateThreshold) {
-      signals.push({
-        signal_id: "sig-return-rate",
-        detected_at: now,
-        metric_id: "return_rate",
-        grain: "day",
-        dimensions: {},
-        period: new Date().toISOString().slice(0, 10),
-        observed: Math.round(rate * 1000) / 1000,
-        expected: returnRateThreshold,
-        deviation: (rate - returnRateThreshold) / returnRateThreshold,
-        score: Math.min(1, rate / returnRateThreshold - 1),
-        dollar_impact_est: -Math.round(num(refunds)),
-        detector: "threshold_breach",
-        status: "open",
-      });
-    }
-  }
-
-  const stockoutRows = await client.query(`
-    WITH latest AS (
-      SELECT DISTINCT ON (sku) sku, on_hand_after
-      FROM fact_stock_movement
-      WHERE date <= CURRENT_DATE
-      ORDER BY sku, date DESC, movement_id DESC
-    )
-    SELECT COUNT(*)::int AS n, (SELECT COUNT(*) FROM latest)::int AS total FROM latest WHERE on_hand_after <= 0
-  `);
-  const { n: outOfStock, total: skuTotal } = stockoutRows.rows[0];
-  if (num(outOfStock) > 0) {
-    signals.push({
-      signal_id: "sig-stockout",
-      detected_at: now,
-      metric_id: "stockout_rate",
-      grain: "day",
-      dimensions: {},
-      period: new Date().toISOString().slice(0, 10),
-      observed: num(outOfStock),
-      // No natural "expected" baseline for a raw count; 0 is the threshold, not a
-      // measured typical level. score/deviation are best-effort ranking aids, not
-      // calibrated anomaly scores (only threshold_breach is implemented — see file header).
-      expected: 0,
-      deviation: num(skuTotal) ? num(outOfStock) / num(skuTotal) : 0,
-      score: Math.min(1, num(outOfStock) / Math.max(num(skuTotal), 1)),
-      dollar_impact_est: 0,
-      detector: "threshold_breach",
-      status: "open",
-    });
-  }
-
-  const delayRows = await client.query(
-    `
-    SELECT supplier_id, AVG(received_date - ordered_date)::float8 AS avg_delay
-    FROM fact_purchase_order
-    GROUP BY supplier_id
-    HAVING AVG(received_date - ordered_date) > $1
-    ORDER BY avg_delay DESC
-    `,
-    [supplierDelayThreshold],
-  );
-  for (const r of delayRows.rows) {
-    signals.push({
-      signal_id: `sig-supplier-delay-${r.supplier_id}`,
-      detected_at: now,
-      metric_id: "supplier_lead_time_days",
-      grain: "week",
-      dimensions: { supplier: r.supplier_id },
-      period: new Date().toISOString().slice(0, 10),
-      observed: Math.round(num(r.avg_delay) * 10) / 10,
-      expected: supplierDelayThreshold,
-      deviation: (num(r.avg_delay) - supplierDelayThreshold) / supplierDelayThreshold,
-      score: Math.min(1, num(r.avg_delay) / supplierDelayThreshold - 1),
-      dollar_impact_est: 0,
-      detector: "threshold_breach",
-      status: "open",
-    });
-  }
-
-  for (const [kind, table, metricId] of [
-    ["receivable", "fact_invoice", "ar_ageing"],
-    ["payable", "fact_bill", "ap_ageing"],
-  ] as const) {
-    const overdue = await client.query(
-      `
-      SELECT COALESCE(SUM(amount_sgd), 0) AS amt, COUNT(*)::int AS n
-      FROM ${table}
-      WHERE status != 'paid' AND CURRENT_DATE - due_date > $1
-      `,
-      [overdueDaysThreshold],
-    );
-    const { amt, n } = overdue.rows[0];
-    if (num(n) > 0) {
-      signals.push({
-        signal_id: `sig-${kind}-overdue`,
-        detected_at: now,
-        metric_id: metricId,
-        grain: "week",
-        dimensions: {},
-        period: new Date().toISOString().slice(0, 10),
-        observed: Math.round(num(amt)),
-        expected: 0,
-        deviation: 1,
-        score: Math.min(1, num(amt) / 50_000),
-        dollar_impact_est: -Math.round(num(amt)),
-        detector: "threshold_breach",
-        status: "open",
-      });
-    }
-  }
-
-  return signals.sort((a, b) => b.score - a.score);
-}
-
-export interface LiveSignalFilter {
-  status?: SignalStatus;
-  domain?: Domain;
-  limit?: number;
-}
-
-export async function liveSignals(tenantId: string, filter: LiveSignalFilter = {}): Promise<Signal[]> {
-  const all = await withTenant(tenantId, computeSignals);
-  // Every live signal is always "open" — there's no persistence layer to record an
-  // acknowledge/resolve action against (these are recomputed fresh every request,
-  // not read from a stored detector run). Filtering by any other status is honestly empty.
-  return all
-    .filter((s) => !filter.status || s.status === filter.status)
-    .filter((s) => !filter.domain || DOMAIN_BY_METRIC[s.metric_id] === filter.domain)
-    .slice(0, filter.limit ?? 100);
-}
-
-export async function liveSignal(tenantId: string, signalId: string): Promise<Signal | null> {
-  const all = await withTenant(tenantId, computeSignals);
-  return all.find((s) => s.signal_id === signalId) ?? null;
-}

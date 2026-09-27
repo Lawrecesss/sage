@@ -1,5 +1,4 @@
 // Frontend contracts. These mirror shapes owned by other lanes — change them together:
-//   Signal       ← mcp/src/sage_mcp/demo_data.py (future `signals` table)
 //   Metric       ← metrics.yaml (governed metric layer, served by MCP list_metrics)
 //   CausalStep   ← data/simulator/src/sage_simulator/incidents/schema.py
 //   Brief        ← brief-JSON contract with the agent lane (future `briefings` table)
@@ -111,14 +110,16 @@ export type FileBlock = { type: "file"; file: FileRef };
 export type ContentBlock = MarkdownBlock | ChartBlock | TableBlock | FileBlock;
 
 /** The prebuilt reports — the same names as the commands in commands.ts. "six-hour-report"
- * is the one the scheduler (lib/auto-reports.ts) runs by itself every 6 hours. */
+ * is the one the scheduler (lib/auto-reports.ts) runs by itself every 6 hours;
+ * "enquiry-report" covers customer enquiries rather than trading. */
 export type ReportKind =
   | "morning-brief"
   | "afternoon-report"
   | "evening-report"
   | "daily-report"
   | "weekly-report"
-  | "six-hour-report";
+  | "six-hour-report"
+  | "enquiry-report";
 
 /** One SKU's gross (non-refund) revenue in the anomaly scan's current and previous periods. */
 export type AnomalyItem = {
@@ -239,16 +240,14 @@ export type ChatMessage =
       pending?: boolean;
     };
 
-// --- Dashboard page: KPIs, charts, signals (mocked today — see src/mocks) ---
+// --- Dashboard page: KPIs, charts, anomalies (mock or live — see lib/data.ts) ---
 //
 // Distinct from the chat/report `ChartBlock` above: that one is a block inside a streamed
 // reply (`ChartSpec`-driven, chart library agnostic). `DashboardChartBlock` below is a
-// dashboard widget rendered from `Kpi`/`Signal`/`Metric` data, not from an agent reply.
+// dashboard widget rendered from `Kpi`/`Metric` data, not from an agent reply.
 
 export type Domain = "sales" | "inventory" | "accounting";
-export type SignalStatus = "open" | "acknowledged" | "resolved";
 export type Severity = "high" | "medium" | "low";
-export type Detector = "zscore_7d" | "wow_change" | "threshold_breach";
 
 // ── Metric layer ─────────────────────────────────────────────────────────
 
@@ -265,14 +264,13 @@ export interface Metric {
   benchmark: string | null;
   grain: Grain[];
   dimensions: string[];
-  detectors: Detector[];
   owner_domain: Domain;
 }
 
 export interface SeriesPoint {
   period: string; // ISO date (day grain) or "2026-W37" / "2026-09"
   value: number;
-  expected?: number; // detector baseline, when known
+  expected?: number; // baseline, when known
 }
 
 export interface MetricSeries {
@@ -280,24 +278,6 @@ export interface MetricSeries {
   grain: Grain;
   dimensions: Record<string, string>;
   points: SeriesPoint[];
-}
-
-// ── Signals (detector output) ────────────────────────────────────────────
-
-export interface Signal {
-  signal_id: string;
-  detected_at: string; // ISO timestamp
-  metric_id: string;
-  grain: string;
-  dimensions: Record<string, string>;
-  period: string;
-  observed: number;
-  expected: number;
-  deviation: number; // fractional: -0.309 = 30.9% below expected
-  score: number; // 0–1 anomaly score, used for ranking
-  dollar_impact_est: number; // SGD, negative = loss
-  detector: string;
-  status: SignalStatus;
 }
 
 // ── Morning Brief (agent output) ─────────────────────────────────────────
@@ -315,7 +295,6 @@ export interface BriefItem {
   domain: Domain; // where the problem surfaces
   summary: string; // one or two sentences, plain language
   dollar_impact_est: number;
-  signal_ids: string[];
   causal_chain: CausalStep[]; // Correlator output; may be empty
   recommended_action: string | null;
 }
@@ -378,4 +357,58 @@ export interface RecommendedMetric {
   pinned: boolean;
   spark: number[];
   reason: string; // why this is being suggested
+}
+
+// ── Customer enquiries ───────────────────────────────────────────────────
+// Same shape and triage rules as retail-mcp's get_customer_enquiries, so the dashboard's
+// enquiry section, the enquiry report's pre-scan and the agent's tool all agree
+// (lib/enquiries.ts). Snake_case to match that tool's output.
+
+export type EnquiryPriority = "urgent" | "high" | "normal" | "low";
+/** "immediate": overdue and high/urgent, a complaint, never answered, or 48h+ late.
+ * "overdue": any other late one. "due_soon": due within 4 hours. */
+export type EnquiryAttention = "immediate" | "overdue" | "due_soon" | "on_track";
+
+export interface EnquiryItem {
+  enquiry_id: string;
+  created_at: string; // ISO timestamp
+  subject: string;
+  topic: string;
+  priority: EnquiryPriority;
+  channel: string;
+  contact_method: string;
+  segment: string;
+  order_id: string | null;
+  sku: string | null;
+  sku_name: string | null;
+  value_at_stake_sgd: number | null;
+  due_at: string; // ISO timestamp — the resolution target
+  hours_overdue: number; // negative = hours left before due
+  age_hours: number;
+  responded: boolean;
+  attention: EnquiryAttention;
+}
+
+export interface EnquiryOverview {
+  as_of: string;
+  window_start: string; // start of the window `flow` covers
+  backlog: {
+    open: number;
+    overdue: number;
+    immediate: number;
+    due_soon: number;
+    unanswered: number;
+    value_at_stake_sgd: number;
+  };
+  flow: {
+    received: number;
+    resolved: number;
+    resolved_within_sla: number;
+    sla_hit_rate: number | null;
+    median_first_response_hours: number | null;
+  };
+  /** Open enquiries per topic, most overdue first. */
+  by_topic: { topic: string; open: number; overdue: number }[];
+  /** Open enquiries, most urgent first; capped (see backlog for the full counts). */
+  items: EnquiryItem[];
 }

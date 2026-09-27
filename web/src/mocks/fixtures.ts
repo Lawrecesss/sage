@@ -1,133 +1,10 @@
-// Mock fixtures for building the UI before the warehouse/detector/briefing lanes land.
+// Mock fixtures for building the UI before the warehouse/briefing lanes land.
 // Entities come from the simulator persona ("Lian & Co.", Singapore homeware) and
 // metric ids from metrics.yaml, so swapping to live data should not change any UI.
 
-import type { Brief, MetricSeries, MetricUnit, Signal } from "@/lib/types";
+import type { Brief, MetricSeries, MetricUnit } from "@/lib/types";
 
 export const MOCK_TODAY = "2026-09-18";
-
-export const MOCK_SIGNALS: Signal[] = [
-  {
-    signal_id: "sig-001",
-    detected_at: "2026-09-18T23:00:00Z",
-    metric_id: "gross_revenue",
-    grain: "day",
-    dimensions: { channel: "shopee" },
-    period: MOCK_TODAY,
-    observed: 18250,
-    expected: 26400,
-    deviation: -0.309,
-    score: 0.92,
-    dollar_impact_est: -8150,
-    detector: "zscore_7d",
-    status: "open",
-  },
-  {
-    signal_id: "sig-002",
-    detected_at: "2026-09-18T23:00:00Z",
-    metric_id: "days_of_supply",
-    grain: "day",
-    dimensions: { sku: "LIN-0012", category: "Bedding & Linen" },
-    period: MOCK_TODAY,
-    observed: 2,
-    expected: 14,
-    deviation: -0.857,
-    score: 0.81,
-    dollar_impact_est: -3200,
-    detector: "threshold_breach",
-    status: "open",
-  },
-  {
-    signal_id: "sig-003",
-    detected_at: "2026-09-17T23:00:00Z",
-    metric_id: "supplier_lead_time_days",
-    grain: "week",
-    dimensions: { supplier: "Lian Textile Mills" },
-    period: "2026-W38",
-    observed: 19,
-    expected: 12,
-    deviation: 0.583,
-    score: 0.74,
-    dollar_impact_est: -1100,
-    detector: "zscore_7d",
-    status: "acknowledged",
-  },
-  {
-    signal_id: "sig-004",
-    detected_at: "2026-09-18T23:00:00Z",
-    metric_id: "gross_margin_pct",
-    grain: "week",
-    dimensions: { category: "Kitchen & Dining", channel: "lazada" },
-    period: "2026-W38",
-    observed: 0.21,
-    expected: 0.36,
-    deviation: -0.417,
-    score: 0.69,
-    dollar_impact_est: -2750,
-    detector: "wow_change",
-    status: "open",
-  },
-  {
-    signal_id: "sig-005",
-    detected_at: "2026-09-18T23:00:00Z",
-    metric_id: "discount_impact",
-    grain: "week",
-    dimensions: { category: "Kitchen & Dining" },
-    period: "2026-W38",
-    observed: 6400,
-    expected: 2100,
-    deviation: 2.048,
-    score: 0.66,
-    dollar_impact_est: -4300,
-    detector: "wow_change",
-    status: "open",
-  },
-  {
-    signal_id: "sig-006",
-    detected_at: "2026-09-16T23:00:00Z",
-    metric_id: "return_rate",
-    grain: "week",
-    dimensions: { category: "Lighting" },
-    period: "2026-W38",
-    observed: 0.14,
-    expected: 0.05,
-    deviation: 1.8,
-    score: 0.58,
-    dollar_impact_est: -1850,
-    detector: "threshold_breach",
-    status: "open",
-  },
-  {
-    signal_id: "sig-007",
-    detected_at: "2026-09-15T23:00:00Z",
-    metric_id: "ar_ageing",
-    grain: "week",
-    dimensions: { ageing_bucket: "60+" },
-    period: "2026-W38",
-    observed: 41200,
-    expected: 18000,
-    deviation: 1.289,
-    score: 0.52,
-    dollar_impact_est: -23200,
-    detector: "threshold_breach",
-    status: "acknowledged",
-  },
-  {
-    signal_id: "sig-008",
-    detected_at: "2026-09-10T23:00:00Z",
-    metric_id: "dead_stock_value",
-    grain: "week",
-    dimensions: { category: "Outdoor & Garden" },
-    period: "2026-W37",
-    observed: 12800,
-    expected: 7400,
-    deviation: 0.73,
-    score: 0.41,
-    dollar_impact_est: -5400,
-    detector: "wow_change",
-    status: "resolved",
-  },
-];
 
 export const MOCK_BRIEF: Brief = {
   brief_id: "brief-2026-09-18",
@@ -150,7 +27,6 @@ export const MOCK_BRIEF: Brief = {
       summary:
         "Shopee sales fell to S$18.3K against S$26.4K expected. The drop is concentrated in Bedding & Linen, where LIN-0012 has two days of cover left.",
       dollar_impact_est: -11350,
-      signal_ids: ["sig-001", "sig-002", "sig-003"],
       causal_chain: [
         {
           domain: "inventory",
@@ -175,7 +51,6 @@ export const MOCK_BRIEF: Brief = {
       summary:
         "Discounts on Kitchen & Dining tripled week on week, but units sold stayed flat. Gross margin on Lazada fell from 36% to 21%.",
       dollar_impact_est: -7050,
-      signal_ids: ["sig-004", "sig-005"],
       causal_chain: [
         { domain: "accounting", claim: "Discount spend rose to S$6.4K vs S$2.1K typical", metric_id: "discount_impact" },
         { domain: "sales", claim: "Units sold did not move with the markdown", metric_id: "units_sold" },
@@ -190,7 +65,6 @@ export const MOCK_BRIEF: Brief = {
       domain: "sales",
       summary: "Return rate in Lighting hit 14% against a 5% norm. Worth checking for a quality issue with one SKU.",
       dollar_impact_est: -1850,
-      signal_ids: ["sig-006"],
       causal_chain: [],
       recommended_action: "Pull the return reasons for Lighting this week and check whether one SKU dominates.",
     },
@@ -212,8 +86,7 @@ function kpi(
   return { metric_id, label, unit, value, previous, direction, spark };
 }
 
-/** A plausible level for a metric with no signal to anchor it, so a percent metric
- *  doesn't plot like a dollar one. */
+/** A plausible level per unit, so a percent metric doesn't plot like a dollar one. */
 const BASE_BY_UNIT: Record<MetricUnit, number> = {
   SGD: 48_000,
   units: 1_200,
@@ -223,18 +96,14 @@ const BASE_BY_UNIT: Record<MetricUnit, number> = {
   count: 6,
 };
 
-/** Deterministic 30-period series for any metric, with the signal's anomaly at the end. */
+/** Deterministic 30-period series for any metric. */
 export function mockSeries(
   metric_id: string,
   dimensions: Record<string, string> = {},
   unit: MetricUnit = "units",
 ): MetricSeries {
-  const signal = MOCK_SIGNALS.find(
-    (s) => s.metric_id === metric_id && JSON.stringify(s.dimensions) === JSON.stringify(dimensions),
-  );
-  const base = signal?.expected ?? BASE_BY_UNIT[unit];
+  const base = BASE_BY_UNIT[unit];
   const values = seededSeries(metric_id + JSON.stringify(dimensions), 30, base, 0.06);
-  if (signal) values[values.length - 1] = signal.observed;
 
   const end = new Date(`${MOCK_TODAY}T00:00:00Z`);
   const points = values.map((value, i) => {
@@ -280,7 +149,6 @@ const OLDER_BRIEFS: Brief[] = [
         summary:
           "PO-3381 and PO-3396 from Lian Textile Mills were promised on 10 Sep and have not arrived. Cover on the affected SKUs is under two weeks.",
         dollar_impact_est: -4200,
-        signal_ids: ["sig-003"],
         causal_chain: [
           {
             domain: "inventory",
@@ -307,7 +175,6 @@ const OLDER_BRIEFS: Brief[] = [
         domain: "sales",
         summary: "Returns in Lighting reached 14% against a 5% norm, concentrated in one pendant lamp SKU.",
         dollar_impact_est: -1850,
-        signal_ids: ["sig-006"],
         causal_chain: [],
         recommended_action: "Check return reasons for the Lighting category.",
       },
@@ -328,7 +195,6 @@ const OLDER_BRIEFS: Brief[] = [
         summary:
           "Three trade accounts moved into the 60+ day bucket, taking it from S$18K to S$41.2K in four weeks.",
         dollar_impact_est: -23200,
-        signal_ids: ["sig-007"],
         causal_chain: [
           { domain: "accounting", claim: "60+ day AR bucket rose 129%", metric_id: "ar_ageing" },
           { domain: "accounting", claim: "Net cash flow fell for a third straight week", metric_id: "net_cashflow" },
@@ -351,7 +217,6 @@ const OLDER_BRIEFS: Brief[] = [
         domain: "inventory",
         summary: "Dead stock value rose 73% as the season ended with stock still on the shelf.",
         dollar_impact_est: -5400,
-        signal_ids: ["sig-008"],
         causal_chain: [],
         recommended_action: "Plan an end-of-season markdown for Outdoor & Garden.",
       },

@@ -16,7 +16,7 @@ import { type ReportCommand, findCommand } from "@/lib/commands";
 export interface SlashCommand {
   name: string; // without the leading slash
   description: string;
-  args?: string; // usage hint, e.g. "<signal-id>"
+  args?: string; // usage hint, e.g. "<product or SKU>"
   prompt: (arg: string) => string;
 }
 
@@ -61,11 +61,16 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     prompt: reportPromptFallback("weekly-report"),
   },
   {
+    name: "enquiry-report",
+    description: "Overdue customer enquiries, the ones needing immediate attention, and what's behind them",
+    prompt: reportPromptFallback("enquiry-report"),
+  },
+  {
     name: "explain",
-    description: "Explain one signal and its likely cause",
-    args: "<signal-id>",
+    description: "Explain an anomaly on one product and its likely cause",
+    args: "<product or SKU>",
     prompt: (arg) =>
-      `Explain signal ${arg || "(ask me which one)"}: what moved, by how much against the baseline, the most likely cause (check across domains — sales, inventory, suppliers, accounts), and one recommended action.`,
+      `Explain the anomaly on ${arg || "(ask me which product)"}: how its revenue moved over the last 7 days against the 7 days before, the most likely cause (check across domains — sales, inventory, suppliers, accounts), and one recommended action.`,
   },
 ];
 
@@ -77,7 +82,7 @@ export interface ParsedInput {
   reportName?: string;
 }
 
-/** "/explain sig-001" → expanded prompt. Unknown commands and plain text pass through. */
+/** "/explain Oak Bedside Lamp" → expanded prompt. Unknown commands and plain text pass through. */
 export function parseInput(raw: string): ParsedInput {
   const text = raw.trim();
   const match = /^\/([a-z-]+)\s*([\s\S]*)$/.exec(text);

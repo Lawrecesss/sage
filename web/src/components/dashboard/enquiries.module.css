@@ -1,0 +1,218 @@
+/* ── Customer enquiries section (EnquiryPanel) ───────────────────────── */
+
+.section {
+  margin-top: var(--space-5);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-5);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.statLabel {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.statValue {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.statSub {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.bad {
+  color: var(--negative);
+}
+
+.warn {
+  color: var(--warning);
+}
+
+.good {
+  color: var(--positive);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+/* ── Table ── */
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+}
+
+.table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--hairline);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: var(--space-5);
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: var(--space-5);
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.right {
+  text-align: right !important;
+}
+
+.wrap {
+  white-space: normal !important;
+  width: 100%;
+}
+
+/* Whole row is the hit target: the subject link stretches over it. */
+.row {
+  position: relative;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.row:hover,
+.row:focus-within {
+  background: var(--surface-hover);
+}
+
+.rowLink {
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.rowLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.rowLink:focus-visible {
+  outline: none;
+}
+
+.rowLink:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+.sub {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: normal;
+}
+
+.more {
+  margin: 0;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  border-top: 1px solid var(--hairline);
+}
+
+/* ── Cards (phones) ── */
+
+.cards {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface-inset);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.card:hover {
+  background: var(--surface-hover);
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.cardTitle {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 1100px) {
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 var(--space-4) var(--space-4);
+  }
+
+  .tableWrap {
+    display: none;
+  }
+
+  .cards {
+    display: flex;
+  }
+}

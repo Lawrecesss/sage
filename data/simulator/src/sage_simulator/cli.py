@@ -13,6 +13,7 @@ from .incidents import apply_posthoc, build_default_incidents, build_modifiers
 from .simulate import (
     build_bills,
     build_dates,
+    build_enquiries,
     build_invoices,
     build_order_lines,
     simulate_inventory,
@@ -66,6 +67,11 @@ def generate(
 
     typer.echo(f"Applying {len(incidents)} incidents...")
     apply_posthoc(incidents, dataset, entities.sku_by_id, config)
+
+    # After the incidents, so a returns spike also shows up as a spike in refund enquiries.
+    typer.echo("Simulating customer enquiries...")
+    dataset.enquiries = build_enquiries(config, entities, dataset.order_lines)
+    typer.echo(f"  {len(dataset.enquiries)} enquiries")
 
     typer.echo(f"Seeding Postgres (tenant={tenant})...")
     engine = create_engine(database_url)

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, CalendarRange, FileText, Lock, type LucideIcon, Plus, Search, Sun, Sunrise, Sunset } from "lucide-react";
+import { ArrowUp, CalendarRange, FileText, Inbox, Lock, type LucideIcon, Plus, Search, Sun, Sunrise, Sunset } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
@@ -25,7 +25,8 @@ const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
   "evening-report": { title: "Evening report", icon: Sunset },
   "daily-report": { title: "Daily report", icon: FileText },
   "weekly-report": { title: "Weekly report", icon: CalendarRange },
-  explain: { title: "Explain a signal", icon: Search },
+  "enquiry-report": { title: "Enquiry report", icon: Inbox },
+  explain: { title: "Explain an anomaly", icon: Search },
 };
 
 export function Chat({
@@ -124,8 +125,8 @@ export function Chat({
 
   // Picking a command that takes no argument (a report, "morning-brief", ...) has nothing left
   // to type — sending it straight to the API is what "clicking a command" should mean. One
-  // that takes an argument ("explain <signal-id>") still only fills the box, since the owner
-  // has to say which signal before there's anything to send.
+  // that takes an argument ("explain <product or SKU>") still only fills the box, since the
+  // owner has to say which product before there's anything to send.
   function runCommand(name: string, args?: string) {
     if (args) pickCommand(name, args);
     else send(`/${name}`);
@@ -201,7 +202,7 @@ export function Chat({
               </span>
               <h2 className={styles.introTitle}>What would you like to know?</h2>
               <p className={styles.introText}>
-                Ask about sales, stock or cash. Every answer is drawn from your own data and cites the metrics and signals
+                Ask about sales, stock or cash. Every answer is drawn from your own data and cites the metrics and anomalies
                 behind it.
               </p>
               <div className={styles.commands}>
