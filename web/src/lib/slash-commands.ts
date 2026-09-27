@@ -82,7 +82,7 @@ export interface ParsedInput {
   reportName?: string;
 }
 
-/** "/explain sig-001" → expanded prompt. Unknown commands and plain text pass through. */
+/** "/explain Oak Bedside Lamp" → expanded prompt. Unknown commands and plain text pass through. */
 export function parseInput(raw: string): ParsedInput {
   const text = raw.trim();
   const match = /^\/([a-z-]+)\s*([\s\S]*)$/.exec(text);
