@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
  * `/` starts a new conversation. middleware.ts normally redirects before this renders;
  * this is the fallback if the middleware matcher ever stops covering `/`.
  */
-export default async function NewChat({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams;
-  redirect(chatPath(newSessionId(), q?.slice(0, 4000)));
+export default async function NewChat({ searchParams }: { searchParams: Promise<{ q?: string; report?: string }> }) {
+  const { q, report } = await searchParams;
+  redirect(chatPath(newSessionId(), q?.slice(0, 4000), report));
 }

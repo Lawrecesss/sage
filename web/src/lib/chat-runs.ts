@@ -157,7 +157,7 @@ function update(sessionId: string, fn: (m: ChatMessage[]) => ChatMessage[]): voi
  * turn ends; nothing here is tied to a mounted component. No-op while that session is
  * already generating.
  */
-export async function sendChatMessage(sessionId: string, raw: string): Promise<void> {
+export async function sendChatMessage(sessionId: string, raw: string, reportId?: string): Promise<void> {
   const { display, prompt, reportName } = parseInput(raw);
   const current = snapshot(sessionId);
   if (!prompt || current.running) return;
@@ -184,7 +184,7 @@ export async function sendChatMessage(sessionId: string, raw: string): Promise<v
       : await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: NDJSON },
-          body: JSON.stringify({ message: prompt, sessionId }),
+          body: JSON.stringify({ message: prompt, sessionId, reportId }),
         });
     if (!res.ok || !res.body) throw new Error((await res.json().catch(() => null))?.error ?? res.statusText);
 

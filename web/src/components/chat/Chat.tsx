@@ -28,12 +28,24 @@ const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
   explain: { title: "Explain a signal", icon: Search },
 };
 
-export function Chat({ sessionId, initialInput = "" }: { sessionId: string; initialInput?: string }) {
+export function Chat({
+  sessionId,
+  initialInput = "",
+  initialReportId,
+}: {
+  sessionId: string;
+  initialInput?: string;
+  /** Set when this session opened from a saved report's "Discuss in chat" (Reports page): the
+   * report's id, sent with the next message so the agent gets its actual content instead of
+   * just whatever text the prefilled prompt happens to say. Consumed by the first send. */
+  initialReportId?: string;
+}) {
   const router = useRouter();
   // The conversation and its in-flight reply live in lib/chat-runs.ts, not in this component,
   // so a reply keeps streaming while another session is open and is here when you come back.
   const { messages, running: busy } = useChatSession(sessionId);
   const [input, setInput] = useState(initialInput);
+  const reportId = useRef(initialReportId);
   // Shown whenever the stream has gone quiet for a beat — the initial wait for the first
   // token, and any later pause between blocks (a tool call, a chart being computed, etc).
   const [showThinking, setShowThinking] = useState(false);
@@ -99,7 +111,9 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
   async function send(raw: string) {
     if (busy || !raw.trim()) return;
     setInput("");
-    await sendChatMessage(sessionId, raw);
+    const forReport = reportId.current;
+    reportId.current = undefined; // only the turn that opened "Discuss in chat" carries it
+    await sendChatMessage(sessionId, raw, forReport);
     inputRef.current?.focus();
   }
 

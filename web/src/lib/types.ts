@@ -15,6 +15,10 @@ export type ChatRequest = {
   message: string;
   /** Conversation key — OpenClaw keeps history per session. 8–64 chars of [A-Za-z0-9-]. */
   sessionId: string;
+  /** Set when this turn opens from a saved report's "Discuss in chat" — the id of that report
+   * (report-store.ts), so the agent is given its actual content instead of just a title the
+   * user typed. Looked up server-side; never trusted as report content itself. */
+  reportId?: string;
 };
 
 /**
