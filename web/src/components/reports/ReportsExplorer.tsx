@@ -251,7 +251,7 @@ export function ReportsExplorer({
                   </span>
                   <div className={styles.actions}>
                     <ButtonLink
-                      href={`/?q=${encodeURIComponent(`Recap the ${selectedSummary.title}`)}`}
+                      href={`/?q=${encodeURIComponent(`Let's discuss this report: ${selectedSummary.headline ?? selectedSummary.title}`)}&report=${encodeURIComponent(selectedSummary.id)}`}
                       variant="secondary"
                       icon={MessageSquare}
                       size="sm"

@@ -187,6 +187,15 @@
   line-height: 1.7;
 }
 
+.interrupted {
+  display: block;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 .thinking {
   display: inline-flex;
   align-items: center;

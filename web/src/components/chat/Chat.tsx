@@ -7,28 +7,12 @@ import { MessageBlocks } from "@/components/chat/MessageBlocks";
 import { ReportInsights } from "@/components/reports/ReportInsights";
 import { TopBar } from "@/components/shell/TopBar";
 import { buttonClass } from "@/components/ui";
-import { loadTranscript, refreshChatTitle, saveTranscript, shouldRetitle } from "@/lib/chat-history";
-import { findCommand } from "@/lib/commands";
+import { sendChatMessage, useChatSession } from "@/lib/chat-runs";
 import { chatPath, newSessionId } from "@/lib/session-id";
-import { parseInput, SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
-import type { ChatEvent, ContentBlock, ThinkingStep } from "@/lib/types";
+import { SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
 import styles from "./chat.module.css";
 import { ThinkingPanel } from "./ThinkingPanel";
 
-type Message =
-  | { role: "user"; content: string }
-  // `reportTitle`/`reportLabel` are set only for a report-command reply (morning-brief, ...) —
-  // they switch the reply's rendering to a title heading + ReportInsights (KPI strip +
-  // auto-charted breakdown) instead of plain MessageBlocks, the same rich view the Reports
-  // page gives that same report. `reportTitle` is the full technical title ("morning brief
-  // (00:00–12:00)", used by ReportInsights to recognise and drop a duplicate heading the
-  // agent wrote); `reportLabel` is the short name shown to the reader ("Morning brief") — it
-  // must never be derived from the reply's own text (e.g. its opening sentence), only from
-  // the fixed command definition, so the heading can't end up echoing whatever the report
-  // happens to open with.
-  | { role: "assistant"; blocks: ContentBlock[]; reportTitle?: string; reportLabel?: string; thinking?: ThinkingStep[] };
-
-const NDJSON = "application/x-ndjson";
 const MAX_INPUT_HEIGHT = 220;
 // How long a stream can go quiet (e.g. a tool call between blocks) before the thinking
 // indicator reappears — long enough that normal token-by-token streaming never flickers it.
@@ -45,67 +29,45 @@ const COMMAND_UI: Record<string, { title: string; icon: LucideIcon }> = {
   explain: { title: "Explain an anomaly", icon: Search },
 };
 
-export function Chat({ sessionId, initialInput = "" }: { sessionId: string; initialInput?: string }) {
+export function Chat({
+  sessionId,
+  initialInput = "",
+  initialReportId,
+}: {
+  sessionId: string;
+  initialInput?: string;
+  /** Set when this session opened from a saved report's "Discuss in chat" (Reports page): the
+   * report's id, sent with the next message so the agent gets its actual content instead of
+   * just whatever text the prefilled prompt happens to say. Consumed by the first send. */
+  initialReportId?: string;
+}) {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([]);
-  // True once the mount effect has checked localStorage for this session, so a saved
-  // transcript that just hasn't loaded yet is never mistaken for "genuinely a new chat" (see
-  // `empty` below) — without this, a slow first paint briefly shows the "New chat" welcome
-  // screen and command cards over an existing conversation instead of a neutral loading state.
-  const [historyLoaded, setHistoryLoaded] = useState(false);
-  // Set by send(), cleared once the finished turn is saved — so only a completed turn
-  // updates the history (merely opening an old chat must not bump it to "Today").
-  const turnPending = useRef(false);
+  // The conversation and its in-flight reply live in lib/chat-runs.ts, not in this component,
+  // so a reply keeps streaming while another session is open and is here when you come back.
+  const { messages, running: busy } = useChatSession(sessionId);
   const [input, setInput] = useState(initialInput);
-  const [busy, setBusy] = useState(false);
+  const reportId = useRef(initialReportId);
   // Shown whenever the stream has gone quiet for a beat — the initial wait for the first
   // token, and any later pause between blocks (a tool call, a chart being computed, etc).
   const [showThinking, setShowThinking] = useState(false);
   const thinkingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasBusy = useRef(false);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // `immediate` skips the delay for the turn's very first wait, so the indicator appears at
-  // once instead of leaving a blank bubble for THINKING_DELAY_MS.
-  function armThinking(immediate = false) {
-    if (thinkingTimer.current) clearTimeout(thinkingTimer.current);
-    if (immediate) {
-      setShowThinking(true);
-      return;
-    }
-    setShowThinking(false);
-    thinkingTimer.current = setTimeout(() => setShowThinking(true), THINKING_DELAY_MS);
-  }
-  function disarmThinking() {
-    if (thinkingTimer.current) clearTimeout(thinkingTimer.current);
-    thinkingTimer.current = null;
-    setShowThinking(false);
-  }
-
   const suggestions = suggestCommands(input);
   // A fully typed argument-less command ("/morning-brief") is ready to send, not to complete.
   const complete = suggestions.length === 1 && input === `/${suggestions[0].name}`;
   const menuOpen = suggestions.length > 0 && !complete && !dismissed;
-  const empty = historyLoaded && messages.length === 0;
+  const empty = messages.length === 0;
 
   // Effects use block bodies: anything returned is treated as a cleanup function,
   // and newer Chrome returns a Promise from scrollIntoView().
-  // Restore after mount (localStorage is client-only), then persist each completed turn —
-  // which also updates the sidebar's chat history (lib/chat-history.ts).
   useEffect(() => {
-    setMessages(loadTranscript(sessionId));
-    setHistoryLoaded(true);
     inputRef.current?.focus();
   }, [sessionId]);
-  useEffect(() => {
-    if (busy || !turnPending.current) return;
-    turnPending.current = false;
-    saveTranscript(sessionId, messages);
-    // Swap the sidebar title (first question) for a summary of the conversation.
-    if (shouldRetitle(messages)) void refreshChatTitle(sessionId, messages);
-  }, [busy, messages, sessionId]);
   useEffect(() => {
     if (messages.length) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
@@ -113,6 +75,26 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
     setActive(0);
     setDismissed(false);
   }, [input]);
+  // Reappear at once when a turn starts; while it's running, hide on every new event (text,
+  // thinking, a block, a tool step) and reschedule — so the indicator only shows during an
+  // actual quiet stretch, never while tokens are still arriving.
+  useEffect(() => {
+    if (!busy) {
+      wasBusy.current = false;
+      if (thinkingTimer.current) clearTimeout(thinkingTimer.current);
+      setShowThinking(false);
+      return;
+    }
+    const immediate = !wasBusy.current;
+    wasBusy.current = true;
+    if (thinkingTimer.current) clearTimeout(thinkingTimer.current);
+    if (immediate) {
+      setShowThinking(true);
+    } else {
+      setShowThinking(false);
+      thinkingTimer.current = setTimeout(() => setShowThinking(true), THINKING_DELAY_MS);
+    }
+  }, [busy, messages]);
   useEffect(() => {
     return () => {
       if (thinkingTimer.current) clearTimeout(thinkingTimer.current);
@@ -128,97 +110,12 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
   }, [input]);
 
   async function send(raw: string) {
-    const { display, prompt, reportName } = parseInput(raw);
-    if (!prompt || busy) return;
-    const reportTitle = reportName ? findCommand(reportName)?.title : undefined;
-    const reportLabel = reportName ? (COMMAND_UI[reportName]?.title ?? reportTitle) : undefined;
-
+    if (busy || !raw.trim()) return;
     setInput("");
-    turnPending.current = true;
-    setBusy(true);
-    setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [], reportTitle, reportLabel }]);
-    armThinking(true);
-
-    // Mirrors the server's own event -> block reducer (agent-response.ts's toEvents): a text
-    // delta appends to the trailing markdown block, a block event ends it and adds a complete
-    // chart / table / file after it.
-    const applyEvent = (event: ChatEvent) => {
-      if (event.type === "done" || event.type === "error") disarmThinking();
-      else armThinking();
-      setMessages((m) => {
-        const last = m[m.length - 1];
-        if (last.role !== "assistant") return m;
-        if (event.type === "text") {
-          const prev = last.blocks.at(-1);
-          const blocks: ContentBlock[] =
-            prev?.type === "markdown"
-              ? [...last.blocks.slice(0, -1), { ...prev, text: prev.text + event.delta }]
-              : [...last.blocks, { type: "markdown", text: event.delta }];
-          return [...m.slice(0, -1), { ...last, blocks }];
-        }
-        if (event.type === "block") {
-          return [...m.slice(0, -1), { ...last, blocks: [...last.blocks, event.block] }];
-        }
-        // Thinking deltas extend the current run of thought; a tool call starts a new step.
-        if (event.type === "thinking") {
-          const steps = last.thinking ?? [];
-          const prev = steps.at(-1);
-          const thinking: ThinkingStep[] =
-            prev?.kind === "thought"
-              ? [...steps.slice(0, -1), { kind: "thought", text: prev.text + event.delta }]
-              : [...steps, { kind: "thought", text: event.delta }];
-          return [...m.slice(0, -1), { ...last, thinking }];
-        }
-        if (event.type === "step") {
-          return [...m.slice(0, -1), { ...last, thinking: [...(last.thinking ?? []), { kind: "tool", tool: event.tool }] }];
-        }
-        if (event.type === "error") {
-          return [...m.slice(0, -1), { ...last, blocks: [...last.blocks, { type: "markdown", text: `\n[error: ${event.error}]` }] }];
-        }
-        return m; // "done": nothing left to apply
-      });
-    };
-
-    try {
-      // Report commands (/morning-brief, /daily-report) run the real, window-aware report
-      // instead of a client-built prompt. Both ask for the NDJSON encoding so charts, tables
-      // and (for reports) the exported file all render instead of leaking as raw text.
-      const res = reportName
-        ? await fetch(`/api/reports/${reportName}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: NDJSON },
-            body: JSON.stringify({ sessionId }),
-          })
-        : await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: NDJSON },
-            body: JSON.stringify({ message: prompt, sessionId }),
-          });
-      if (!res.ok || !res.body) throw new Error((await res.json().catch(() => null))?.error ?? res.statusText);
-
-      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buf = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (value) buf += value;
-        let nl: number;
-        while ((nl = buf.indexOf("\n")) >= 0) {
-          const line = buf.slice(0, nl);
-          buf = buf.slice(nl + 1);
-          if (line.trim()) applyEvent(JSON.parse(line) as ChatEvent);
-        }
-        if (done) {
-          if (buf.trim()) applyEvent(JSON.parse(buf) as ChatEvent);
-          break;
-        }
-      }
-    } catch (err) {
-      applyEvent({ type: "error", error: err instanceof Error ? err.message : String(err) });
-    } finally {
-      disarmThinking();
-      setBusy(false);
-      inputRef.current?.focus();
-    }
+    const forReport = reportId.current;
+    reportId.current = undefined; // only the turn that opened "Discuss in chat" carries it
+    await sendChatMessage(sessionId, raw, forReport);
+    inputRef.current?.focus();
   }
 
   function pickCommand(name: string, args?: string) {
@@ -286,7 +183,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
       <TopBar
         title="Chat"
         actions={
-          <button type="button" onClick={newConversation} disabled={busy} className={buttonClass("secondary", "sm")}>
+          <button type="button" onClick={newConversation} className={buttonClass("secondary", "sm")}>
             <Plus size={16} strokeWidth={2} aria-hidden />
             New chat
           </button>
@@ -355,17 +252,23 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                     (m.reportTitle && !(busy && i === messages.length - 1) ? (
                       // Once the reply has finished streaming, a report command gets a plain
                       // title heading (never the reply's own opening sentence — see the
-                      // `reportLabel` note on the Message type above) followed by the same
-                      // KPI-strip + auto-charted "visual breakdown" treatment as the Reports
-                      // page (see ReportInsights) instead of a flat wall of markdown — while
-                      // still streaming, plain text keeps the live typing feel.
+                      // `reportName` note on ChatMessage) followed by the same KPI-strip +
+                      // auto-charted "visual breakdown" treatment as the Reports page (see
+                      // ReportInsights) instead of a flat wall of markdown — while still
+                      // streaming, plain text keeps the live typing feel.
                       <>
-                        <div className={styles.reportHeading}>{m.reportLabel}</div>
+                        <div className={styles.reportHeading}>{(m.reportName && COMMAND_UI[m.reportName]?.title) ?? m.reportTitle}</div>
                         <ReportInsights title={m.reportTitle} blocks={m.blocks} />
                       </>
                     ) : (
                       <MessageBlocks blocks={m.blocks} />
                     ))}
+                  {m.pending && !busy && (
+                    // Saved mid-answer, then the page was closed or reloaded before it finished.
+                    <span className={styles.interrupted}>
+                      This answer was interrupted before it finished. Ask again to get a complete answer.
+                    </span>
+                  )}
                   {busy && i === messages.length - 1 && showThinking && (
                     <span className={styles.thinking}>
                       <span className={styles.dots} aria-hidden>

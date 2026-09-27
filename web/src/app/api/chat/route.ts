@@ -13,5 +13,5 @@ export async function POST(req: Request) {
   const parsed = parseChatRequest(await req.json().catch(() => null));
   if (!parsed.ok) return Response.json(parsed.error, { status: 400 });
 
-  return agentResponse(req, parsed.value.message, parsed.value.sessionId);
+  return agentResponse(req, parsed.value.message, parsed.value.sessionId, { reportId: parsed.value.reportId });
 }
