@@ -216,7 +216,24 @@ export type ThinkingStep = { kind: "thought"; text: string } | { kind: "tool"; t
 /** One turn as the UI holds it. History lives server-side in OpenClaw, so this is never sent. */
 export type ChatMessage =
   | { role: "user"; content: string }
-  | { role: "assistant"; blocks: ContentBlock[]; report?: ReportSummary; thinking?: ThinkingStep[] };
+  | {
+      role: "assistant";
+      blocks: ContentBlock[];
+      report?: ReportSummary;
+      thinking?: ThinkingStep[];
+      /** Set for a report-command reply (morning-brief, ...): the report's full technical
+       * title, e.g. "morning brief (00:00–12:00)" — used by ReportInsights to recognise and
+       * drop a duplicate heading the agent wrote. */
+      reportTitle?: string;
+      /** The report command that produced this reply (e.g. "morning-brief"), so the UI can
+       * look up its display label — never derived from the reply's own text, only from the
+       * fixed command definition, so the heading can't end up echoing whatever the report
+       * happens to open with. */
+      reportName?: string;
+      /** Still being generated. Saved this way when the question is sent, cleared when the
+       * answer completes — so a transcript reloaded mid-answer shows it as interrupted. */
+      pending?: boolean;
+    };
 
 // --- Dashboard page: KPIs, charts, signals (mocked today — see src/mocks) ---
 //
