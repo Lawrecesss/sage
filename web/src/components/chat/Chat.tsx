@@ -17,10 +17,16 @@ import { ThinkingPanel } from "./ThinkingPanel";
 
 type Message =
   | { role: "user"; content: string }
-  // `reportTitle` is set only for a report-command reply (morning-brief, ...) — it switches
-  // the reply's rendering to ReportInsights (KPI strip + auto-charted breakdown) instead of
-  // plain MessageBlocks, the same rich view the Reports page gives that same report.
-  | { role: "assistant"; blocks: ContentBlock[]; reportTitle?: string; thinking?: ThinkingStep[] };
+  // `reportTitle`/`reportLabel` are set only for a report-command reply (morning-brief, ...) —
+  // they switch the reply's rendering to a title heading + ReportInsights (KPI strip +
+  // auto-charted breakdown) instead of plain MessageBlocks, the same rich view the Reports
+  // page gives that same report. `reportTitle` is the full technical title ("morning brief
+  // (00:00–12:00)", used by ReportInsights to recognise and drop a duplicate heading the
+  // agent wrote); `reportLabel` is the short name shown to the reader ("Morning brief") — it
+  // must never be derived from the reply's own text (e.g. its opening sentence), only from
+  // the fixed command definition, so the heading can't end up echoing whatever the report
+  // happens to open with.
+  | { role: "assistant"; blocks: ContentBlock[]; reportTitle?: string; reportLabel?: string; thinking?: ThinkingStep[] };
 
 const NDJSON = "application/x-ndjson";
 const MAX_INPUT_HEIGHT = 220;
@@ -124,11 +130,12 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
     const { display, prompt, reportName } = parseInput(raw);
     if (!prompt || busy) return;
     const reportTitle = reportName ? findCommand(reportName)?.title : undefined;
+    const reportLabel = reportName ? (COMMAND_UI[reportName]?.title ?? reportTitle) : undefined;
 
     setInput("");
     turnPending.current = true;
     setBusy(true);
-    setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [], reportTitle }]);
+    setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [], reportTitle, reportLabel }]);
     armThinking(true);
 
     // Mirrors the server's own event -> block reducer (agent-response.ts's toEvents): a text
@@ -345,11 +352,16 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                   />
                   {m.blocks.length > 0 &&
                     (m.reportTitle && !(busy && i === messages.length - 1) ? (
-                      // Once the reply has finished streaming, a report command gets the same
+                      // Once the reply has finished streaming, a report command gets a plain
+                      // title heading (never the reply's own opening sentence — see the
+                      // `reportLabel` note on the Message type above) followed by the same
                       // KPI-strip + auto-charted "visual breakdown" treatment as the Reports
                       // page (see ReportInsights) instead of a flat wall of markdown — while
                       // still streaming, plain text keeps the live typing feel.
-                      <ReportInsights title={m.reportTitle} blocks={m.blocks} />
+                      <>
+                        <div className={styles.reportHeading}>{m.reportLabel}</div>
+                        <ReportInsights title={m.reportTitle} blocks={m.blocks} />
+                      </>
                     ) : (
                       <MessageBlocks blocks={m.blocks} />
                     ))}

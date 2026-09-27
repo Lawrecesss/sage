@@ -366,6 +366,15 @@
   margin-bottom: var(--space-3);
 }
 
+/* A report reply's fixed, short name (e.g. "Morning brief") — deliberately plain and static,
+   never the reply's own opening sentence, so it can't be mistaken for the executive summary
+   directly below it. */
+.reportHeading {
+  font-size: var(--text-md);
+  font-weight: 650;
+  line-height: 1.3;
+}
+
 .chartCaption {
   font-size: var(--text-xs);
   color: var(--text-muted);
