@@ -4,16 +4,29 @@ import { ArrowUp, CalendarRange, FileText, Lock, type LucideIcon, Plus, Search, 
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MessageBlocks } from "@/components/chat/MessageBlocks";
+import { ReportInsights } from "@/components/reports/ReportInsights";
 import { TopBar } from "@/components/shell/TopBar";
 import { buttonClass } from "@/components/ui";
 import { loadTranscript, refreshChatTitle, saveTranscript, shouldRetitle } from "@/lib/chat-history";
+import { findCommand } from "@/lib/commands";
 import { chatPath, newSessionId } from "@/lib/session-id";
 import { parseInput, SLASH_COMMANDS, suggestCommands } from "@/lib/slash-commands";
 import type { ChatEvent, ContentBlock, ThinkingStep } from "@/lib/types";
 import styles from "./chat.module.css";
 import { ThinkingPanel } from "./ThinkingPanel";
 
-type Message = { role: "user"; content: string } | { role: "assistant"; blocks: ContentBlock[]; thinking?: ThinkingStep[] };
+type Message =
+  | { role: "user"; content: string }
+  // `reportTitle`/`reportLabel` are set only for a report-command reply (morning-brief, ...) —
+  // they switch the reply's rendering to a title heading + ReportInsights (KPI strip +
+  // auto-charted breakdown) instead of plain MessageBlocks, the same rich view the Reports
+  // page gives that same report. `reportTitle` is the full technical title ("morning brief
+  // (00:00–12:00)", used by ReportInsights to recognise and drop a duplicate heading the
+  // agent wrote); `reportLabel` is the short name shown to the reader ("Morning brief") — it
+  // must never be derived from the reply's own text (e.g. its opening sentence), only from
+  // the fixed command definition, so the heading can't end up echoing whatever the report
+  // happens to open with.
+  | { role: "assistant"; blocks: ContentBlock[]; reportTitle?: string; reportLabel?: string; thinking?: ThinkingStep[] };
 
 const NDJSON = "application/x-ndjson";
 const MAX_INPUT_HEIGHT = 220;
@@ -116,11 +129,13 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
   async function send(raw: string) {
     const { display, prompt, reportName } = parseInput(raw);
     if (!prompt || busy) return;
+    const reportTitle = reportName ? findCommand(reportName)?.title : undefined;
+    const reportLabel = reportName ? (COMMAND_UI[reportName]?.title ?? reportTitle) : undefined;
 
     setInput("");
     turnPending.current = true;
     setBusy(true);
-    setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [] }]);
+    setMessages((m) => [...m, { role: "user", content: display }, { role: "assistant", blocks: [], reportTitle, reportLabel }]);
     armThinking(true);
 
     // Mirrors the server's own event -> block reducer (agent-response.ts's toEvents): a text
@@ -210,6 +225,15 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
     inputRef.current?.focus();
   }
 
+  // Picking a command that takes no argument (a report, "morning-brief", ...) has nothing left
+  // to type — sending it straight to the API is what "clicking a command" should mean. One
+  // that takes an argument ("explain <signal-id>") still only fills the box, since the owner
+  // has to say which signal before there's anything to send.
+  function runCommand(name: string, args?: string) {
+    if (args) pickCommand(name, args);
+    else send(`/${name}`);
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.nativeEvent.isComposing) return;
     if (menuOpen) {
@@ -224,10 +248,16 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
         setActive((a) => (a - 1 + n) % n);
         return;
       }
-      if (e.key === "Tab" || e.key === "Enter") {
+      if (e.key === "Tab") {
         e.preventDefault();
         const c = suggestions[Math.min(active, n - 1)];
-        pickCommand(c.name, c.args);
+        pickCommand(c.name, c.args); // complete only, so an argument can still be typed
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const c = suggestions[Math.min(active, n - 1)];
+        runCommand(c.name, c.args); // sends immediately for a no-argument command
         return;
       }
       if (e.key === "Escape") {
@@ -282,7 +312,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                   const ui = COMMAND_UI[c.name] ?? { title: c.name, icon: FileText };
                   const Icon = ui.icon;
                   return (
-                    <button key={c.name} type="button" className={styles.command} onClick={() => pickCommand(c.name, c.args)}>
+                    <button key={c.name} type="button" className={styles.command} onClick={() => runCommand(c.name, c.args)}>
                       <span className={styles.commandIcon} aria-hidden>
                         <Icon size={18} strokeWidth={1.75} />
                       </span>
@@ -320,7 +350,21 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                     steps={m.thinking ?? []}
                     live={busy && i === messages.length - 1 && m.blocks.length === 0}
                   />
-                  {m.blocks.length > 0 && <MessageBlocks blocks={m.blocks} />}
+                  {m.blocks.length > 0 &&
+                    (m.reportTitle && !(busy && i === messages.length - 1) ? (
+                      // Once the reply has finished streaming, a report command gets a plain
+                      // title heading (never the reply's own opening sentence — see the
+                      // `reportLabel` note on the Message type above) followed by the same
+                      // KPI-strip + auto-charted "visual breakdown" treatment as the Reports
+                      // page (see ReportInsights) instead of a flat wall of markdown — while
+                      // still streaming, plain text keeps the live typing feel.
+                      <>
+                        <div className={styles.reportHeading}>{m.reportLabel}</div>
+                        <ReportInsights title={m.reportTitle} blocks={m.blocks} />
+                      </>
+                    ) : (
+                      <MessageBlocks blocks={m.blocks} />
+                    ))}
                   {busy && i === messages.length - 1 && showThinking && (
                     <span className={styles.thinking}>
                       <span className={styles.dots} aria-hidden>
@@ -362,7 +406,7 @@ export function Chat({ sessionId, initialInput = "" }: { sessionId: string; init
                       onMouseEnter={() => setActive(idx)}
                       onMouseDown={(e) => {
                         e.preventDefault(); // keep focus in the textarea
-                        pickCommand(c.name, c.args);
+                        runCommand(c.name, c.args);
                       }}
                     >
                       <Icon size={16} strokeWidth={1.75} aria-hidden className={styles.suggestIcon} />
